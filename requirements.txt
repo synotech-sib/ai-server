@@ -3,3 +3,7 @@ plotly
 Pillow
 gspread
 google-auth
+streamlit
+pandas
+numpy
+xlsxwriter
