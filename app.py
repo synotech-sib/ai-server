@@ -13,7 +13,7 @@ if 'logged_in' not in st.session_state:
 
 # 마스터 비밀번호 설정
 def login():
-    if st.session_state["password_input"] == "synotech0773!":
+    if st.session_state.get("password_input") == "synotech0773!":
         st.session_state['logged_in'] = True
     else:
         st.error("비밀번호가 틀렸습니다.")
@@ -48,10 +48,10 @@ target_temp = st.sidebar.slider("운전 온도 (°C)", -20, 60, 25)
 
 # 3. 시뮬레이션 로직
 if st.sidebar.button("🚀 시뮬레이션 실행"):
-    with st.spinner('소재 특성 분석 중...'):
+    with st.spinner('데이터 분석 중...'):
         time.sleep(1)
         
-        # 데이터 계산 (문서 기반)
+        # 기본 계산 로직
         cathode_cap = 162.0 if "Prussian" in cathode_type else 145.0
         anode_caps = {"0.1C": 340, "0.33C": 320, "0.5C": 314, "1C": 295}
         current_anode_cap = anode_caps[target_c_rate]
@@ -63,47 +63,36 @@ if st.sidebar.button("🚀 시뮬레이션 실행"):
         final_eol = int(base_eol * temp_penalty * np_penalty)
         energy_density = (cathode_cap * cathode_loading) * 3.0 / 100
 
-        # 결과 화면
+        # 결과 리포트 출력
         col1, col2, col3 = st.columns(3)
         col1.metric("실측 N/P Ratio", f"{actual_np_ratio:.2f}")
         col2.metric("예상 수명", f"{final_eol:,} Cycles")
         col3.metric("에너지 밀도 (est.)", f"{energy_density:.1f} Wh/kg")
 
-        # 차트 생성
-        cycles = np.linspace(0, final_eol, 50)
-        soh_values = 100 - (20 * (cycles / final_eol)**1.5)
-        st.line_chart(pd.DataFrame({'Cycles': cycles, 'SOH (%)': soh_values}).set_index('Cycles'))
+        # 엑셀 데이터 생성용 딕셔너리
+        result_df = pd.DataFrame({
+            "항목": ["양극재", "양극 로딩량", "음극재", "음극 로딩량", "전해질", "분리막", "C-rate", "온도", "N/P Ratio", "예상수명", "에너지밀도"],
+            "데이터": [cathode_type, cathode_loading, anode_type, anode_loading, electrolyte, separator, target_c_rate, target_temp, f"{actual_np_ratio:.2f}", f"{final_eol:,} Cycles", f"{energy_density:.1f} Wh/kg"]
+        })
 
-        # --- 엑셀 데이터 생성 (에러 수정 지점) ---
-        output_data = {
-            "항목": ["양극재", "양극 로딩량", "음극재", "음극 로딩량", "전해질", "분리막", "C-rate", "온도", "N/P Ratio", "예상 수명", "에너지밀도"],
-            "값": [cathode_type, cathode_loading, anode_type, anode_loading, electrolyte, separator, target_c_rate, target_temp, actual_np_ratio, final_eol, energy_density]
-        }
-        df_result = pd.DataFrame(output_data)
+        # 엑셀 다운로드 파일 생성
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            result_df.to_excel(writer, index=False, sheet_name='Sheet1')
+        processed_data = output.getvalue()
 
-        # 메모리에 엑셀 파일 작성
-        excel_buffer = BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-            df_result.to_excel(writer, index=False, sheet_name='Result')
-        
-        excel_data = excel_buffer.getvalue()
-
-        # 4. 다운로드 버튼 (SyntaxError 해결 완료)
         st.divider()
-        st.subheader("💾 리포트 저장")
         st.download_button(
-            label="📊 결과 Excel 파일 다운로드",
-            data=excel_data,
+            label="📊 시뮬레이션 결과 엑셀 다운로드",
+            data=processed_data,
             file_name=f"SYNOTECH_Sim_{time.strftime('%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.success("시뮬레이션이 완료되었습니다.")
+        st.success("시뮬레이션이 성공적으로 완료되었습니다!")
 
 else:
-    st.info("왼쪽 설정창에서 파라미터를 조정한 후 '시뮬레이션 실행' 버튼을 눌러주세요.")
+    st.info("왼쪽 사이드바에서 조건을 설정한 후 시뮬레이션 버튼을 눌러주세요.")
 
 if st.button("🚪 로그아웃"):
     st.session_state['logged_in'] = False
     st.rerun()
-
-st.markdown("<p style='text-align: center; color: gray;'>© 2026 SYNOTECH Co., Ltd.</p>", unsafe_allow_html=True)
