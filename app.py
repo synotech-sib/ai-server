@@ -33,7 +33,7 @@ if os.path.exists("logo.jpg"):
 st.title("🔋 Altris 기반 Na-ion 4대 소재 시뮬레이터")
 st.markdown("---")
 
-# 2. 사이드바: 설계 파라미터
+# 2. 사이드바: 파라미터 설정
 st.sidebar.header("🛠️ Cell 설계 파라미터")
 cathode_type = st.sidebar.selectbox("1. 양극재 선택", ["Altris Prussian White (PW)", "Custom Oxide"])
 cathode_loading = st.sidebar.slider("양극 로딩량 (mg/cm²)", 5.0, 20.0, 10.0)
@@ -46,12 +46,12 @@ st.sidebar.divider()
 target_c_rate = st.sidebar.select_slider("충전 속도 (C-rate)", options=["0.1C", "0.33C", "0.5C", "1C"])
 target_temp = st.sidebar.slider("운전 온도 (°C)", -20, 60, 25)
 
-# 3. 시뮬레이션 로직
+# 3. 시뮬레이션 실행 및 결과
 if st.sidebar.button("🚀 시뮬레이션 실행"):
-    with st.spinner('데이터 분석 중...'):
+    with st.spinner('알고리즘 분석 중...'):
         time.sleep(1)
         
-        # 기본 계산 로직
+        # 문서 기반 수식 적용
         cathode_cap = 162.0 if "Prussian" in cathode_type else 145.0
         anode_caps = {"0.1C": 340, "0.33C": 320, "0.5C": 314, "1C": 295}
         current_anode_cap = anode_caps[target_c_rate]
@@ -63,35 +63,41 @@ if st.sidebar.button("🚀 시뮬레이션 실행"):
         final_eol = int(base_eol * temp_penalty * np_penalty)
         energy_density = (cathode_cap * cathode_loading) * 3.0 / 100
 
-        # 결과 리포트 출력
+        # 결과 리포트 대시보드
         col1, col2, col3 = st.columns(3)
         col1.metric("실측 N/P Ratio", f"{actual_np_ratio:.2f}")
         col2.metric("예상 수명", f"{final_eol:,} Cycles")
         col3.metric("에너지 밀도 (est.)", f"{energy_density:.1f} Wh/kg")
 
-        # 엑셀 데이터 생성용 딕셔너리
+        # 📊 SOH 예측 차트
+        cycles = np.linspace(0, final_eol, 50)
+        soh_values = 100 - (20 * (cycles / final_eol)**1.5)
+        st.line_chart(pd.DataFrame({'Cycles': cycles, 'SOH (%)': soh_values}).set_index('Cycles'))
+
+        # --- 엑셀 파일 생성 로직 ---
         result_df = pd.DataFrame({
             "항목": ["양극재", "양극 로딩량", "음극재", "음극 로딩량", "전해질", "분리막", "C-rate", "온도", "N/P Ratio", "예상수명", "에너지밀도"],
             "데이터": [cathode_type, cathode_loading, anode_type, anode_loading, electrolyte, separator, target_c_rate, target_temp, f"{actual_np_ratio:.2f}", f"{final_eol:,} Cycles", f"{energy_density:.1f} Wh/kg"]
         })
 
-        # 엑셀 다운로드 파일 생성
         output = BytesIO()
+        # xlsxwriter 엔진 사용 (requirements.txt 설정 필수)
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            result_df.to_excel(writer, index=False, sheet_name='Sheet1')
+            result_df.to_excel(writer, index=False, sheet_name='Summary')
         processed_data = output.getvalue()
 
+        # 4. 다운로드 버튼 (괄호 닫기 수정 완료)
         st.divider()
         st.download_button(
-            label="📊 시뮬레이션 결과 엑셀 다운로드",
+            label="💾 시뮬레이션 결과 Excel 다운로드",
             data=processed_data,
-            file_name=f"SYNOTECH_Sim_{time.strftime('%H%M%S')}.xlsx",
+            file_name=f"SYNOTECH_Report_{time.strftime('%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.success("시뮬레이션이 성공적으로 완료되었습니다!")
+        st.success("분석이 완료되었습니다. 결과 파일을 저장할 수 있습니다.")
 
 else:
-    st.info("왼쪽 사이드바에서 조건을 설정한 후 시뮬레이션 버튼을 눌러주세요.")
+    st.info("왼쪽 사이드바에서 조건을 입력하고 버튼을 눌러주세요.")
 
 if st.button("🚪 로그아웃"):
     st.session_state['logged_in'] = False
