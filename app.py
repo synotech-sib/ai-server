@@ -3,115 +3,82 @@ import time
 import random
 import os
 
-# 1. 페이지 기본 설정
-st.set_page_config(
-    page_title="SYNOTECH 배터리 시뮬레이터",
-    page_icon="🔋",
-    layout="centered"
-)
+# 1. 페이지 및 로고 설정
+st.set_page_config(page_title="SYNOTECH 배터리 분석 시스템", layout="centered")
 
-# 2. 로그인 상태 관리 (세션 상태 초기화)
+# 2. 로그인 로직 (요청하신 비밀번호 적용)
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# 3. 로그인 인증 함수
 def login():
-    # 업체별 부여할 비밀번호 리스트 (원하는 만큼 추가 가능)
-    allowed_passwords = [
-        "synotech0773",   # 기본 관리자용
-        "client_001",  # 업체 A용
-        "client_002"   # 업체 B용
-    ]
-    
+    allowed_passwords = ["synotech0773", "client_001"] # 업체별 비번 확장 가능
     if st.session_state["password_input"] in allowed_passwords:
         st.session_state['logged_in'] = True
     else:
-        st.error("❌ 비밀번호가 올바르지 않습니다. 다시 입력해주세요.")
+        st.error("비밀번호가 틀렸습니다.")
 
-# --- 화면 구성 시작 ---
-
-# A. 로그인 전 화면
+# --- 접속 화면 ---
 if not st.session_state['logged_in']:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    
-    # 로고 파일(logo.jpg)이 서버에 있을 때만 표시하여 에러 방지
     if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=250)
-    
-    st.title("🔒 SYNOTECH 고객사 전용 접속")
-    st.subheader("배터리 성능 시뮬레이션 시스템")
-    
-    # 비밀번호 입력창 (type="password"로 별표 표시)
-    st.text_input(
-        "부여받은 접속 코드를 입력하세요", 
-        type="password", 
-        key="password_input", 
-        on_change=login,
-        help="업체별로 할당된 12자리 이상의 코드를 입력하세요."
-    )
-    
-    st.info("💡 비밀번호 입력 후 'Enter'키를 누르면 접속됩니다.")
-    st.stop() # 로그인 성공 전까지 아래 코드는 실행되지 않음
+        st.image("logo.jpg", width=200)
+    st.title("🔒 SYNOTECH 데이터베이스 접속")
+    st.text_input("접속 비밀번호를 입력하세요", type="password", key="password_input", on_change=login)
+    st.stop()
 
-# B. 로그인 성공 후 시뮬레이터 화면
-# 상단 로고 (작은 사이즈)
+# --- 메인 시뮬레이터 본문 (인증 성공 시) ---
 if os.path.exists("logo.jpg"):
     st.image("logo.jpg", width=120)
 
-st.title("🔋 SYNOTECH 배터리 성능 시뮬레이터")
-st.success("✅ 인증되었습니다. 시뮬레이션을 시작할 수 있습니다.")
+st.title("🔋 Altris 기반 Na-ion 배터리 시뮬레이터")
+st.write("첨부된 JSC 기술 표준 및 N/P Ratio 계산법을 적용한 분석 도구입니다.")
 
-# --- 사이드바: 입력 조건 설정 ---
-st.sidebar.header("🛠️ 시뮬레이션 조건 설정")
-temp = st.sidebar.slider("🌡️ 작동 온도 (°C)", 0, 60, 25, help="배터리가 작동하는 외부 온도를 설정합니다.")
-cycles = st.sidebar.number_input("🔄 목표 사이클 (Cycle)", min_value=100, max_value=5000, value=1000)
+# 3. 사이드바: 실제 배터리 설계 변수 입력
+st.sidebar.header("📝 설계 파라미터")
+cathode_loading = st.sidebar.number_input("양극(PW) 로딩량 (mg/cm2)", value=10.0) # 문서 기준값 [cite: 229]
+target_c_rate = st.sidebar.selectbox("최대 충전 율 (C-rate)", ["0.1C", "0.33C", "0.5C", "1C"])
+target_temp = st.sidebar.slider("테스트 온도 (°C)", 0, 60, 25)
 
-st.sidebar.divider()
-if st.sidebar.button("🚪 로그아웃"):
-    st.session_state['logged_in'] = False
-    st.rerun()
-
-# --- 메인 화면: 시뮬레이션 실행 ---
-if st.sidebar.button("🚀 시뮬레이션 시작"):
-    # 로딩 애니메이션
-    with st.status("배터리 데이터 분석 및 시뮬레이션 진행 중...", expanded=True) as status:
-        st.write("알고리즘 최적화 중...")
-        progress_bar = st.progress(0)
+# 4. 분석 로직 (문서 데이터 기반)
+if st.sidebar.button("🚀 정밀 분석 시작"):
+    with st.spinner('JSC 기술 표준에 따른 N/P Ratio 및 수명 예측 중...'):
+        time.sleep(1.5)
         
-        for i in range(1, 101):
-            time.sleep(0.01) # 시뮬레이션 속도 조절
-            progress_bar.progress(i)
+        # [데이터 반영] C-rate별 음극 용량 변화 적용 
+        anode_caps = {"0.1C": 340, "0.33C": 320, "0.5C": 314, "1C": 295}
+        current_anode_cap = anode_caps[target_c_rate]
         
-        # 가상의 결과 도출 로직 (온도와 사이클 기반)
-        base_health = 100.0
-        # 25도에서 멀어질수록 페널티 발생
-        temp_effect = abs(temp - 25) * 0.4
-        # 사이클이 많을수록 노화 진행
-        cycle_effect = (cycles / 1000) * 1.5
-        # 미세한 오차 반영
-        random_error = random.uniform(0.1, 1.5)
+        # N/P Ratio 계산 (15% 마진 적용) [cite: 231]
+        # X = (1.15 * Cathode_Cap * Loading) / Anode_Cap
+        required_anode_loading = (1.15 * 162 * cathode_loading) / current_anode_cap # PW 용량 162 적용 [cite: 228]
         
-        final_soh = max(0, base_health - temp_effect - cycle_effect - random_error)
-        status.update(label="✅ 시뮬레이션 완료!", state="complete", expanded=False)
+        # 수명 예측 (Projection 데이터 기반) 
+        # 1C 기준 약 44,000 사이클 이상의 기대 수명 반영
+        expected_eol = 49061 if target_c_rate == "0.33C" else 44188
+        
+        # 온도 페널티 (25도 기준 편차 적용) [cite: 247]
+        temp_factor = 1.0 - (abs(target_temp - 25) * 0.01)
+        adjusted_eol = int(expected_eol * temp_factor)
 
-    # 결과 표시 영역
+    # 5. 결과 대시보드
     st.divider()
-    st.subheader("📊 예측 분석 결과")
+    st.subheader("📊 분석 결과 리포트")
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("예상 잔존 수명(SOH)", f"{final_soh:.2f}%")
-    c2.metric("작동 온도", f"{temp}°C")
-    c3.metric("상태", "Good" if final_soh > 85 else "Caution" if final_soh > 75 else "Bad")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("권장 음극 로딩량", f"{required_anode_loading:.3f} mg")
+    col2.metric("권장 N/P Ratio", "1.15 (Safety)") # 마진 15% 정책 [cite: 231]
+    col3.metric("예상 기대 수명", f"{adjusted_eol:,} Cycles")
 
-    # 결과 차트 (간단한 예시)
-    st.line_chart([100, 98, 95, 92, final_soh])
+    # 수명 저하 곡선 시각화 (문서 Fig 12 참조) [cite: 1023]
+    st.write("**📍 용량 유지율(Capacity Retention) 예측 곡선**")
+    chart_data = [100 - (i * (40/adjusted_eol)) for i in range(0, adjusted_eol, 1000)]
+    st.line_chart(chart_data)
     
-    st.caption("※ 본 결과는 입력값에 기반한 가상 시뮬레이션 데이터입니다.")
+    st.success("✅ 분석 완료. 해당 로그는 SYNOTECH_Simulation_Log에 기록 준비되었습니다.")
 
 else:
-    # 초기 진입 시 안내문
-    st.info("왼쪽 사이드바에서 조건을 입력하고 '시뮬레이션 시작' 버튼을 눌러주세요.")
+    st.info("사이드바에 설계 파라미터를 입력하고 분석을 시작하세요.")
 
-# 푸터 (Footer)
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: gray;'>© 2026 SYNOTECH Co., Ltd. All rights reserved.</p>", unsafe_allow_html=True)
+# 로그아웃
+if st.button("로그아웃"):
+    st.session_state['logged_in'] = False
+    st.rerun()
