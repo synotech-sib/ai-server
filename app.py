@@ -10,7 +10,7 @@ st.set_page_config(page_title="SYNOTECH SIB Simulator", page_icon="🔋", layout
 # 2. 로고 및 타이틀 표시부
 try:
     # GitHub에 올린 로고 파일명이 정확히 logo.png여야 합니다
-    img = Image.open("logo.png")
+    img = Image.open("logo.jpg")
     col1, col2 = st.columns([1, 6])
     with col1:
         st.image(img, width=120)
