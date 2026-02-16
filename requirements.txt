@@ -1,3 +1,5 @@
 pandas
 plotly
 Pillow
+gspread
+google-auth
