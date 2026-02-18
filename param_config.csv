@@ -1,4 +1,0 @@
-Parameter,Min,Max,Default,Step
-Loading,5,40,13,0.1
-ICE,50,98,85,0.5
-NP_Ratio,1,1.5,1.15,0.01
