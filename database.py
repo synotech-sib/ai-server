@@ -1,4 +1,5 @@
 import sqlite3
+import pandas as pd  # <--- 이 줄이 빠져서 에러가 났습니다!
 from datetime import datetime
 
 # 데이터베이스 및 테이블 초기화
@@ -23,6 +24,7 @@ def save_lead(name, company, mobile, email):
 # 저장된 데이터 불러오기 (관리자용)
 def get_leads():
     conn = sqlite3.connect('synotech_leads.db')
+    # pandas를 이용해 DB를 표(DataFrame) 형태로 가져옵니다.
     df = pd.read_sql_query("SELECT * FROM leads ORDER BY reg_date DESC", conn)
     conn.close()
     return df
