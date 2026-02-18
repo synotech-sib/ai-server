@@ -13,12 +13,12 @@ from modules.reporter import generate_expert_report
 # --- [1. 시스템 초기화 & 테마 적용] ---
 st.set_page_config(page_title="SynoCore V1.2 | SynoTech Strategic Platform", layout="wide")
 
-# CSS 정밀 조정
+# CSS 정밀 조정: 메인 타이틀과 로고 크기 동기화
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
     
-    /* [요청] 메인 타이틀: 로고와 크기 동일(2.2rem), 색상 검정 */
+    /* [수정] 메인 타이틀: 로고와 동일한 2.2rem, 색상 검정 */
     .main h1 { 
         color: #000000 !important; 
         font-weight: 700 !important; 
@@ -42,13 +42,13 @@ st.markdown("""
     /* 사이드바 스타일 */
     [data-testid="stSidebar"] { background-color: #f1f6f9; border-right: 1px solid #1A729A; }
     
-    /* [요청] Developer Credits 라벨 크기 축소 */
+    /* Developer Credits 라벨 크기 축소 */
     .streamlit-expanderHeader p {
         font-size: 0.85rem !important;
         color: #1A729A !important;
     }
     
-    /* [요청] Developer Credits 내용 크기 축소 */
+    /* Developer Credits 내용 크기 축소 */
     .streamlit-expanderContent {
         font-size: 0.75rem !important;
         line-height: 1.2 !important;
@@ -62,7 +62,7 @@ st.markdown("""
 
 if 'initialized' not in st.session_state:
     init_db()
-    log_action("System", "Design Refinement Applied")
+    log_action("System", "Title Size Synchronized")
     st.session_state.initialized = True
 
 # --- [2. 다국어 설정] ---
@@ -88,7 +88,7 @@ if 'user_info' not in st.session_state: st.session_state.user_info = {"name": ""
 
 # --- [3. 사이드바: SynoCore 로고 및 메뉴] ---
 with st.sidebar:
-    # 왼쪽 상단 로고 (2.2rem, 시노텍 블루 유지)
+    # [수정] 왼쪽 상단 로고: 메인 타이틀과 동일한 2.2rem
     st.markdown(f"<h1 style='text-align: center; color: #1A729A; font-weight: 800; font-size: 2.2rem; border-bottom: none;'>SynoCore</h1>", unsafe_allow_html=True)
     
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
@@ -101,13 +101,12 @@ with st.sidebar:
     if st.session_state.admin_mode: st.success("✅ AUTHORIZED")
     
     st.divider()
-    # [요청] 크레딧 폰트 축소 (CSS에서 처리됨)
     with st.expander("Developer Credits"):
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
 # --- [4. 메인 화면] ---
-st.title(T["title"]) # CSS에서 2.2rem / Black 적용
+st.title(T["title"]) # 2.2rem / Black
 st.markdown("---")
 
 in_c1, in_c2, in_c3, in_c4 = st.columns(4)
