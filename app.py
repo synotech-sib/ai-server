@@ -8,16 +8,14 @@ import matplotlib.pyplot as plt
 # --- [1. 시스템 설정] ---
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide")
 
-# --- [2. UI 제어 CSS: 헤더 완전 제거 및 상단바 스타일링] ---
+# --- [2. UI 제어 CSS] ---
 st.markdown("""
     <style>
-    /* 1. 상단 기본 헤더/툴바/푸터 완전 박멸 */
+    /* 1. 헤더/툴바/푸터 완전 제거 */
     header[data-testid="stHeader"], [data-testid="stToolbar"], footer { display: none !important; }
-    
-    /* 2. 메인 앱 상단 여백 제거 */
     .block-container { padding-top: 1rem !important; }
 
-    /* 3. 상단 커스텀 컨트롤 바 스타일 */
+    /* 2. 상단 커스텀 컨트롤 바 */
     .top-nav {
         background-color: #f8f9fa;
         border-bottom: 2px solid #1A729A;
@@ -31,19 +29,28 @@ st.markdown("""
         border-radius: 15px; font-size: 0.85rem; font-weight: bold;
     }
 
-    /* 4. 섹션 스타일링 */
-    .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
-    .summary-box { border: 2px solid #1A729A; padding: 18px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
+    /* 3. 섹션 및 서머리 박스 스타일 */
+    .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; min-height: 250px; }
+    .summary-box { border: 2px solid #1A729A; padding: 18px; border-radius: 12px; background-color: #ffffff; margin-bottom: 15px; min-height: 250px; }
     .summary-item { font-size: 0.9rem; margin-bottom: 3px !important; color: #333; line-height: 1.4 !important; }
     
-    /* 5. 실행 버튼 */
+    /* 4. 분석 실행 버튼: 중앙 정렬 및 크기 확대 */
+    .btn-container {
+        display: flex;
+        justify-content: center;
+        margin: 30px 0;
+    }
     div.stButton > button[kind="primary"] {
-        background-color: #1A729A !important; color: white !important;
-        font-weight: bold; height: 50px; width: 100%;
+        background-color: #1A729A !important; 
+        color: white !important;
+        font-weight: bold !important;
+        height: 60px !important; /* 버튼 높이 확대 */
+        width: 300px !important;  /* 버튼 너비 고정하여 중앙 배치 강조 */
+        font-size: 1.2rem !important;
+        border-radius: 10px !important;
     }
     
-    /* 6. 하단 카피라이트 */
-    .footer-text { text-align: center; color: #888; font-size: 0.8rem; margin-top: 30px; padding-bottom: 20px; }
+    .footer-text { text-align: center; color: #888; font-size: 0.8rem; margin-top: 40px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -88,10 +95,9 @@ if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
 
-# --- [5. 상단 커스텀 컨트롤 바 (사이드바 대신)] ---
+# --- [5. 상단 커스텀 컨트롤 바] ---
 st.markdown('<div class="top-nav">', unsafe_allow_html=True)
 t_col1, t_col2, t_col3, t_col4, t_col5 = st.columns([1.5, 1, 1.5, 1.5, 1])
-
 with t_col1:
     st.markdown(f"<h3 style='color:#1A729A; margin:0;'>SynoCore</h3>", unsafe_allow_html=True)
 with t_col2:
@@ -102,16 +108,15 @@ with t_col3:
 with t_col4:
     u_pw = st.text_input("Password", type="password", placeholder="PW", label_visibility="collapsed")
 with t_col5:
-    if st.button("Login", use_container_width=True):
+    if st.button("Login", key="top_login"):
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 무료 이용 횟수 표시
 st.markdown(f'<div style="text-align:right; margin-top:-15px;"><span class="usage-badge">{L["usage_label"]}: {st.session_state.usage_count}/3</span></div>', unsafe_allow_html=True)
 
-# --- [6. 메인 설계 UI (1~5 수직)] ---
+# --- [6. 메인 설계 UI] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
@@ -145,23 +150,29 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. 목표 설정
-st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
-target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
-st.markdown('</div>', unsafe_allow_html=True)
+# --- [3번 & 4번 좌우 분할 배치] ---
+split_col1, split_col2 = st.columns(2)
 
-# 4. 디자인 서머리 (2분할)
-st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
-col_sum1, col_sum2 = st.columns(2)
-with col_sum1:
-    for cat, name in selected_mats.items():
-        st.markdown(f'<p class="summary-item"><b>{cat}</b>: {name}</p>', unsafe_allow_html=True)
-with col_sum2:
-    for p_name, val in selected_params.items():
-        st.markdown(f'<p class="summary-item"><b>{p_name}</b>: {val}</p>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+with split_col1:
+    # 3. Target Setting
+    st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
+    target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. 분석 실행
+with split_col2:
+    # 4. Design Summary
+    st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
+    sum_sub1, sum_sub2 = st.columns(2)
+    with sum_sub1:
+        for cat, name in selected_mats.items():
+            st.markdown(f'<p class="summary-item"><b>{cat}</b>: {name}</p>', unsafe_allow_html=True)
+    with sum_sub2:
+        for p_name, val in selected_params.items():
+            st.markdown(f'<p class="summary-item"><b>{p_name}</b>: {val}</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# 5. 분석 실행 (중앙 배치)
+st.markdown('<div class="btn-container">', unsafe_allow_html=True)
 if st.button(L["run_btn"], type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error("Limit reached.")
@@ -178,6 +189,7 @@ if st.button(L["run_btn"], type="primary"):
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
         except: st.error("Calc Error.")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --- [7. 하단 결과 리포트 및 그래프] ---
 if st.session_state.history:
@@ -187,7 +199,7 @@ if st.session_state.history:
 
 if st.session_state.last_result:
     res = st.session_state.last_result
-    st.markdown(f'''<div class="summary-box" style="background-color: #f0f4f8;">
+    st.markdown(f'''<div class="summary-box" style="background-color: #f0f4f8; min-height: auto;">
         <h3 style="text-align:center; color:#1A729A;">{L["report_title"]}</h3>
         <div style="display: flex; justify-content: space-around;">
             <div style="text-align:center;"><h4>{res['whkg']:.1f} Wh/kg</h4><small>{L["exp_energy"]}</small></div>
@@ -200,7 +212,7 @@ if st.session_state.last_result:
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
     fig, ax = plt.subplots(figsize=(10, 3.5))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=100)
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=120)
     ax.set_xlabel('Loading (mg/cm2)'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
 
