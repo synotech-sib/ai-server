@@ -3,12 +3,13 @@ import pandas as pd
 import numpy as np
 import time
 import os
+import matplotlib.pyplot as plt
 
 # --- [1. 다국어 사전 정의] ---
 LANG_DICT = {
     "KO": {
         "title": "SIB 설계 및 성능 분석 플랫폼",
-        "login_sub": "🔐 마스터 로그인",
+        "login_sub": "🔐 마스터 권한 로그인",
         "target_set": "🎯 3. 목표 설정 (Target Setting)",
         "design_sum": "📋 4. 디자인 서머리 (Design Summary)",
         "mat_sel": "🧪 1. 소재 레시피 (Material Selection)",
@@ -19,11 +20,14 @@ LANG_DICT = {
         "exp_energy": "예상 에너지 밀도",
         "eff_cap": "실효 가역 용량",
         "report_title": "DESIGN ANALYSIS REPORT",
-        "auth_msg": "마스터 권한 승인됨"
+        "auth_msg": "마스터 권한 승인됨",
+        "master_features": "🛠️ 마스터 진단 정보 (Master Insights)",
+        "graph_title": "에너지 밀도 시뮬레이션 그래프",
+        "loading_label": "양극 로딩량"
     },
     "EN": {
         "title": "SIB Design & Performance Analysis Platform",
-        "login_sub": "🔐 Master Login",
+        "login_sub": "🔐 Master Access Login",
         "target_set": "🎯 3. Target Setting",
         "design_sum": "📋 4. Design Summary",
         "mat_sel": "🧪 1. Material Selection",
@@ -34,7 +38,10 @@ LANG_DICT = {
         "exp_energy": "Expected Energy Density",
         "eff_cap": "Effective Capacity",
         "report_title": "DESIGN ANALYSIS REPORT",
-        "auth_msg": "Master Authorized"
+        "auth_msg": "Master Authorized",
+        "master_features": "🛠️ Master Technical Insights",
+        "graph_title": "Energy Density Simulation Graph",
+        "loading_label": "Cathode Loading"
     }
 }
 
@@ -42,6 +49,7 @@ LANG_DICT = {
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
+    # 요청대로 .xlsx 파일만 로딩
     if 'material_list.xlsx' in files:
         mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
     if 'param_config.xlsx' in files:
@@ -57,52 +65,35 @@ IP_MARK = "IP by Synotech | Energy11 Production Intelligence"
 
 st.set_page_config(page_title="SynoCore Master V1.2", layout="wide")
 
-# CSS: 수직 배치 최적화 및 박스 자동 높이 조절
+# CSS: 박스 레이아웃 및 서머리 줄간격 최적화
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
-    /* 공통 섹션 박스 스타일 */
     .section-box { 
-        border: 1px solid #e6e9ef; 
-        padding: 25px; 
-        border-radius: 15px; 
-        background-color: #f8f9fa; 
-        margin-bottom: 25px;
-        height: auto;
+        border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; 
+        background-color: #f8f9fa; margin-bottom: 15px; height: auto;
     }
-    /* 서머리 전용 박스 (파란 테두리) */
     .summary-box { 
-        border: 2px solid #1A729A; 
-        padding: 25px; 
-        border-radius: 15px; 
-        background-color: #ffffff; 
-        margin-bottom: 25px;
-        height: auto;
+        border: 2px solid #1A729A; padding: 20px; border-radius: 12px; 
+        background-color: #ffffff; margin-bottom: 20px; height: auto;
     }
+    /* 서머리 아이템 줄간격 대폭 축소 */
     .summary-item { 
-        font-size: 0.95rem; 
-        margin-bottom: 8px; 
-        color: #333; 
-        border-bottom: 1px solid #eee; 
-        padding-bottom: 5px;
-        display: inline-block;
-        margin-right: 20px;
+        font-size: 0.88rem; margin-bottom: 2px; color: #333; 
+        border-bottom: 1px solid #f0f0f0; padding-bottom: 2px;
+        display: inline-block; margin-right: 15px; line-height: 1.1;
     }
     .report-box { 
-        background-color: #f0f4f8; 
-        border-top: 5px solid #1A729A; 
-        padding: 25px; 
-        border-radius: 15px; 
-        margin-bottom: 30px; 
+        background-color: #f0f4f8; border-top: 5px solid #1A729A; 
+        padding: 25px; border-radius: 15px; margin-bottom: 30px; 
     }
     .stat-card { 
-        background-color: #ffffff; 
-        padding: 15px; 
-        border-radius: 10px; 
-        text-align: center; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        flex: 1;
-        margin: 0 10px;
+        background-color: #ffffff; padding: 15px; border-radius: 10px; 
+        text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px;
+    }
+    .master-insight-box {
+        background-color: #fff4e6; border-left: 5px solid #fd7e14;
+        padding: 15px; margin-bottom: 20px; border-radius: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -110,9 +101,11 @@ st.markdown("""
 # --- [4. 사이드바: 로그인 및 언어] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
-    lang_code = st.selectbox("🌐 Language", ["KO", "EN"])
+    lang_code = st.selectbox("🌐 Language / 언어", ["KO", "EN"])
     L = LANG_DICT[lang_code]
     st.divider()
+    st.subheader(L["login_sub"])
+    # ID 이메일 형식 및 placeholder 적용
     u_email = st.text_input("ID", placeholder="company email")
     u_pw = st.text_input("Password", type="password")
     if st.button("Login"):
@@ -120,6 +113,7 @@ with st.sidebar:
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
         else: st.error("Login Error")
+    
     if st.button("🗑️ Clear Log"):
         st.session_state.history = []
         st.rerun()
@@ -128,7 +122,7 @@ with st.sidebar:
 st.title(L["title"])
 st.caption(IP_MARK)
 
-# 5.0 분석 결과 리포트 (버튼 클릭 시 상단에 노출)
+# 상단 리포트 공간
 report_placeholder = st.empty()
 
 selected_mats, selected_params = {}, {}
@@ -144,7 +138,7 @@ if not mat_df.empty:
                 cat = cats[i+j]
                 with cols[j]:
                     m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
-                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"v_mat_{cat}")
+                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 5.2 공정 파라미터 (Box 2)
@@ -160,28 +154,34 @@ if not config_df.empty:
                     cfg = config_df.loc[p_name]
                     selected_params[p_name] = st.slider(
                         f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']),
-                        key=f"v_p_{p_name}"
+                        key=f"p_{p_name}"
                     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.3 목표 설정 (Box 3)
+# 5.3 목표 설정 (Box 3) - 슬라이더 방식, 초기값 160
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
-target_whkg = st.number_input(L["target_label"], value=160.0, step=1.0)
+target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 디자인 서머리 (Box 4)
+# 5.4 디자인 서머리 (Box 4) - 압축된 줄간격
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
-sum_cols = st.columns([1])
-with sum_cols[0]:
-    # 가로로 나열하기 위해 태그 사용
-    for cat, name in selected_mats.items():
-        st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
-    st.write("") # 줄바꿈
-    for p_name, val in selected_params.items():
-        st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
+for cat, name in selected_mats.items():
+    st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
+st.write("") 
+for p_name, val in selected_params.items():
+    st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 분석 실행 버튼
+# 5.5 마스터 전용 진단 정보 (관리자 전용)
+if st.session_state.is_pro:
+    st.markdown(f'<div class="master-insight-box"><h4>{L["master_features"]}</h4>', unsafe_allow_html=True)
+    c_name = selected_mats.get('Cathode', '')
+    if "프러시안" in c_name:
+        st.warning("⚠️ [공정 알림] Prussian White 소재는 수분 관리가 생명입니다. 170°C 이상 진공 건조를 확인하십시오.")
+    st.info("💡 [설계 팁] N/P Ratio 1.15 이상 설정 시 Sodium Plating 억제에 유리합니다.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# 5.6 분석 실행 버튼
 run_btn = st.button(L["run_btn"], use_container_width=True, type="primary")
 
 # --- [6. 분석 로직 및 결과 리포트] ---
@@ -192,25 +192,41 @@ if run_btn and not mat_df.empty:
         ld = selected_params.get('Loading', 13.0)
         ice = selected_params.get('ICE', 85.0)
         
-        # 예측 알고리즘 적용
+        # 에너지 밀도 연산 모델
         eff_cap = c_cap * (ice / 100.0) * 0.93
-        whkg = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
+        whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
         
-        st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg, 1)})
+        st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
 
         with report_placeholder.container():
             st.markdown(f'''<div class="report-box">
                 <h3 style="text-align:center; color:#1A729A;">{L["report_title"]}</h3>
                 <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
-                    <div class="stat-card"><h3>{whkg:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
+                    <div class="stat-card"><h3>{whkg_res:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
                     <div class="stat-card"><h3>{eff_cap:.1f} mAh/g</h3><small>{L["eff_cap"]}</small></div>
                     <div class="stat-card"><h3>{target_whkg}</h3><small>{L["target_label"]}</small></div>
                 </div>
             </div>''', unsafe_allow_html=True)
+            
+            # --- 시뮬레이션 그래프 출력 ---
+            st.subheader(L["graph_title"])
+            l_range = np.linspace(5, 30, 50)
+            w_range = (eff_cap * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
+            
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5, label='Simulation Curve')
+            ax.scatter(ld, whkg_res, color='#fd7e14', s=120, zorder=5, label='Current Point')
+            ax.axvline(x=ld, color='#fd7e14', linestyle='--', alpha=0.5)
+            ax.set_xlabel(f'{L["loading_label"]} (mg/cm2)')
+            ax.set_ylabel('Energy Density (Wh/kg)')
+            ax.grid(True, linestyle=':', alpha=0.6)
+            ax.legend()
+            st.pyplot(fig)
+
     except Exception as e:
         st.error(f"Analysis Error: {e}")
 
-# --- [7. 히스토리] ---
+# --- [7. 히스토리 로그] ---
 if st.session_state.history:
     st.divider()
     st.subheader(L["history"])
