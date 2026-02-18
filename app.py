@@ -5,24 +5,24 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의 (English 기본)] ---
+# --- [1. 다국어 사전 정의 (English 기본, 이모티콘 삭제)] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
-        "login_sub": "🔐 Access Login",
+        "login_sub": "Access Login",
         "usage_label": "Free Usage",
         "usage_limit_msg": "Free limit (3/3) reached. Please register for Pro.",
-        "target_set": "🎯 3. Target Setting",
-        "design_sum": "📋 4. Design Summary",
-        "mat_sel": "🧪 1. Material Selection",
-        "proc_param": "⚙️ 2. Process Parameters",
-        "run_btn": "🚀 5. Run Master Analysis",
-        "history": "🔄 Design History Log",
+        "target_set": "3. Target Setting",
+        "design_sum": "4. Design Summary",
+        "mat_sel": "1. Material Selection",
+        "proc_param": "2. Process Parameters",
+        "run_btn": "5. Run Master Analysis",
+        "history": "Design History Log",
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "Energy Density Simulation Graph",
-        "master_features": "🛠️ Master Technical Insights",
-        "admin_dash": "👨‍✈️ Admin Dashboard",
-        "user_info": "👥 User Access Records",
+        "master_features": "Master Technical Insights",
+        "admin_dash": "Admin Dashboard",
+        "user_info": "User Access Records",
         "target_label": "Target Energy Density (Wh/kg)",
         "exp_energy": "Expected Energy Density",
         "eff_cap": "Effective Capacity",
@@ -31,20 +31,20 @@ LANG_DICT = {
     },
     "Korean": {
         "title": "SynoCore Master V1.3 | SIB 설계 플랫폼",
-        "login_sub": "🔐 접속 로그인",
+        "login_sub": "접속 로그인",
         "usage_label": "무료 이용 횟수",
         "usage_limit_msg": "무료 이용 횟수(3회)를 초과했습니다. Pro 등록이 필요합니다.",
-        "target_set": "🎯 3. 목표 설정",
-        "design_sum": "📋 4. 디자인 서머리",
-        "mat_sel": "🧪 1. 소재 레시피",
-        "proc_param": "⚙️ 2. 공정 파라미터",
-        "run_btn": "🚀 5. 분석 실행",
-        "history": "🔄 설계 이력 로그",
+        "target_set": "3. 목표 설정",
+        "design_sum": "4. 디자인 서머리",
+        "mat_sel": "1. 소재 레시피",
+        "proc_param": "2. 공정 파라미터",
+        "run_btn": "5. 분석 실행",
+        "history": "설계 이력 로그",
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "에너지 밀도 시뮬레이션 그래프",
-        "master_features": "🛠️ 마스터 진단 정보",
-        "admin_dash": "👨‍✈️ 관리자 대시보드",
-        "user_info": "👥 사용자 접속 기록",
+        "master_features": "마스터 진단 정보",
+        "admin_dash": "관리자 대시보드",
+        "user_info": "사용자 접속 기록",
         "target_label": "목표 에너지 밀도 (Wh/kg)",
         "exp_energy": "예상 에너지 밀도",
         "eff_cap": "실효 가역 용량",
@@ -53,36 +53,30 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: 엑셀 전용 & 하드코딩 제거] ---
+# --- [2. 데이터 로드 엔진: 엑셀 전용] ---
 def load_external_data():
     files = os.listdir('.')
-    mat_df = pd.DataFrame(columns=['Category', 'Name', 'Base_Capacity'])
-    config_df = pd.DataFrame(columns=['Min', 'Max', 'Default', 'Step'])
-    
-    # 서버의 엑셀 파일만 참조
+    mat_df, config_df = pd.DataFrame(), pd.DataFrame()
     if 'material_list.xlsx' in files:
         mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
     if 'param_config.xlsx' in files:
         config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
-    
     return mat_df, config_df
 
 mat_df, config_df = load_external_data()
 
-# --- [3. 시스템 상태 및 보안 설정] ---
+# --- [3. 시스템 초기화] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
 if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
-IP_MARK = "IP by Synotech | Energy11 Production Intelligence"
-st.set_page_config(page_title="SynoCore Master V1.3", layout="wide")
+st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# CSS: 헤더/푸터 제거 및 레이아우스 스타일링
+# CSS: 헤더 제거 및 분석 버튼 로고 색상 적용
 st.markdown("""
     <style>
-    /* 기본 헤더, 푸터, 메뉴 숨기기 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -93,15 +87,27 @@ st.markdown("""
     .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
+    
+    /* 분석 실행 버튼 커스텀 컬러 (#1A729A) */
+    div.stButton > button[kind="primary"] {
+        background-color: #1A729A;
+        color: white;
+        border: none;
+        font-weight: bold;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #155d7e;
+        color: white;
+    }
+    
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
-    .admin-box { background-color: #fff4e6; border: 1px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바: 로그인 및 환경설정] ---
+# --- [4. 사이드바: 통합 로그인 및 언어] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
-    lang_sel = st.selectbox("🌐 Language", ["English", "Korean"])
+    lang_sel = st.selectbox("Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
     st.divider()
@@ -112,37 +118,34 @@ with st.sidebar:
     u_email = st.text_input("Email", placeholder="your@email.com")
     u_pw = st.text_input("Password", type="password")
     if st.button("Login"):
-        # 관리자 로그인 체크
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
         else:
-            st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "User Logged In"})
+            st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "Logged In"})
             st.info("User Login Successful.")
     
-    if st.button("🗑️ Reset All"):
+    if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
         st.session_state.last_result = None; st.rerun()
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [5. 메인 레이아웃: 입력부] ---
+# --- [5. 메인 레이아웃] ---
 st.title(L["title"])
-st.caption(IP_MARK)
+st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-# 5.1 관리자 전용 대시보드 (로그인 시 상단 노출)
+# 5.1 관리자 대시보드
 if st.session_state.is_pro:
     with st.expander(L["admin_dash"], expanded=False):
-        st.markdown(f'<div class="admin-box"><h4>{L["user_info"]}</h4>', unsafe_allow_html=True)
         if st.session_state.user_logs:
             st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
         else:
-            st.write("No user logs yet.")
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.write("No records.")
 
 selected_mats, selected_params = {}, {}
 
-# 5.2 소재 레시피 (엑셀 기반 동적 생성)
+# 5.2 소재 레시피 (Box 1)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -155,10 +158,8 @@ if not mat_df.empty:
                     m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
-else:
-    st.error("Error: material_list.xlsx not found.")
 
-# 5.3 공정 파라미터 (엑셀 기반 동적 생성)
+# 5.3 공정 파라미터 (Box 2)
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -171,14 +172,13 @@ if not config_df.empty:
                     cfg = config_df.loc[p_name]
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
-else:
-    st.error("Error: param_config.xlsx not found.")
 
-# 5.4 목표 설정 및 디자인 서머리
+# 5.4 목표 설정 (Box 3)
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
+# 5.5 디자인 서머리 (Box 4)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -187,38 +187,28 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 분석 실행 버튼
+# 5.6 분석 실행 버튼 (로고 컬러 적용)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
-            # 엑셀 데이터 기반 실시간 연산
             c_name = selected_mats.get('Cathode', '')
             c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
-            ld = selected_params.get('Loading', 13.0)
-            ice = selected_params.get('ICE', 85.0)
-            
-            # 예측 모델 로직
+            ld = selected_params.get('Loading', 13.0); ice = selected_params.get('ICE', 85.0)
             eff_cap = c_cap * (ice / 100.0) * 0.93
             whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
-            
-            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld, "c_name": c_name}
+            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except Exception as e:
-            st.error(f"Computation Error: Please check Excel values. ({e})")
+        except: st.error("Check Excel values.")
 
-# --- [6. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
-
-# 6.1 설계 이력 로그
+# --- [6. 하단 출력부] ---
 if st.session_state.history:
-    st.divider()
-    st.subheader(L["history"])
+    st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
 
-# 6.2 분석 결과 리포트 (히스토리 하단)
 if st.session_state.last_result:
     res = st.session_state.last_result
     st.markdown(f'''<div class="report-box">
@@ -230,17 +220,10 @@ if st.session_state.last_result:
         </div>
     </div>''', unsafe_allow_html=True)
     
-    # 6.3 시뮬레이션 그래프 (최하단)
     st.subheader(L["graph_title"])
     l_range = np.linspace(5, 30, 50)
-    # 현재 선택된 소재의 용량 기반 그래프 생성
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
-    
     fig, ax = plt.subplots(figsize=(10, 3.8))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5, label='Simulation Curve')
-    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5, label='Current Point')
-    ax.axvline(x=res['ld'], color='#fd7e14', linestyle='--', alpha=0.4)
-    ax.set_xlabel(f'{L["loading_label"]} (mg/cm2)')
-    ax.set_ylabel('Energy Density (Wh/kg)')
-    ax.legend(); ax.grid(True, alpha=0.3)
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5)
+    ax.set_xlabel('mg/cm2'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
