@@ -4,7 +4,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# 모든 import 문은 줄 맨 앞(왼쪽 끝)에 딱 붙어 있어야 합니다.
+# 아래 import 문들이 왼쪽 벽에 바짝 붙어있는지 꼭 확인해주세요!
 from config.security_cfg import SECURITY_MODE, verify_admin_access
 from modules.engine import calculate_battery_specs
 from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
@@ -112,21 +112,6 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
             if st.button("🚀 Upgrade to Pro to see AI Insights"): st.session_state.show_upgrade = True
     else:
         st.error("Free trial limit reached.")
-
-# 전문가 등록 폼
-if st.session_state.show_upgrade and not st.session_state.is_pro:
-    with st.form("enroll"):
-        st.subheader("🚀 Register for Professional Access")
-        f_name = st.text_input("Name")
-        f_comp = st.text_input("Company")
-        f_mob = st.text_input("Mobile")
-        f_email = st.text_input("Email")
-        if st.form_submit_button("Submit"):
-            save_lead(f_name, f_comp, f_mob, f_email)
-            st.session_state.user_info = {"name": f_name, "company": f_comp}
-            st.session_state.is_pro = True
-            st.session_state.show_upgrade = False
-            st.rerun()
 
 # --- [5. Command Center] ---
 if st.session_state.get('admin_mode', False):
