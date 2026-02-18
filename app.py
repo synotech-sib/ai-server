@@ -4,7 +4,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# 모듈 및 설정 임포트 (들여쓰기 주의)
+# 모듈 및 설정 임포트 (맨 왼쪽에 딱 붙여서 입력해야 합니다)
 from config.security_cfg import SECURITY_MODE, verify_admin_access
 from modules.engine import calculate_battery_specs
 from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
@@ -134,7 +134,7 @@ if st.session_state.show_upgrade and not st.session_state.is_pro:
 # --- [5. Command Center] ---
 if st.session_state.get('admin_mode', False):
     st.markdown("---")
-    st.header(f"🛡️ SynoCore Command Center (Admin: {u_id})")
+    st.header(f"🛡️ Command Center (Admin: {u_id})")
     audit_df = get_audit_logs()
     show_human = st.checkbox("Human Activity Only", value=True)
     display_df = audit_df[audit_df['user'] != 'System'] if show_human else audit_df
