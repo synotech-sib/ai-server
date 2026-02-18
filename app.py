@@ -5,7 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의 (English 기본, 이모티콘 삭제)] ---
+# --- [1. 다국어 사전 정의: English 기본, 이모티콘 삭제, KeyError 방지] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -53,19 +53,22 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: 엑셀 전용] ---
+# --- [2. 데이터 로드 엔진: 엑셀 전용 & 코드 내 값 제거] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
-    if 'material_list.xlsx' in files:
-        mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
-    if 'param_config.xlsx' in files:
-        config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
+    try:
+        if 'material_list.xlsx' in files:
+            mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
+        if 'param_config.xlsx' in files:
+            config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
+    except Exception as e:
+        st.error(f"Excel Load Error: {e}")
     return mat_df, config_df
 
 mat_df, config_df = load_external_data()
 
-# --- [3. 시스템 초기화] ---
+# --- [3. 시스템 상태 및 보안 설정] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
@@ -74,12 +77,13 @@ if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# CSS: 헤더 제거 및 분석 버튼 로고 색상 적용
+# CSS: 헤더 제거 및 분석 버튼 로고 색상(#1A729A) 적용
 st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* 기본 헤더, 푸터만 숨기고 사이드바 토글은 유지 */
     header {visibility: hidden;}
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
     
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
@@ -88,19 +92,15 @@ st.markdown("""
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
     
-    /* 분석 실행 버튼 커스텀 컬러 (#1A729A) */
+    /* 로고 컬러 버튼 커스텀 */
     div.stButton > button[kind="primary"] {
-        background-color: #1A729A;
-        color: white;
-        border: none;
+        background-color: #1A729A !important;
+        color: white !important;
+        border: none !important;
         font-weight: bold;
     }
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #155d7e;
-        color: white;
-    }
-    
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
+    .admin-box { background-color: #fff4e6; border: 1px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -111,8 +111,7 @@ with st.sidebar:
     L = LANG_DICT[lang_sel]
     
     st.divider()
-    usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
-    st.info(usage_text)
+    st.info(f"{L['usage_label']}: {st.session_state.usage_count}/3")
     
     st.subheader(L["login_sub"])
     u_email = st.text_input("Email", placeholder="your@email.com")
@@ -131,21 +130,22 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [5. 메인 레이아웃] ---
+# --- [5. 메인 레이아웃: 입력부] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-# 5.1 관리자 대시보드
+# 5.1 관리자 대시보드 (로그인 시 상단 노출)
 if st.session_state.is_pro:
     with st.expander(L["admin_dash"], expanded=False):
+        st.markdown(f'<div class="admin-box"><h4>{L["user_info"]}</h4>', unsafe_allow_html=True)
         if st.session_state.user_logs:
             st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
-        else:
-            st.write("No records.")
+        else: st.write("No records.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 selected_mats, selected_params = {}, {}
 
-# 5.2 소재 레시피 (Box 1)
+# 5.2 소재 레시피 (1. Material Selection)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -159,7 +159,7 @@ if not mat_df.empty:
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.3 공정 파라미터 (Box 2)
+# 5.3 공정 파라미터 (2. Process Parameters)
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -173,12 +173,12 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 목표 설정 (Box 3)
+# 5.4 목표 설정 (3. Target Setting)
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 디자인 서머리 (Box 4)
+# 5.5 디자인 서머리 (4. Design Summary)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -187,24 +187,26 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.6 분석 실행 버튼 (로고 컬러 적용)
+# 5.6 분석 실행 버튼 (5. Run Master Analysis)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
+            # 엑셀 기반 실시간 연산
             c_name = selected_mats.get('Cathode', '')
             c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
             ld = selected_params.get('Loading', 13.0); ice = selected_params.get('ICE', 85.0)
             eff_cap = c_cap * (ice / 100.0) * 0.93
             whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
+            
             st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except: st.error("Check Excel values.")
+        except Exception as e: st.error(f"Check Excel: {e}")
 
-# --- [6. 하단 출력부] ---
+# --- [6. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
 if st.session_state.history:
     st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
