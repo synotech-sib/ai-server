@@ -13,19 +13,19 @@ from modules.reporter import generate_expert_report
 # --- [1. 시스템 초기화 & 테마 적용] ---
 st.set_page_config(page_title="SynoCore V1.2 | SynoTech Strategic Platform", layout="wide")
 
-# CSS 정밀 조정: 메인 타이틀 크기 30% 축소 적용
+# CSS 정밀 조정: 타이틀 위계 및 크레딧 라벨 크기 동기화
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
     
-    /* [수정] 메인 타이틀: 기존 2.2rem에서 30% 축소된 1.55rem 적용 */
+    /* [수정] 메인 타이틀: 로고(2.2rem)보다 확실히 작게 1.35rem으로 조정 */
     .main h1 { 
         color: #000000 !important; 
         font-weight: 700 !important; 
-        font-size: 1.55rem !important; /* 2.2rem * 0.7 = 1.54rem */
+        font-size: 1.35rem !important; 
         border-bottom: 2px solid #1A729A; 
         padding-bottom: 8px; 
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     
     h2, h3 { color: #1A729A !important; font-weight: 600 !important; }
@@ -43,14 +43,18 @@ st.markdown("""
     /* 사이드바 스타일 */
     [data-testid="stSidebar"] { background-color: #f1f6f9; border-right: 1px solid #1A729A; }
     
-    /* Developer Credits 라벨 및 내용 크기 축소 */
+    /* [수정] Developer Credits 라벨: "Language" 라벨 크기(0.9rem)와 동일하게 맞춤 */
     .streamlit-expanderHeader p {
-        font-size: 0.85rem !important;
+        font-size: 0.9rem !important;
         color: #1A729A !important;
+        font-weight: 400 !important;
     }
+    
+    /* Developer Credits 내용 크기: 한 단계 더 축소 */
     .streamlit-expanderContent {
         font-size: 0.75rem !important;
         line-height: 1.2 !important;
+        color: #555555;
     }
 
     #MainMenu {visibility: hidden;}
@@ -61,7 +65,7 @@ st.markdown("""
 
 if 'initialized' not in st.session_state:
     init_db()
-    log_action("System", "Title Size Optimized (-30%)")
+    log_action("System", "Typography Hierarchy Refined")
     st.session_state.initialized = True
 
 # --- [2. 다국어 설정] ---
@@ -87,7 +91,7 @@ if 'user_info' not in st.session_state: st.session_state.user_info = {"name": ""
 
 # --- [3. 사이드바: SynoCore 로고 및 메뉴] ---
 with st.sidebar:
-    # 왼쪽 상단 로고: 브랜드 아이덴티티 강조를 위해 2.2rem 유지
+    # 왼쪽 상단 로고: 주인공답게 2.2rem 유지
     st.markdown(f"<h1 style='text-align: center; color: #1A729A; font-weight: 800; font-size: 2.2rem; border-bottom: none;'>SynoCore</h1>", unsafe_allow_html=True)
     
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
@@ -100,12 +104,13 @@ with st.sidebar:
     if st.session_state.admin_mode: st.success("✅ AUTHORIZED")
     
     st.divider()
+    # 크레딧 섹션: 라벨은 Language와 동일하게, 내용은 더 작게
     with st.expander("Developer Credits"):
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
 # --- [4. 메인 화면] ---
-st.title(T["title"]) # 1.55rem / Black / 30% Reduced
+st.title(T["title"]) # 1.35rem / Black
 st.markdown("---")
 
 in_c1, in_c2, in_c3, in_c4 = st.columns(4)
