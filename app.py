@@ -5,7 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의: English 기본] ---
+# --- [1. 다국어 사전 정의] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -49,7 +49,7 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: XLSX 전용] ---
+# --- [2. 데이터 로드 엔진] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
@@ -61,7 +61,7 @@ def load_external_data():
 
 mat_df, config_df = load_external_data()
 
-# --- [3. 시스템 초기화 및 상태 관리] ---
+# --- [3. 시스템 초기화] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
@@ -69,52 +69,39 @@ if 'last_result' not in st.session_state: st.session_state.last_result = None
 
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# --- [4. Master V1.2 스타일 복원: 헤더 숨김 및 버튼 노출 CSS] ---
+# --- [4. 강력한 헤더 제거 및 서머리 간격 최적화 CSS] ---
 st.markdown("""
     <style>
-    /* 1. 상단 기본 메뉴 및 푸터 숨기기 */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* 1. 상단 툴바/헤더/푸터 강제 박멸 (사이드바 버튼 제외) */
+    header[data-testid="stHeader"], [data-testid="stToolbar"], footer { visibility: hidden !important; height: 0px !important; }
     
-    /* 2. 헤더 전체를 숨기지 않고 배경만 투명화하여 접기/펴기 버튼 살리기 */
-    header[data-testid="stHeader"] {
-        background-color: rgba(0, 0, 0, 0) !important;
-        border: none !important;
-    }
-
-    /* 3. 사이드바 접기/펴기 버튼 강조 및 위치 고정 */
+    /* 2. 사이드바 접기/펴기 버튼 강제 노출 및 위치 고정 */
     button[kind="headerNoPadding"] {
         visibility: visible !important;
+        position: fixed !important;
+        top: 15px !important;
+        left: 15px !important;
+        z-index: 100001 !important;
         background-color: #f8f9fa !important;
         border: 1px solid #e6e9ef !important;
         border-radius: 5px !important;
-        margin-top: 10px !important;
-        margin-left: 10px !important;
-    }
-
-    /* 4. 무료 횟수 로고 컬러 하이라이트 (#1A729A) */
-    .usage-badge { 
-        background-color: #1A729A; 
-        color: white; 
-        padding: 8px 15px; 
-        border-radius: 25px; 
-        font-size: 0.9rem; 
-        font-weight: bold;
     }
 
     .stApp { background-color: #ffffff; }
-    .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
-    .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
-    .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
+    .section-box { border: 1px solid #e6e9ef; padding: 18px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 12px; }
     
-    /* 분석 실행 버튼: 로고 컬러 적용 */
-    div.stButton > button[kind="primary"] {
-        background-color: #1A729A !important;
-        color: white !important;
-        border: none !important;
-        font-weight: bold;
-        height: 50px;
+    /* 3. 디자인 서머리 박스 및 줄간격(30% 축소) */
+    .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 15px; }
+    .summary-item { 
+        font-size: 0.85rem; 
+        margin-bottom: 0px !important; 
+        color: #333; 
+        line-height: 0.9 !important; /* 줄간격 대폭 축소 */
+        padding: 1px 0;
     }
+    
+    .usage-badge { background-color: #1A729A; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+    div.stButton > button[kind="primary"] { background-color: #1A729A !important; color: white !important; font-weight: bold; height: 45px; }
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
     </style>
     """, unsafe_allow_html=True)
@@ -125,12 +112,10 @@ with st.sidebar:
     lang_sel = st.selectbox("Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
-    # 무료 횟수 하이라이트 표시
     st.divider()
     usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
-    st.markdown(f'<div style="text-align:center; margin: 10px 0;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center; margin: 5px 0;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
     
-    # 통합 로그인 (wschoi@synotech.co.kr 전용)
     st.divider()
     st.subheader(L["login_sub"])
     u_email = st.text_input("Email", placeholder="your@email.com")
@@ -139,22 +124,20 @@ with st.sidebar:
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
-        else:
-            st.info("User session recorded.")
+        else: st.info("User session logged.")
     
     if st.button("Reset All"):
-        st.session_state.history = []; st.session_state.usage_count = 0
-        st.session_state.last_result = None; st.rerun()
+        st.session_state.history = []; st.session_state.usage_count = 0; st.session_state.last_result = None; st.rerun()
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [6. 메인 UI: 수직 배치] ---
+# --- [6. 메인 UI] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
 selected_mats, selected_params = {}, {}
 
-# 1. Material Selection (Grid 4)
+# 1. Material Selection
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -182,18 +165,20 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. Target Setting (Slider)
+# 3. Target Setting
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. Design Summary
+# 4. Design Summary (좌: Material / 우: Process 2분할 배치)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
-for cat, name in selected_mats.items():
-    st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
-st.write("") 
-for p_name, val in selected_params.items():
-    st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
+sum_col1, sum_col2 = st.columns(2)
+with sum_col1:
+    for cat, name in selected_mats.items():
+        st.markdown(f'<p class="summary-item"><b>{cat}</b>: {name}</p>', unsafe_allow_html=True)
+with sum_col2:
+    for p_name, val in selected_params.items():
+        st.markdown(f'<p class="summary-item"><b>{p_name}</b>: {val}</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # 5. Run Analysis
@@ -211,24 +196,25 @@ if st.button(L["run_btn"], use_container_width=True, type="primary"):
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except: st.error("Error calculating results.")
+        except: st.error("Calculation Error.")
 
-# --- [7. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
+# --- [7. 하단 출력부] ---
 if st.session_state.history:
     st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
 
 if st.session_state.last_result:
     res = st.session_state.last_result
-    st.markdown(f'''<div class="report-box" style="background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0;">
+    st.markdown(f'''<div class="report-box" style="border-top: 5px solid #1A729A; padding: 20px; border-radius: 12px; margin-top: 20px; background-color: #f0f4f8;">
         <h3 style="text-align:center; color:#1A729A;">{L["report_title"]}</h3>
-        <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
-            <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px;"><h3>{res['whkg']:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
-            <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px;"><h3>{res['eff_cap']:.1f} mAh/g</h3><small>{L["eff_cap"]}</small></div>
-            <div style="background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px;"><h3>{res['target']}</h3><small>{L["target_label"]}</small></div>
+        <div style="display: flex; justify-content: space-around;">
+            <div style="background:white; padding:15px; border-radius:10px; text-align:center; flex:1; margin:0 5px;"><h3>{res['whkg']:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
+            <div style="background:white; padding:15px; border-radius:10px; text-align:center; flex:1; margin:0 5px;"><h3>{res['eff_cap']:.1f} mAh/g</h3><small>{L["eff_cap"]}</small></div>
+            <div style="background:white; padding:15px; border-radius:10px; text-align:center; flex:1; margin:0 5px;"><h3>{res['target']}</h3><small>{L["target_label"]}</small></div>
         </div>
     </div>''', unsafe_allow_html=True)
     
+    # 그래프 출력
     st.subheader(L["graph_title"])
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
