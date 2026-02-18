@@ -67,40 +67,44 @@ if 'last_result' not in st.session_state: st.session_state.last_result = None
 
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# --- [4. 강력한 UI 제어 CSS] ---
+# --- [4. UI 핵심 제어 CSS: 헤더는 지우고 버튼은 살리기] ---
 st.markdown("""
     <style>
-    /* 1. 상단 툴바/헤더/푸터 및 사이드바 내부 Streamlit 기본 메뉴 완전 삭제 */
-    header[data-testid="stHeader"], 
-    [data-testid="stToolbar"], 
-    footer,
-    [data-testid="stSidebarNav"] { 
-        display: none !important; 
-        visibility: hidden !important; 
+    /* 1. 상단 툴바(Share, Settings 등)와 푸터 완전 제거 */
+    [data-testid="stToolbar"], footer { display: none !important; }
+    
+    /* 2. 헤더의 배경만 투명하게 지우기 (사이드바 버튼을 살리기 위함) */
+    header[data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0) !important;
+        color: transparent !important;
+        height: 0px !important;
     }
     
-    /* 2. 사이드바 접기/펴기 화살표 버튼 강제 노출 (위치 고정) */
+    /* 3. 사이드바 접기/펴기 버튼(>) 강제 노출 및 위치 고정 */
     button[kind="headerNoPadding"] {
         visibility: visible !important;
         position: fixed !important;
         top: 15px !important;
         left: 15px !important;
-        z-index: 100001 !important;
+        z-index: 999999 !important;
         background-color: #f8f9fa !important;
         border: 1px solid #e6e9ef !important;
         border-radius: 5px !important;
     }
 
+    /* 4. 사이드바 내부 Streamlit 기본 메뉴 제거 */
+    [data-testid="stSidebarNav"] { display: none !important; }
+
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 18px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 12px; }
     
-    /* 3. 디자인 서머리 간격 (기본 대비 10% 축소로 완화) */
+    /* 5. 디자인 서머리 간격 (10% 축소 유지) */
     .summary-box { border: 2px solid #1A729A; padding: 18px; border-radius: 12px; background-color: #ffffff; margin-bottom: 15px; }
     .summary-item { 
         font-size: 0.9rem; 
         margin-bottom: 2px !important; 
         color: #333; 
-        line-height: 1.3 !important; /* 30% 축소에서 10% 축소 수준으로 복구 */
+        line-height: 1.3 !important; 
         padding: 2px 0;
     }
     
@@ -110,7 +114,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- [5. 사이드바 구성 (오직 로그인과 언어만)] ---
+# --- [5. 사이드바 구성] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center; margin-top: 20px;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("Language", ["English", "Korean"])
@@ -135,7 +139,7 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [6. 메인 UI (1~5 수직 배치)] ---
+# --- [6. 메인 UI (1~5 수직)] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
@@ -174,7 +178,7 @@ st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. Design Summary (좌우 분할 + 가독성 높은 간격)
+# 4. Design Summary (좌우 2분할 배치)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 sum_col1, sum_col2 = st.columns(2)
 with sum_col1:
@@ -185,7 +189,7 @@ with sum_col2:
         st.markdown(f'<p class="summary-item"><b>{p_name}</b>: {val}</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. Run Analysis (로고 컬러 버튼)
+# 5. Run Analysis
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
