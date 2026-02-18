@@ -5,7 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의: English 기본, 이모티콘 삭제, KeyError 방지] ---
+# --- [1. 다국어 사전 정의: English 기본, 넘버링 유지] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -53,7 +53,7 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: 엑셀 전용 & 코드 내 값 제거] ---
+# --- [2. 데이터 로드 엔진: 엑셀 전용] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
@@ -68,23 +68,29 @@ def load_external_data():
 
 mat_df, config_df = load_external_data()
 
-# --- [3. 시스템 상태 및 보안 설정] ---
+# --- [3. 시스템 상태 관리] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
 if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
+# 초기 열 때 사이드바를 무조건 연 상태(expanded)로 시작
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# CSS: 헤더 제거 및 분석 버튼 로고 색상(#1A729A) 적용
+# CSS: 사이드바 버튼은 살리고 불필요한 요소만 제거
 st.markdown("""
     <style>
-    /* 기본 헤더, 푸터만 숨기고 사이드바 토글은 유지 */
-    header {visibility: hidden;}
+    /* 상단 툴바와 메뉴 숨기기 (사이드바 버튼은 유지) */
+    [data-testid="stToolbar"] {visibility: hidden;}
     footer {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
     
+    /* 헤더 배경을 투명하게 하여 버튼만 남김 */
+    [data-testid="stHeader"] {
+        background: rgba(0,0,0,0);
+        color: #1A729A;
+    }
+
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
     .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
@@ -98,13 +104,14 @@ st.markdown("""
         color: white !important;
         border: none !important;
         font-weight: bold;
+        height: 50px;
+        font-size: 1.1rem;
     }
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
-    .admin-box { background-color: #fff4e6; border: 1px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바: 통합 로그인 및 언어] ---
+# --- [4. 사이드바 구성] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("Language", ["English", "Korean"])
@@ -121,8 +128,8 @@ with st.sidebar:
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
         else:
-            st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "Logged In"})
-            st.info("User Login Successful.")
+            st.session_state.user_logs.append({"Time": time.strftime("%H:%M"), "User": u_email, "Status": "Logged In"})
+            st.info("User access recorded.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
@@ -130,22 +137,20 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [5. 메인 레이아웃: 입력부] ---
+# --- [5. 메인 UI] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-# 5.1 관리자 대시보드 (로그인 시 상단 노출)
+# 5.1 관리자 대시보드
 if st.session_state.is_pro:
     with st.expander(L["admin_dash"], expanded=False):
-        st.markdown(f'<div class="admin-box"><h4>{L["user_info"]}</h4>', unsafe_allow_html=True)
         if st.session_state.user_logs:
             st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
-        else: st.write("No records.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        else: st.write("No user records available.")
 
 selected_mats, selected_params = {}, {}
 
-# 5.2 소재 레시피 (1. Material Selection)
+# 5.2 소재 레시피 (1번)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -159,7 +164,7 @@ if not mat_df.empty:
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.3 공정 파라미터 (2. Process Parameters)
+# 5.3 공정 파라미터 (2번)
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -173,12 +178,12 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 목표 설정 (3. Target Setting)
+# 5.4 목표 설정 (3번)
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 디자인 서머리 (4. Design Summary)
+# 5.5 디자인 서머리 (4번)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -187,24 +192,25 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.6 분석 실행 버튼 (5. Run Master Analysis)
+# 5.6 분석 실행 버튼 (5번)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
-            # 엑셀 기반 실시간 연산
-            c_name = selected_mats.get('Cathode', '')
+            c_name = selected_mats.get('Cathode', 'Default')
             c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
-            ld = selected_params.get('Loading', 13.0); ice = selected_params.get('ICE', 85.0)
+            ld = selected_params.get('Loading', 13.0)
+            ice = selected_params.get('ICE', 85.0)
+            
             eff_cap = c_cap * (ice / 100.0) * 0.93
             whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
             
-            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
+            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld, "c_name": c_name}
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except Exception as e: st.error(f"Check Excel: {e}")
+        except Exception as e: st.error(f"Computation Error: {e}")
 
 # --- [6. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
 if st.session_state.history:
@@ -226,6 +232,7 @@ if st.session_state.last_result:
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
     fig, ax = plt.subplots(figsize=(10, 3.8))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5)
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5)
+    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5)
     ax.set_xlabel('mg/cm2'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
