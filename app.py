@@ -11,14 +11,13 @@ from modules.database import init_db, save_lead, get_leads, log_action, get_audi
 from modules.reporter import generate_expert_report
 
 # --- [1. 시스템 초기화] ---
-st.set_page_config(page_title="SynoCore V1.2 | Security Enforced", layout="wide")
+st.set_page_config(page_title="SynoCore V1.2 | Admin Center", layout="wide")
 
 if 'initialized' not in st.session_state:
     init_db()
-    log_action("System", f"Core Bootup (Mode: {SECURITY_MODE})")
+    log_action("System", "Application Online")
     st.session_state.initialized = True
 
-# UI 클리닝 (White Labeling)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -59,27 +58,20 @@ if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
 
-# --- [3. 사이드바: Security Barrier (ID: synotech0773! 적용)] ---
+# --- [3. 사이드바: 관리자 로그인] ---
 with st.sidebar:
     st.image("https://via.placeholder.com/200x60?text=SynoTech", use_container_width=True)
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
     T = LANG_DICT[selected_lang]
     
     st.divider()
-    st.markdown(f"**🛡️ Security Barrier: {SECURITY_MODE}**")
+    u_id = st.text_input(T["admin_id"], value="")
+    u_pw = st.text_input(T["admin_pw"], type="password", value="")
     
-    # ID 입력창 (이제 여기에 synotech0773! 입력)
-    input_id = st.text_input(T["admin_id"])
-    input_pw = st.text_input(T["admin_pw"], type="password")
-    
-    if input_id and input_pw:
-        if verify_admin_access(input_id, input_pw):
+    if u_id and u_pw:
+        if verify_admin_access(u_id, u_pw):
             st.session_state.admin_mode = True
-            st.success(f"{T['auth_success']} ({input_id})")
-            # 관리자 접속 로그 기록
-            if 'last_admin_log' not in st.session_state or st.session_state.last_admin_log != input_id:
-                log_action(input_id, "Admin Level Access Authenticated")
-                st.session_state.last_admin_log = input_id
+            st.success(f"{T['auth_success']} ({u_id})")
         else:
             st.session_state.admin_mode = False
             st.error(T["auth_fail"])
@@ -89,7 +81,7 @@ with st.sidebar:
     st.divider()
     st.caption("© 2026 SynoTech Co., Ltd.")
 
-# --- [4. 메인 화면 및 분석 로직] ---
+# --- [4. 메인 분석 화면] ---
 st.title(T["title"])
 st.write(f"**{T['subtitle']}**")
 st.markdown("---")
@@ -104,6 +96,7 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
     if st.session_state.trials > 0 or st.session_state.is_pro:
         if not st.session_state.is_pro: st.session_state.trials -= 1
         res = calculate_battery_specs(loading, capacity, area, np_ratio)
+        log_action("User", f"Simulated: {loading}mg/cm2, {np_ratio}NP")
         
         st.subheader("📊 Analysis Results")
         res_c1, res_c2, res_c3 = st.columns(3)
@@ -123,7 +116,7 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
         else:
             if st.button("Unlock Full Report"): st.session_state.show_upgrade = True
     else:
-        st.error("Free trial limit reached. Please register.")
+        st.error("Free trial limit reached.")
 
 # 전문가 등록 폼
 if st.session_state.show_upgrade and not st.session_state.is_pro:
@@ -140,25 +133,45 @@ if st.session_state.show_upgrade and not st.session_state.is_pro:
             st.session_state.show_upgrade = False
             st.rerun()
 
-# --- [5. Command Center (ID: synotech0773! 전용)] ---
+# --- [5. Command Center (활동 로그 필터 추가)] ---
 if st.session_state.get('admin_mode', False):
     st.markdown("---")
-    # 로그인한 ID가 화면에 표시됩니다.
-    st.header(f"🛡️ Command Center: {input_id} (Master)")
+    st.header(f"🛡️ SynoCore Command Center (Admin: {u_id})")
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Audit Status", "SECURE", delta="Live Monitoring")
-    m2.metric("Partner Leads", len(get_leads()))
-    m3.metric("System Uptime", "99.9%")
+    leads_df = get_leads()
+    audit_df = get_audit_logs()
+    
+    # [Step 5 핵심 수정] 사람 활동만 보기 필터 UI
+    st.write("### 🔍 Audit Log Filter")
+    show_human_only = st.checkbox("Show Human Activity Only (Hide System Logs)", value=True)
+    
+    if show_human_only:
+        # 'System'이 아닌 로그만 필터링
+        display_audit_df = audit_df[audit_df['user'] != 'System']
+    else:
+        display_audit_df = audit_df
 
-    tab1, tab2 = st.tabs(["📊 Data Monitoring", "📥 Export Center"])
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Security", SECURITY_MODE)
+    m2.metric("Total Partners", len(leads_df))
+    m3.metric("Displayed Logs", len(display_audit_df))
+
+    tab_leads, tab_audit = st.tabs(["📊 Partner Pipeline", "📜 Security Audit Logs"])
     
-    with tab1:
-        st.write("### Real-time Partner Pipeline")
-        st.dataframe(get_leads(), use_container_width=True)
+    with tab_leads:
+        st.dataframe(leads_df, use_container_width=True)
+        st.download_button(
+            label="📥 Download Lead Data (CSV)",
+            data=leads_df.to_csv(index=False).encode('utf-8-sig'),
+            file_name=f"synotech_leads_{int(time.time())}.csv",
+            mime="text/csv"
+        )
     
-    with tab2:
-        st.write("### Sensitive Data Extraction")
-        ex_c1, ex_c2 = st.columns(2)
-        ex_c1.download_button("📥 Audit Log CSV", get_audit_logs().to_csv(index=False), f"audit_{int(time.time())}.csv")
-        ex_c2.download_button("📥 Feature Lake (Leads)", get_leads().to_csv(index=False), "leads.csv")
+    with tab_audit:
+        st.dataframe(display_audit_df, use_container_width=True)
+        st.download_button(
+            label="📥 Download Displayed Logs (CSV)",
+            data=display_audit_df.to_csv(index=False).encode('utf-8-sig'),
+            file_name=f"synocore_audit_filtered_{int(time.time())}.csv",
+            mime="text/csv"
+        )
