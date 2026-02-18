@@ -12,35 +12,46 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- [2. UI 제어 CSS: 헤더 박멸 및 사이드바 버튼 커스텀] ---
+# --- [2. UI 제어 CSS: 헤더 투명화 & 사이드바 버튼 커스텀] ---
 st.markdown("""
     <style>
-    /* 1. 상단 툴바/헤더/푸터 강제 박멸 */
-    header[data-testid="stHeader"], [data-testid="stToolbar"], footer { visibility: hidden !important; height: 0px !important; }
-    
-    /* 2. 사이드바 접기/펴기 버튼(화살표) 커스텀: 크기 키우고 로고색 적용 */
-    button[kind="headerNoPadding"] {
-        visibility: visible !important;
-        position: fixed !important;
-        top: 20px !important;
-        left: 20px !important;
-        z-index: 1000001 !important;
-        background-color: #ffffff !important;
-        border: 2px solid #1A729A !important; /* 시노텍 블루 테두리 */
-        border-radius: 8px !important;
-        width: 45px !important;
-        height: 45px !important;
-        color: #1A729A !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    /* 1. 상단 헤더 글자 및 배경 투명화 (버튼은 살림) */
+    header[data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0) !important;
+        color: rgba(0,0,0,0) !important;
+        border: none !important;
     }
     
-    /* 3. 사이드바 내부 불필요한 메뉴 제거 */
+    /* 2. 툴바 및 푸터 제거 */
+    [data-testid="stToolbar"], footer { display: none !important; }
+
+    /* 3. 사이드바 접기/펴기 버튼 커스텀: 로고 컬러(#1A729A) 적용 및 확대 */
+    [data-testid="stSidebarCollapsedControl"] button {
+        fill: #1A729A !important;
+        color: #1A729A !important;
+        background-color: white !important;
+        border: 2px solid #1A729A !important;
+        border-radius: 8px !important;
+        width: 42px !important;
+        height: 42px !important;
+        position: fixed !important;
+        top: 15px !important;
+        left: 15px !important;
+        z-index: 999999 !important;
+    }
+    
+    /* 화살표 아이콘 색상 강제 지정 */
+    [data-testid="stSidebarCollapsedControl"] svg {
+        fill: #1A729A !important;
+    }
+
+    /* 4. 사이드바 내부 Streamlit 기본 메뉴 제거 */
     [data-testid="stSidebarNav"] { display: none !important; }
 
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
     
-    /* 4. 무료 횟수 하이라이트 */
+    /* 5. 무료 횟수 로고 컬러 하이라이트 */
     .usage-badge { 
         background-color: #1A729A; 
         color: white; 
@@ -48,12 +59,14 @@ st.markdown("""
         border-radius: 25px; 
         font-size: 0.9rem; 
         font-weight: bold;
+        display: inline-block;
     }
     
+    /* 6. 디자인 서머리 간격 최적화 (10% 축소) */
     .summary-box { border: 2px solid #1A729A; padding: 18px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
     .summary-item { font-size: 0.9rem; margin-bottom: 3px !important; color: #333; line-height: 1.4 !important; }
     
-    /* 5. 메인 분석 버튼 */
+    /* 7. 분석 실행 버튼: 시노텍 블루 */
     div.stButton > button[kind="primary"] {
         background-color: #1A729A !important;
         color: white !important;
@@ -107,14 +120,14 @@ LANG_DICT = {
     }
 }
 
-# --- [4. 데이터 로드 엔진: 데이터 타입 정제 강화] ---
+# --- [4. 데이터 로드 엔진: 계산 오류 방지 로직 강화] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
     try:
         if 'material_list.xlsx' in files:
             mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
-            # 텍스트가 섞여있거나 공백이 있는 경우 처리
+            # 문자열 포함 여부 체크 및 숫자 강제 변환
             mat_df['Base_Capacity'] = pd.to_numeric(mat_df['Base_Capacity'].astype(str).str.strip(), errors='coerce').fillna(0)
         if 'param_config.xlsx' in files:
             config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
@@ -124,13 +137,13 @@ def load_external_data():
 
 mat_df, config_df = load_external_data()
 
-# --- [5. 상태 관리] ---
+# --- [5. 상태 관리 초기화] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
 
-# --- [6. 사이드바] ---
+# --- [6. 사이드바 구성] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center; margin-top: 20px;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("Language", ["English", "Korean"])
@@ -148,6 +161,7 @@ with st.sidebar:
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
+        else: st.info("Logged in.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
@@ -155,13 +169,13 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [7. 메인 패널] ---
+# --- [7. 메인 패널 구성] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
 selected_mats, selected_params = {}, {}
 
-# 1. 소재 선택
+# 1. 소재 선택 (Material Selection)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -175,7 +189,7 @@ if not mat_df.empty:
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 2. 공정 파라미터
+# 2. 공정 파라미터 (Process Parameters)
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -189,12 +203,12 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. 목표 설정
+# 3. 목표 설정 (Target Setting)
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. 디자인 서머리 (2분할)
+# 4. 디자인 서머리 (Design Summary - 2분할 배치)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 col_sum1, col_sum2 = st.columns(2)
 with col_sum1:
@@ -205,33 +219,28 @@ with col_sum2:
         st.markdown(f'<p class="summary-item"><b>{p_name}</b>: {val}</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. 분석 실행
+# 5. 분석 실행 (Run Master Analysis)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
             c_name = selected_mats.get('Cathode', '')
-            c_data = mat_df[mat_df['Name'] == c_name]
-            if not c_data.empty:
-                c_cap = float(c_data['Base_Capacity'].values[0])
-                ld = float(selected_params.get('Loading', 13.0))
-                ice = float(selected_params.get('ICE', 85.0))
-                
-                # 계산식 보호 로직
-                if c_cap <= 0: raise ValueError("Capacity must be > 0")
-                
-                eff_cap = c_cap * (ice / 100.0) * 0.93
-                whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
-                
-                st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
-                st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
-                if not st.session_state.is_pro: st.session_state.usage_count += 1
-                st.rerun()
+            c_cap = float(mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0])
+            ld = float(selected_params.get('Loading', 13.0)); ice = float(selected_params.get('ICE', 85.0))
+            
+            # 예측 연산 로직
+            eff_cap = c_cap * (ice / 100.0) * 0.93
+            whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
+            
+            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
+            st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
+            if not st.session_state.is_pro: st.session_state.usage_count += 1
+            st.rerun()
         except Exception as e:
-            st.error(f"Computation Error: {e}. Check if Excel Base_Capacity has valid numbers.")
+            st.error(f"Calculation Error: Check Excel Data. ({e})")
 
-# --- [8. 하단 결과부] ---
+# --- [8. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
 if st.session_state.history:
     st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
@@ -240,7 +249,7 @@ if st.session_state.last_result:
     res = st.session_state.last_result
     st.markdown(f'''<div class="report-box">
         <h3 style="text-align:center; color:#1A729A;">{L["report_title"]}</h3>
-        <div style="display: flex; justify-content: space-around;">
+        <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
             <div class="stat-card"><h3>{res['whkg']:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
             <div class="stat-card"><h3>{res['eff_cap']:.1f} mAh/g</h3><small>{L["eff_cap"]}</small></div>
             <div class="stat-card"><h3>{res['target']}</h3><small>{L["target_label"]}</small></div>
