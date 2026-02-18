@@ -18,12 +18,12 @@ except Exception as e:
 # --- [1. 시스템 초기화 & 테마 적용] ---
 st.set_page_config(page_title="SynoCore V1.2 | SynoTech Strategic Platform", layout="wide")
 
-# CSS 정밀 조정: 로고 강조, 타이틀 위계, 시노텍 블루 반영
+# CSS 정밀 조정: 로고 강조(2.2rem), 메인 타이틀(1.1rem/Black), 크레딧 폰트 동기화
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
     
-    /* 메인 타이틀: 로고(2.2rem)보다 확실히 작은 1.1rem, 색상 검정 */
+    /* [수정] 메인 타이틀: 로고(2.2rem)보다 확실히 작은 1.1rem, 색상 검정 */
     .main h1 { 
         color: #000000 !important; 
         font-weight: 700 !important; 
@@ -63,7 +63,7 @@ st.markdown("""
         color: #555555;
     }
 
-    /* 하단 화이트 라벨링 */
+    /* 하단 화이트 라벨링 제거 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -73,7 +73,7 @@ st.markdown("""
 if 'initialized' not in st.session_state:
     try:
         init_db()
-        log_action("System", "SynoCore V1.2.8 Intelligence Engine Online")
+        log_action("System", "SynoCore V1.2.9 AI Diagnostic Engine Online")
         st.session_state.initialized = True
     except: pass
 
@@ -93,11 +93,12 @@ LANG_DICT = {
     }
 }
 
-# 세션 상태 관리
+# 세션 상태 관리 (Step 9 비교 기능을 위한 last_res 추가)
 if 'trials' not in st.session_state: st.session_state.trials = 3
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
+if 'last_res' not in st.session_state: st.session_state.last_res = None
 
 # --- [3. 사이드바: 브랜드 로고 및 메뉴] ---
 with st.sidebar:
@@ -120,7 +121,7 @@ with st.sidebar:
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
-# --- [4. 메인 화면: 분석 인터페이스] ---
+# --- [4. 메인 화면: 분석 및 진단 인터페이스] ---
 st.title(T["title"]) # 1.1rem / Black 적용
 st.markdown("---")
 
@@ -135,29 +136,72 @@ if st.button(T["btn_run"], type="primary"):
         if not st.session_state.is_pro: st.session_state.trials -= 1
         
         try:
+            # 4.1. 기본 엔진 호출
             res = calculate_battery_specs(loading, capacity, area, np_ratio)
             log_action("User", f"Run: {res['specific_energy']} Wh/kg")
             
+            # 4.2. [Step 9] AI 안정성 진단 로직
+            stability_score = 100
+            alerts = []
+            
+            if np_ratio < 1.05:
+                stability_score -= 30
+                alerts.append("🚨 **N/P Ratio 위험:** 덴드라이트 형성 및 화재 위험이 매우 높습니다.")
+            elif np_ratio > 1.25:
+                stability_score -= 10
+                alerts.append("ℹ️ **N/P Ratio 과다:** 불필요한 무게 증가로 에너지 밀도가 감소합니다.")
+            
+            if loading > 20:
+                stability_score -= 15
+                alerts.append("⚠️ **고로딩 경고:** 전해질 침투 저하 및 출력 특성 저하가 우려됩니다.")
+
+            # 4.3. 결과 지표 표시
             st.subheader(T["res_h"])
             m_c1, m_c2, m_c3, m_c4 = st.columns(4)
             m_c1.metric("Areal Capacity", f"{res['areal_capacity']} mAh/cm²")
-            m_c2.metric("Specific Energy", f"{res['specific_energy']} Wh/kg", delta="Optimized")
+            
+            # [Step 9] 비교 분석 연동 에너지 밀도
+            delta_val = None
+            if st.session_state.last_res:
+                delta_val = f"{res['specific_energy'] - st.session_state.last_res['specific_energy']:+.1f} Wh/kg"
+            m_c2.metric("Specific Energy", f"{res['specific_energy']} Wh/kg", delta=delta_val)
+            
             m_c3.metric("Total Capacity", f"{res['total_capacity']} mAh")
             m_c4.metric("Anode Target", f"{res['required_anode']} mg/cm²")
+
+            st.divider()
+
+            # 4.4. [Step 9] AI 분석 섹션 표시
+            st.subheader("🤖 SynoCore AI Design Insight")
+            s_c1, s_c2 = st.columns([1, 2])
             
+            with s_c1:
+                st.metric("Design Stability Score", f"{stability_score} / 100")
+                if stability_score >= 80: st.success("✅ 설계가 안정적입니다.")
+                elif stability_score >= 60: st.warning("⚠️ 보완이 권장됩니다.")
+                else: st.error("🚨 위험한 설계입니다.")
+
+            with s_c2:
+                if alerts:
+                    for alert in alerts: st.write(alert)
+                else:
+                    st.write("✨ 현재 설계는 시노텍 표준 가이드라인을 완벽히 준수하고 있습니다.")
+            
+            # 결과 저장 (다음 시뮬레이션 비교용)
+            st.session_state.last_res = res
+
+            # 4.5. 리포트 및 전문가 전용 기능
             if st.session_state.is_pro:
                 st.divider()
                 if REPORTER_READY:
-                    res.update({'loading': loading, 'np_ratio': np_ratio})
+                    res.update({'loading': loading, 'np_ratio': np_ratio, 'stability': stability_score})
                     u_name = st.session_state.user_info.get("name", "Expert")
                     u_comp = st.session_state.user_info.get("company", "Syno Partner")
                     pdf_bytes = generate_expert_report(res, u_name, u_comp)
                     st.download_button(T["pdf_btn"], pdf_bytes, f"SynoCore_Report_{u_name}.pdf", use_container_width=True)
                     st.balloons()
-                else:
-                    st.warning("⚠️ 리포트 생성 모듈 점검 중입니다.")
             else:
-                if st.button("🚀 Upgrade to Pro for Expert Insights"): st.session_state.show_upgrade = True
+                if st.button("🚀 Unlock Pro for AI Detailed Report"): st.session_state.show_upgrade = True
         except Exception as e:
             st.error(f"분석 엔진 오류: {e}")
     else:
@@ -179,7 +223,7 @@ if st.session_state.show_upgrade and not st.session_state.is_pro:
             st.session_state.show_upgrade = False
             st.rerun()
 
-# --- [5. Command Center (Step 8: 시각화 대시보드)] ---
+# --- [5. Command Center (Step 8: 시각화 대시보드 유지)] ---
 if st.session_state.get('admin_mode', False):
     st.markdown("---")
     st.header(f"🛡️ SynoCore Intelligence Dashboard")
@@ -187,7 +231,6 @@ if st.session_state.get('admin_mode', False):
     leads_df = get_leads()
     audit_df = get_audit_logs()
     
-    # 핵심 지표 요약
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     kpi1.metric("Total Partners", f"{len(leads_df)} Leads")
     kpi2.metric("Total Sims", f"{len(audit_df[audit_df['action'].str.contains('Run', na=False)])} Hits")
@@ -200,26 +243,20 @@ if st.session_state.get('admin_mode', False):
         c1, c2 = st.columns(2)
         with c1:
             st.subheader("🏢 Partner Company Stats")
-            if not leads_df.empty:
-                st.bar_chart(leads_df['company'].value_counts())
-            else:
-                st.info("데이터가 없습니다.")
-        
+            if not leads_df.empty: st.bar_chart(leads_df['company'].value_counts())
+            else: st.info("데이터가 없습니다.")
         with c2:
             st.subheader("⚡ Energy Density Trends")
             sim_logs = audit_df[audit_df['action'].str.contains('Wh/kg', na=False)]
             if not sim_logs.empty:
                 sim_logs['val'] = sim_logs['action'].str.extract(r'(\d+\.?\d*)').astype(float)
                 st.line_chart(sim_logs['val'])
-            else:
-                st.info("시뮬레이션 기록이 없습니다.")
+            else: st.info("시뮬레이션 기록이 없습니다.")
 
     with tab_log:
         show_human = st.checkbox("Human Activity Only", value=True)
         display_df = audit_df[audit_df['user'] != 'System'] if show_human else audit_df
         st.dataframe(display_df, use_container_width=True)
-        st.download_button("📥 Export Logs", display_df.to_csv(index=False).encode('utf-8-sig'), "audit.csv")
     
     with tab_lead:
         st.dataframe(leads_df, use_container_width=True)
-        st.download_button("📥 Export Leads", leads_df.to_csv(index=False).encode('utf-8-sig'), "leads.csv")
