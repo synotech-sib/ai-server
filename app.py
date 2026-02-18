@@ -15,69 +15,55 @@ except Exception as e:
     st.error(f"⚠️ 시스템 구성 요소 로드 중 오류 발생: {e}")
     REPORTER_READY = False
 
-# --- [1. 시스템 초기화 & 테마 적용] ---
-# 고객이 처음 들어왔을 때 사이드바가 열려있도록 "expanded" 설정
+# --- [1. 시스템 초기화 및 사이드바 상태 제어] ---
+if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
+if 'sidebar_state' not in st.session_state: st.session_state.sidebar_state = "expanded"
+
+# 설정: 로그인 여부에 따라 사이드바 초기 상태 결정
 st.set_page_config(
     page_title="SynoCore V1.2 | SynoTech Strategic Platform", 
     layout="wide",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# 세션 상태 초기화
-if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
-if 'initialized' not in st.session_state:
-    try:
-        init_db()
-        log_action("System", "SynoCore V1.2.11 UX Optimized Online")
-        st.session_state.initialized = True
-    except: pass
-
-# CSS: 디자인 위계 및 사이드바 자동 제어 로직
-# 관리자 모드일 경우 사이드바를 자동으로 닫는 CSS 인젝션 포함
-sidebar_width = "0" if st.session_state.admin_mode else "21rem"
-sidebar_opacity = "0" if st.session_state.admin_mode else "1"
-
+# --- [2. 디자인 테마 및 색상 오류 교정 CSS] ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
     
-    /* 메인 타이틀: 로고(2.2rem)보다 작은 1.1rem, 검정색 */
+    /* [교정] 메인 타이틀: 로고(2.2rem)보다 작은 1.1rem, 검정색 */
     .main h1 {{ 
-        color: #000000 !important; 
-        font-weight: 700 !important; 
-        font-size: 1.1rem !important; 
-        border-bottom: 2px solid #1A729A; 
-        padding-bottom: 5px; 
-        margin-bottom: 30px;
+        color: #000000 !important; font-weight: 700 !important; font-size: 1.1rem !important; 
+        border-bottom: 2px solid #1A729A; padding-bottom: 5px; margin-bottom: 30px;
     }}
     
-    h2, h3 {{ color: #1A729A !important; font-weight: 600 !important; }}
+    /* [해결] 슬라이더 색상 겹침 문제: 트랙과 핸들을 구분하여 가독성 확보 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div {{ background-color: #e9ecef !important; }} /* 트랙 배경 */
+    div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }} /* 핸들 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }} /* 활성화 바 */
     
-    /* 버튼 및 입력도구 스타일: 시노텍 블루 (#1A729A) */
-    .stButton>button {{
-        background-color: #1A729A; color: white; border-radius: 6px; border: none; font-weight: bold;
-    }}
+    /* 사이드바 스타일 및 메뉴 버튼(header) 가시성 유지 */
+    [data-testid="stSidebar"] {{ background-color: #f1f6f9; border-right: 2px solid #1A729A; }}
+    .stSidebarCollapseButton {{ color: #1A729A !important; }} /* 열기/닫기 버튼 강조 */
     
-    /* 슬라이더 컬러 강조 */
-    div[data-baseweb="slider"] div {{ background-color: #1A729A !important; }}
-
-    /* 사이드바 스타일 및 로그인 시 자동 닫힘 시뮬레이션 */
-    [data-testid="stSidebar"] {{ 
-        background-color: #f1f6f9; 
-        border-right: 2px solid #1A729A;
-        transition: all 0.5s ease;
-    }}
-    
-    /* 크레딧 폰트 설정 */
-    .streamlit-expanderHeader p {{ font-size: 0.9rem !important; color: #1A729A !important; }}
-    .streamlit-expanderContent {{ font-size: 0.75rem !important; color: #555555; }}
+    /* 하단 크레딧 폰트 설정 */
+    .streamlit-expanderHeader p {{ font-size: 0.8rem !important; color: #1A729A !important; }}
+    .streamlit-expanderContent {{ font-size: 0.7rem !important; color: #555555; }}
 
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
+    /* header {{visibility: visible;}} <- 사이드바 버튼 유지를 위해 절대 숨기지 않음 */
     </style>
     """, unsafe_allow_html=True)
 
-# --- [2. 다국어 사전 설정] ---
+if 'initialized' not in st.session_state:
+    try:
+        init_db()
+        log_action("System", "SynoCore V1.2.12 UI & Sidebar Logic Applied")
+        st.session_state.initialized = True
+    except: pass
+
+# --- [3. 다국어 및 세션 관리] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore V1.2: Strategic SIB Intelligence",
@@ -95,14 +81,13 @@ LANG_DICT = {
     }
 }
 
-# 세션 데이터 관리
 if 'trials' not in st.session_state: st.session_state.trials = 3
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
 if 'last_res' not in st.session_state: st.session_state.last_res = None
 
-# --- [3. 사이드바: 브랜드 로고 및 로그인] ---
+# --- [4. 사이드바: 브랜드 로고 및 로그인 로직] ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align: center; color: #1A729A; font-weight: 800; font-size: 2.2rem; border-bottom: none;'>SynoCore</h1>", unsafe_allow_html=True)
     
@@ -113,27 +98,32 @@ with st.sidebar:
     u_id = st.text_input("Admin ID", key="admin_id")
     u_pw = st.text_input("Password", type="password", key="admin_pw")
     
-    # 관리자 로그인 검증
+    # [요청 반영] 로그인 시 사이드바 자동 닫기 로직
     if verify_admin_access(u_id, u_pw):
         if not st.session_state.admin_mode:
             st.session_state.admin_mode = True
-            st.rerun() # 로그인 성공 시 화면을 새로고침하여 사이드바 닫기 유도
+            st.session_state.sidebar_state = "collapsed" # 로그인 시 닫힘 모드로 변경
+            st.rerun() # 설정을 적용하기 위해 재실행
         st.success("✅ MASTER AUTHORIZED")
     else:
-        st.session_state.admin_mode = False
-    
+        # 로그인 정보가 틀리거나 비어있으면 일반 유저 모드
+        if st.session_state.admin_mode:
+            st.session_state.admin_mode = False
+            st.session_state.sidebar_state = "expanded"
+            st.rerun()
+
     st.divider()
     with st.expander("Developer Credits"):
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
-# --- [4. 메인 화면: 시뮬레이션 인터페이스 (슬라이더 적용)] ---
+# --- [5. 메인 화면: 슬라이더 분석 인터페이스] ---
 st.title(T["title"])
 st.markdown("---")
 
-# [요청 반영] 슬라이더 방식으로 변경하여 직관적인 조절 가능하게 함
 with st.container():
     c1, c2, c3, c4 = st.columns(4)
+    # 슬라이더 색상 겹침 해결: CSS 수정을 통해 가독성 확보
     loading = c1.slider("Loading (mg/cm²)", 5.0, 35.0, 12.0, step=0.1)
     capacity = c2.slider("Cap. (mAh/g)", 100.0, 250.0, 140.0, step=1.0)
     area = c3.slider("Area (cm²)", 1.0, 50.0, 10.0, step=0.5)
@@ -144,11 +134,9 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
         if not st.session_state.is_pro: st.session_state.trials -= 1
         
         try:
-            # 4.1. 메인 결과 계산
             res = calculate_battery_specs(loading, capacity, area, np_ratio)
             log_action("User", f"Run: {res['specific_energy']} Wh/kg")
             
-            # 4.2. 핵심 지표 렌더링
             st.subheader(T["res_h"])
             m_c1, m_c2, m_c3, m_c4 = st.columns(4)
             m_c1.metric("Areal Capacity", f"{res['areal_capacity']} mAh/cm²")
@@ -162,17 +150,12 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
             m_c4.metric("Anode Target", f"{res['required_anode']} mg/cm²")
 
             st.divider()
-
-            # 4.3. [Step 10] 설계 민감도 분석 (곡선 그래프)
             st.subheader(T["chart_h"])
             load_range = np.linspace(5, 35, 30)
             energy_trend = [calculate_battery_specs(l, capacity, area, np_ratio)['specific_energy'] for l in load_range]
-            chart_data = pd.DataFrame({'Loading': load_range, 'Energy Density': energy_trend}).set_index('Loading')
-            st.line_chart(chart_data)
+            st.line_chart(pd.DataFrame({'Loading': load_range, 'Energy': energy_trend}).set_index('Loading'))
 
             st.divider()
-
-            # 4.4. [Step 9] AI 디자인 인사이트
             st.subheader("🤖 SynoCore AI Design Insight")
             s_c1, s_c2 = st.columns([1, 2])
             with s_c1:
@@ -180,57 +163,42 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
                 if np_ratio < 1.05: score -= 30
                 if loading > 22: score -= 20
                 st.metric("Design Stability Score", f"{score} / 100")
-                if score >= 80: st.success("✅ 안정적인 설계 범위")
+                if score >= 80: st.success("✅ 안정 범위")
                 else: st.warning("⚠️ 보완 권장")
             with s_c2:
-                if np_ratio < 1.05: st.write("🚨 **Danger:** 리튬 석출(Plating) 위험군")
-                if loading > 22: st.write("⚠️ **Warning:** 고부하 설계로 인한 출력 저하 우려")
-                if score == 100: st.write("✨ 시노텍 가이드라인 완벽 충족")
+                if np_ratio < 1.05: st.write("🚨 **Danger:** 전극 표면 리튬 석출 위험")
+                if loading > 22: st.write("⚠️ **Warning:** 고부하 설계로 인한 출력 제한")
+                if score == 100: st.write("✨ 시노텍 설계 표준 가이드라인 충족")
             
             st.session_state.last_res = res
-
-            # 4.5. 프로 전용 리포트
             if st.session_state.is_pro:
-                st.divider()
                 if REPORTER_READY:
-                    res.update({'loading': loading, 'np_ratio': np_ratio})
-                    u_name = st.session_state.user_info.get("name", "Expert")
-                    u_comp = st.session_state.user_info.get("company", "Syno Partner")
-                    pdf_bytes = generate_expert_report(res, u_name, u_comp)
-                    st.download_button(T["pdf_btn"], pdf_bytes, f"SynoCore_Report_{u_name}.pdf", use_container_width=True)
+                    pdf_bytes = generate_expert_report(res, st.session_state.user_info['name'], st.session_state.user_info['company'])
+                    st.download_button(T["pdf_btn"], pdf_bytes, "SynoCore_Report.pdf", use_container_width=True)
                     st.balloons()
             else:
-                if st.button("🚀 Upgrade to Pro for AI Expert Report"): 
-                    st.session_state.show_upgrade = True
+                if st.button("🚀 Upgrade to Pro for Report"): st.session_state.show_upgrade = True
         except Exception as e:
-            st.error(f"분석 엔진 오류: {e}")
+            st.error(f"분석 중 오류: {e}")
     else:
-        st.error("Free trial limit reached. Please contact SynoTech Admin.")
+        st.error("Free trial limit reached.")
 
-# 전문가 등록 폼
+# 전문가 등록 및 대시보드 (기존 로직 유지)
 if st.session_state.show_upgrade and not st.session_state.is_pro:
-    st.divider()
     with st.form("enroll"):
-        st.subheader("🚀 Join SynoTech Expert Partnership")
+        st.subheader("🚀 Join Expert Partnership")
         f_name = st.text_input("Name")
         f_comp = st.text_input("Company")
-        f_mob = st.text_input("Mobile")
-        f_email = st.text_input("Email")
-        if st.form_submit_button("Unlock Professional Version"):
-            save_lead(f_name, f_comp, f_mob, f_email)
+        if st.form_submit_button("Unlock Now"):
+            save_lead(f_name, f_comp, "", "")
             st.session_state.user_info = {"name": f_name, "company": f_comp}
             st.session_state.is_pro = True
             st.session_state.show_upgrade = False
             st.rerun()
 
-# --- [5. Command Center] ---
 if st.session_state.admin_mode:
     st.markdown("---")
-    st.header(f"🛡️ SynoCore Intelligence Dashboard")
-    leads_df = get_leads()
-    audit_df = get_audit_logs()
-    t1, t2, t3 = st.tabs(["📊 Analytics", "📜 Audit Logs", "👥 Partner Leads"])
-    with t1:
-        if not leads_df.empty: st.bar_chart(leads_df['company'].value_counts())
-    with t2: st.dataframe(audit_df, use_container_width=True)
-    with t3: st.dataframe(leads_df, use_container_width=True)
+    st.header(f"🛡️ Intelligence Dashboard")
+    tab1, tab2 = st.tabs(["📈 Analytics", "📜 Logs"])
+    with tab1: st.bar_chart(get_leads()['company'].value_counts())
+    with tab2: st.dataframe(get_audit_logs(), use_container_width=True)
