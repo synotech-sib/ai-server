@@ -22,7 +22,7 @@ st.markdown("""
     h1 { 
         color: #1A729A !important; 
         font-weight: 700 !important; 
-        font-size: 1.8rem !important; /* 글자 크기를 더 슬림하게 조정 */
+        font-size: 1.6rem !important; /* 대표님 요청에 따라 더 슬림하게 조정 */
         border-bottom: 2px solid #1A729A; 
         padding-bottom: 8px; 
     }
@@ -36,7 +36,6 @@ st.markdown("""
         border-radius: 6px;
         border: none;
         font-weight: bold;
-        transition: all 0.3s ease;
     }
     .stButton>button:hover {
         background-color: #145d7d;
@@ -54,10 +53,10 @@ st.markdown("""
 
 if 'initialized' not in st.session_state:
     init_db()
-    log_action("System", "SynoBlue Final Version Online")
+    log_action("System", "SynoBlue Production Version Online")
     st.session_state.initialized = True
 
-# --- [2. 다국어 사전 설정 (SyntaxError 수정됨)] ---
+# --- [2. 다국어 사전 설정] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore V1.2: Strategic SIB Intelligence",
@@ -102,4 +101,53 @@ in_c1, in_c2, in_c3, in_c4 = st.columns(4)
 loading = in_c1.number_input("Loading (mg/cm²)", value=12.0)
 capacity = in_c2.number_input("Cap. (mAh/g)", value=140.0)
 area = in_c3.number_input("Area (cm²)", value=10.0)
-np_ratio = in_c4.number_input("N/P Ratio", value=1
+np_ratio = in_c4.number_input("N/P Ratio", value=1.1)
+
+if st.button(T["btn_run"], type="primary"):
+    if st.session_state.trials > 0 or st.session_state.is_pro:
+        if not st.session_state.is_pro: st.session_state.trials -= 1
+        res = calculate_battery_specs(loading, capacity, area, np_ratio)
+        log_action("User", f"Run: {res['specific_energy']} Wh/kg")
+        
+        st.subheader(T["res_h"])
+        m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+        m_c1.metric("Areal Capacity", f"{res['areal_capacity']} mAh/cm²")
+        m_c2.metric("Specific Energy", f"{res['specific_energy']} Wh/kg")
+        m_c3.metric("Total Capacity", f"{res['total_capacity']} mAh")
+        m_c4.metric("Anode Target", f"{res['required_anode']} mg/cm²")
+        
+        if st.session_state.is_pro:
+            st.divider()
+            res.update({'loading': loading, 'np_ratio': np_ratio})
+            u_name = st.session_state.user_info.get("name", "Expert")
+            u_comp = st.session_state.user_info.get("company", "Syno Partner")
+            pdf_bytes = generate_expert_report(res, u_name, u_comp)
+            st.download_button(T["pdf_btn"], pdf_bytes, f"SynoCore_{u_name}.pdf", use_container_width=True)
+            st.balloons()
+        else:
+            if st.button("🚀 Unlock Pro for PDF Report"): st.session_state.show_upgrade = True
+    else:
+        st.error("Free trial limit reached.")
+
+# 전문가 등록 폼
+if st.session_state.show_upgrade and not st.session_state.is_pro:
+    with st.form("enroll"):
+        st.subheader("🚀 Register Professional Access")
+        f_name = st.text_input("Name")
+        f_comp = st.text_input("Company")
+        f_mob = st.text_input("Mobile")
+        f_email = st.text_input("Email")
+        if st.form_submit_button("Submit"):
+            save_lead(f_name, f_comp, f_mob, f_email)
+            st.session_state.user_info = {"name": f_name, "company": f_comp}
+            st.session_state.is_pro = True
+            st.session_state.show_upgrade = False
+            st.rerun()
+
+# --- [5. Command Center] ---
+if st.session_state.get('admin_mode', False):
+    st.markdown("---")
+    st.header(f"🛡️ Command Center")
+    audit_df = get_audit_logs()
+    st.dataframe(audit_df[audit_df['user'] != 'System'], use_container_width=True)
+    st.dataframe(get_leads(), use_container_width=True)
