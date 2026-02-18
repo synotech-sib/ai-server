@@ -17,34 +17,48 @@ except Exception as e:
 
 # --- [1. 시스템 초기화 및 사이드바 상태 제어] ---
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
+# 초기 상태는 열림(expanded)으로 설정하여 브랜드 노출
 if 'sidebar_state' not in st.session_state: st.session_state.sidebar_state = "expanded"
 
-# 설정: 로그인 여부에 따라 사이드바 초기 상태 결정
 st.set_page_config(
     page_title="SynoCore V1.2 | SynoTech Strategic Platform", 
     layout="wide",
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# --- [2. 디자인 테마 및 색상 오류 교정 CSS] ---
+# --- [2. 디자인 테마 및 슬라이더 숫자 스타일링 CSS] ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
     
-    /* [교정] 메인 타이틀: 로고(2.2rem)보다 작은 1.1rem, 검정색 */
+    /* 메인 타이틀 스타일 */
     .main h1 {{ 
         color: #000000 !important; font-weight: 700 !important; font-size: 1.1rem !important; 
         border-bottom: 2px solid #1A729A; padding-bottom: 5px; margin-bottom: 30px;
     }}
     
-    /* [해결] 슬라이더 색상 겹침 문제: 트랙과 핸들을 구분하여 가독성 확보 */
-    div[data-testid="stSlider"] div[data-baseweb="slider"] > div {{ background-color: #e9ecef !important; }} /* 트랙 배경 */
+    /* [수정] 슬라이더 트랙 및 핸들 색상 (기존 유지) */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div:first-child {{ background-color: #e9ecef !important; }} /* 트랙 배경 */
     div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }} /* 핸들 */
     div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }} /* 활성화 바 */
+
+    /* [새로 추가] 슬라이더 숫자 박스 스타일링 제거 및 글자색 변경 */
+    /* 1. 숫자 박스 배경 투명화 및 그림자 제거 */
+    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div {{
+        background-color: transparent !important; /* 박스 배경색 제거 */
+        box-shadow: none !important; /* 박스 그림자 제거 */
+        border: none !important; /* 테두리 제거 */
+    }}
+    /* 2. 숫자 텍스트를 시노텍 블루로 변경하고 강조 */
+    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div * {{
+        color: #1A729A !important; /* 글자색 로고 컬러 적용 */
+        font-weight: 800 !important; /* 배경이 없으므로 더 굵게 강조 */
+        font-family: 'Arial', sans-serif !important; /* 깔끔한 폰트 강제 적용 */
+    }}
     
-    /* 사이드바 스타일 및 메뉴 버튼(header) 가시성 유지 */
+    /* 사이드바 스타일 및 메뉴 버튼 가시성 유지 */
     [data-testid="stSidebar"] {{ background-color: #f1f6f9; border-right: 2px solid #1A729A; }}
-    .stSidebarCollapseButton {{ color: #1A729A !important; }} /* 열기/닫기 버튼 강조 */
+    .stSidebarCollapseButton {{ color: #1A729A !important; }}
     
     /* 하단 크레딧 폰트 설정 */
     .streamlit-expanderHeader p {{ font-size: 0.8rem !important; color: #1A729A !important; }}
@@ -52,14 +66,13 @@ st.markdown(f"""
 
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
-    /* header {{visibility: visible;}} <- 사이드바 버튼 유지를 위해 절대 숨기지 않음 */
     </style>
     """, unsafe_allow_html=True)
 
 if 'initialized' not in st.session_state:
     try:
         init_db()
-        log_action("System", "SynoCore V1.2.12 UI & Sidebar Logic Applied")
+        log_action("System", "SynoCore V1.2.13 Slider Number Style Applied")
         st.session_state.initialized = True
     except: pass
 
@@ -98,18 +111,17 @@ with st.sidebar:
     u_id = st.text_input("Admin ID", key="admin_id")
     u_pw = st.text_input("Password", type="password", key="admin_pw")
     
-    # [요청 반영] 로그인 시 사이드바 자동 닫기 로직
+    # 로그인 시 사이드바 자동 닫기 로직 (버튼은 유지됨)
     if verify_admin_access(u_id, u_pw):
         if not st.session_state.admin_mode:
             st.session_state.admin_mode = True
-            st.session_state.sidebar_state = "collapsed" # 로그인 시 닫힘 모드로 변경
-            st.rerun() # 설정을 적용하기 위해 재실행
+            st.session_state.sidebar_state = "collapsed" # 로그인 성공 시 닫기
+            st.rerun()
         st.success("✅ MASTER AUTHORIZED")
     else:
-        # 로그인 정보가 틀리거나 비어있으면 일반 유저 모드
         if st.session_state.admin_mode:
             st.session_state.admin_mode = False
-            st.session_state.sidebar_state = "expanded"
+            st.session_state.sidebar_state = "expanded" # 로그아웃 시 열기
             st.rerun()
 
     st.divider()
@@ -123,7 +135,7 @@ st.markdown("---")
 
 with st.container():
     c1, c2, c3, c4 = st.columns(4)
-    # 슬라이더 색상 겹침 해결: CSS 수정을 통해 가독성 확보
+    # 슬라이더 숫자 박스 디자인 적용됨
     loading = c1.slider("Loading (mg/cm²)", 5.0, 35.0, 12.0, step=0.1)
     capacity = c2.slider("Cap. (mAh/g)", 100.0, 250.0, 140.0, step=1.0)
     area = c3.slider("Area (cm²)", 1.0, 50.0, 10.0, step=0.5)
@@ -172,33 +184,4 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
             
             st.session_state.last_res = res
             if st.session_state.is_pro:
-                if REPORTER_READY:
-                    pdf_bytes = generate_expert_report(res, st.session_state.user_info['name'], st.session_state.user_info['company'])
-                    st.download_button(T["pdf_btn"], pdf_bytes, "SynoCore_Report.pdf", use_container_width=True)
-                    st.balloons()
-            else:
-                if st.button("🚀 Upgrade to Pro for Report"): st.session_state.show_upgrade = True
-        except Exception as e:
-            st.error(f"분석 중 오류: {e}")
-    else:
-        st.error("Free trial limit reached.")
-
-# 전문가 등록 및 대시보드 (기존 로직 유지)
-if st.session_state.show_upgrade and not st.session_state.is_pro:
-    with st.form("enroll"):
-        st.subheader("🚀 Join Expert Partnership")
-        f_name = st.text_input("Name")
-        f_comp = st.text_input("Company")
-        if st.form_submit_button("Unlock Now"):
-            save_lead(f_name, f_comp, "", "")
-            st.session_state.user_info = {"name": f_name, "company": f_comp}
-            st.session_state.is_pro = True
-            st.session_state.show_upgrade = False
-            st.rerun()
-
-if st.session_state.admin_mode:
-    st.markdown("---")
-    st.header(f"🛡️ Intelligence Dashboard")
-    tab1, tab2 = st.tabs(["📈 Analytics", "📜 Logs"])
-    with tab1: st.bar_chart(get_leads()['company'].value_counts())
-    with tab2: st.dataframe(get_audit_logs(), use_container_width=True)
+                if REPORTER_READY
