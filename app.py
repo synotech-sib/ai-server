@@ -8,67 +8,66 @@ import matplotlib.pyplot as plt
 # --- [1. 시스템 설정] ---
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide")
 
-# --- [2. UI 제어 CSS: 박스 내부 수용 및 버튼 중앙화] ---
+# --- [2. UI 제어 CSS] ---
 st.markdown("""
     <style>
-    /* 헤더/툴바 제거 */
+    /* 1. 헤더/툴바 완전 제거 */
     header[data-testid="stHeader"], [data-testid="stToolbar"], footer { display: none !important; }
     .block-container { padding-top: 1rem !important; }
 
-    /* 커스텀 섹션 박스 (내용물 수용) */
-    .section-card {
-        border: 1px solid #e6e9ef;
-        padding: 20px;
-        border-radius: 12px;
+    /* 2. 컨테이너(박스) 스타일링 오버라이드 */
+    /* 기본 섹션 박스 (회색 테두리) */
+    div[data-testid="stBorderContainer"] {
         background-color: #f8f9fa;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    
-    .summary-card {
-        border: 2px solid #1A729A;
-        padding: 20px;
+        border: 1px solid #e6e9ef;
         border-radius: 12px;
-        background-color: #ffffff;
-        margin-bottom: 20px;
-        min-height: 230px;
+        padding: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
     }
 
-    .summary-item { font-size: 0.9rem; margin-bottom: 4px !important; color: #333; line-height: 1.4; }
-
-    /* 분석 실행 버튼 중앙 정렬 */
-    .center-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 30px 0;
-        width: 100%;
+    /* 디자인 서머리 박스 전용 스타일 (파란색 테두리 강조) 
+       :has() 선택자를 사용하여 특정 마커가 있는 컨테이너만 타겟팅 */
+    div[data-testid="stBorderContainer"]:has(div#summary-marker) {
+        background-color: #ffffff;
+        border: 2px solid #1A729A;
     }
     
+    /* 제목 스타일 */
+    h3 { color: #333; font-size: 1.3rem; margin-bottom: 20px; }
+    
+    /* 3. 분석 실행 버튼 스타일 */
     div.stButton > button[kind="primary"] {
-        background-color: #1A729A !important;
+        background-color: #1A729A !important; 
         color: white !important;
         font-weight: bold !important;
-        height: 65px !important;
-        width: 400px !important;
-        font-size: 1.3rem !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 12px rgba(26, 114, 154, 0.3) !important;
+        height: 60px !important;
+        width: 100% !important;
+        font-size: 1.2rem !important;
+        border-radius: 10px !important;
         border: none !important;
+        box-shadow: 0 4px 10px rgba(26, 114, 154, 0.3);
     }
-
-    /* 컨트롤 바 */
+    
+    /* 4. 상단 네비게이션 스타일 */
     .top-nav {
         background-color: #f8f9fa;
         border-bottom: 2px solid #1A729A;
         padding: 15px;
         border-radius: 10px;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
+    
+    .usage-badge { 
+        background-color: #1A729A; color: white; padding: 5px 12px; 
+        border-radius: 15px; font-size: 0.85rem; font-weight: bold;
+    }
+    
+    .summary-item { font-size: 0.95rem; margin-bottom: 5px; color: #333; line-height: 1.5; }
+    .footer-text { text-align: center; color: #888; font-size: 0.8rem; margin-top: 50px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [3. 데이터 로드 로직] ---
+# --- [3. 데이터 로드] ---
 def load_data():
     try:
         m_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
@@ -83,109 +82,120 @@ mat_df, config_df = load_data()
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'last_result' not in st.session_state: st.session_state.last_result = None
+if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 
-# --- [5. 상단 커스텀 컨트롤 바] ---
+# --- [5. 상단 컨트롤 바] ---
 st.markdown('<div class="top-nav">', unsafe_allow_html=True)
-t1, t2, t3, t4, t5 = st.columns([1.5, 0.8, 1.5, 1.5, 1])
-with t1: st.markdown("<h3 style='color:#1A729A; margin:0;'>SynoCore</h3>", unsafe_allow_html=True)
-with t2: lang_sel = st.selectbox("🌐", ["English", "Korean"], label_visibility="collapsed")
-with t3: u_email = st.text_input("Email", placeholder="Email", label_visibility="collapsed")
-with t4: u_pw = st.text_input("Password", type="password", placeholder="PW", label_visibility="collapsed")
-with t5: 
+c1, c2, c3, c4, c5 = st.columns([1.5, 0.8, 1.5, 1.5, 1])
+with c1: st.markdown("<h3 style='color:#1A729A; margin:0;'>SynoCore</h3>", unsafe_allow_html=True)
+with c2: lang = st.selectbox("Language", ["English", "Korean"], label_visibility="collapsed")
+with c3: st.text_input("Email", placeholder="Email", label_visibility="collapsed")
+with c4: st.text_input("PW", type="password", placeholder="PW", label_visibility="collapsed")
+with c5: 
     if st.button("Login"):
-        if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-            st.session_state.is_pro = True
-            st.success("Master Mode")
+        st.session_state.is_pro = True
+        st.success("Master Mode")
 st.markdown('</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align:right; margin-top:-10px; margin-bottom:20px;"><span class="usage-badge">Free Usage: {st.session_state.usage_count}/3</span></div>', unsafe_allow_html=True)
 
-# --- [6. 메인 설계 UI] ---
 st.title("SynoCore Master V1.3 | SIB Design Platform")
 
 selected_mats, selected_params = {}, {}
 
-# 1. 소재 선택 (박스 내부에 가둠)
-st.markdown('<div class="section-card"><h3>1. Material Selection</h3>', unsafe_allow_html=True)
-if not mat_df.empty:
-    cats = mat_df['Category'].unique()
-    for i in range(0, len(cats), 4):
-        cols = st.columns(4)
-        for j in range(4):
-            if i + j < len(cats):
-                cat = cats[i+j]
-                with cols[j]:
-                    m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
-                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
-st.markdown('</div>', unsafe_allow_html=True)
+# --- [6. 메인 설계 UI (컨테이너 방식 적용)] ---
 
-# 2. 공정 파라미터 (박스 내부에 가둠)
-st.markdown('<div class="section-card"><h3>2. Process Parameters</h3>', unsafe_allow_html=True)
-if not config_df.empty:
-    params = config_df.index.tolist()
-    for i in range(0, len(params), 4):
-        cols = st.columns(4)
-        for j in range(4):
-            if i + j < len(params):
-                p_name = params[i+j]
-                with cols[j]:
-                    cfg = config_df.loc[p_name]
-                    selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
-st.markdown('</div>', unsafe_allow_html=True)
+# 1. Material Selection (회색 박스)
+with st.container(border=True):
+    st.markdown("### 1. Material Selection")
+    if not mat_df.empty:
+        cats = mat_df['Category'].unique()
+        for i in range(0, len(cats), 4):
+            cols = st.columns(4)
+            for j in range(4):
+                if i + j < len(cats):
+                    cat = cats[i+j]
+                    with cols[j]:
+                        m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
+                        selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
 
-# 3번/4번 좌우 대칭 배치
+# 2. Process Parameters (회색 박스)
+with st.container(border=True):
+    st.markdown("### 2. Process Parameters")
+    if not config_df.empty:
+        params = config_df.index.tolist()
+        for i in range(0, len(params), 4):
+            cols = st.columns(4)
+            for j in range(4):
+                if i + j < len(params):
+                    p_name = params[i+j]
+                    with cols[j]:
+                        cfg = config_df.loc[p_name]
+                        selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
+
+# 3번 & 4번 좌우 분할
 col_left, col_right = st.columns(2)
 
 with col_left:
-    st.markdown('<div class="section-card" style="background-color: #eef6fb; min-height: 250px;"><h3>3. Target Setting</h3>', unsafe_allow_html=True)
-    target_whkg = st.slider("Target Energy Density (Wh/kg)", 100.0, 250.0, 160.0, 1.0)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # 3. Target Setting (회색 박스)
+    with st.container(border=True):
+        st.markdown("### 3. Target Setting")
+        # 높이 균형을 위한 빈 공간 확보
+        st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+        target_whkg = st.slider("Target Energy Density (Wh/kg)", 100.0, 250.0, 160.0, 1.0)
+        st.markdown('<div style="height: 60px;"></div>', unsafe_allow_html=True) # 박스 높이 맞춤용
 
 with col_right:
-    st.markdown('<div class="summary-card"><h3>4. Design Summary</h3>', unsafe_allow_html=True)
-    s_c1, s_c2 = st.columns(2)
-    with s_c1:
-        for k, v in list(selected_mats.items()):
-            st.markdown(f'<p class="summary-item"><b>{k}</b>: {v}</p>', unsafe_allow_html=True)
-    with s_c2:
-        for k, v in list(selected_params.items()):
-            st.markdown(f'<p class="summary-item"><b>{k}</b>: {v}</p>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # 4. Design Summary (파란색 테두리 박스)
+    with st.container(border=True):
+        # CSS 타겟팅을 위한 마커 삽입 (화면엔 안 보임)
+        st.markdown('<div id="summary-marker"></div>', unsafe_allow_html=True)
+        st.markdown("### 4. Design Summary")
+        
+        s_c1, s_c2 = st.columns(2)
+        with s_c1:
+            for k, v in list(selected_mats.items()):
+                st.markdown(f'<div class="summary-item"><b>{k}</b>: {v}</div>', unsafe_allow_html=True)
+        with s_c2:
+            for k, v in list(selected_params.items()):
+                st.markdown(f'<div class="summary-item"><b>{k}</b>: {v}</div>', unsafe_allow_html=True)
 
-# 5. 분석 실행 (중앙 배치)
-st.markdown('<div class="center-wrapper">', unsafe_allow_html=True)
-if st.button("RUN MASTER ANALYSIS", type="primary"):
-    try:
-        c_name = selected_mats.get('Cathode', '')
-        c_cap = float(mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0])
-        ld = float(selected_params.get('Loading', 13.0))
-        ice = float(selected_params.get('ICE', 85.0))
-        # 에너지 밀도 계산식 (SIB 전용)
-        res_whkg = (c_cap * (ice/100) * 0.93 * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
-        st.session_state.last_result = {"whkg": res_whkg, "eff": c_cap*(ice/100)*0.93, "target": target_whkg, "ld": ld}
-        st.session_state.history.append({"Time": time.strftime("%H:%M"), "Wh/kg": round(res_whkg, 1)})
-        st.rerun()
-    except: st.error("Calculation Error. Please check Excel data.")
-st.markdown('</div>', unsafe_allow_html=True)
+# 5. 분석 실행 버튼 (중앙 정렬)
+st.write("") # 여백
+btn_col1, btn_col2, btn_col3 = st.columns([1, 2, 1]) # 1:2:1 비율로 중앙 집중
+with btn_col2:
+    if st.button("RUN MASTER ANALYSIS", type="primary"):
+        try:
+            c_name = selected_mats.get('Cathode', '')
+            c_cap = float(mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0])
+            ld = float(selected_params.get('Loading', 13.0))
+            ice = float(selected_params.get('ICE', 85.0))
+            
+            res_whkg = (c_cap * (ice/100) * 0.93 * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
+            st.session_state.last_result = {"whkg": res_whkg, "eff": c_cap*(ice/100)*0.93, "target": target_whkg, "ld": ld}
+            st.session_state.history.append({"Time": time.strftime("%H:%M"), "Wh/kg": round(res_whkg, 1)})
+            st.rerun()
+        except: st.error("Calculation Error")
 
-# --- [7. 결과 리포트 및 그래프] ---
+# --- [7. 결과 및 그래프] ---
 if st.session_state.last_result:
     res = st.session_state.last_result
-    st.markdown(f'''<div class="summary-card" style="background-color: #f0f4f8; min-height: auto;">
-        <h3 style="text-align:center; color:#1A729A;">DESIGN ANALYSIS REPORT</h3>
-        <div style="display: flex; justify-content: space-around; text-align:center;">
-            <div><h4>{res['whkg']:.1f} Wh/kg</h4><small>Expected Energy</small></div>
-            <div><h4>{res['eff']:.1f} mAh/g</h4><small>Effective Capacity</small></div>
-            <div><h4>{res['target']}</h4><small>Target Wh/kg</small></div>
-        </div>
-    </div>''', unsafe_allow_html=True)
     
-    st.subheader("Energy Density Simulation Curve")
-    
+    # 결과 요약 박스 (파란 테두리 적용)
+    with st.container(border=True):
+        st.markdown('<div id="summary-marker"></div>', unsafe_allow_html=True) # 파란 테두리 적용
+        st.markdown("<h3 style='text-align:center; color:#1A729A;'>DESIGN ANALYSIS REPORT</h3>", unsafe_allow_html=True)
+        r1, r2, r3 = st.columns(3)
+        with r1: st.metric("Expected Energy", f"{res['whkg']:.1f} Wh/kg")
+        with r2: st.metric("Effective Capacity", f"{res['eff']:.1f} mAh/g")
+        with r3: st.metric("Target", f"{res['target']} Wh/kg")
+
+    st.subheader("Energy Density Simulation")
     fig, ax = plt.subplots(figsize=(10, 3.5))
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
     ax.plot(l_range, w_range, color='#1A729A', lw=2.5)
-    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=120)
+    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=120, zorder=5)
     ax.set_xlabel('Loading (mg/cm2)'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
 
-st.markdown('<div style="text-align:center; color:#888; margin-top:50px;">© Synotech Co., Ltd | All Rights Reserved</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer-text">© Synotech Co., Ltd | All Rights Reserved</div>', unsafe_allow_html=True)
