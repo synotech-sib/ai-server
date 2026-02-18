@@ -5,8 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의] ---
-# English를 기본값으로 하기 위해 첫 번째 순서로 배치
+# --- [1. 다국어 사전 정의 (English 기본)] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -22,6 +21,8 @@ LANG_DICT = {
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "Energy Density Simulation Graph",
         "master_features": "🛠️ Master Technical Insights",
+        "admin_dash": "👨‍✈️ Admin Dashboard",
+        "user_info": "👥 User Access Records",
         "target_label": "Target Energy Density (Wh/kg)",
         "exp_energy": "Expected Energy Density",
         "eff_cap": "Effective Capacity",
@@ -38,10 +39,12 @@ LANG_DICT = {
         "mat_sel": "🧪 1. 소재 레시피",
         "proc_param": "⚙️ 2. 공정 파라미터",
         "run_btn": "🚀 5. 분석 실행",
-        "history": "🔄 설계 이력 로그 (History Log)",
+        "history": "🔄 설계 이력 로그",
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "에너지 밀도 시뮬레이션 그래프",
         "master_features": "🛠️ 마스터 진단 정보",
+        "admin_dash": "👨‍✈️ 관리자 대시보드",
+        "user_info": "👥 사용자 접속 기록",
         "target_label": "목표 에너지 밀도 (Wh/kg)",
         "exp_energy": "예상 에너지 밀도",
         "eff_cap": "실효 가역 용량",
@@ -50,80 +53,96 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: XLSX 전용] ---
+# --- [2. 데이터 로드 엔진: 엑셀 전용 & 하드코딩 제거] ---
 def load_external_data():
     files = os.listdir('.')
-    mat_df, config_df = pd.DataFrame(), pd.DataFrame()
+    mat_df = pd.DataFrame(columns=['Category', 'Name', 'Base_Capacity'])
+    config_df = pd.DataFrame(columns=['Min', 'Max', 'Default', 'Step'])
+    
+    # 서버의 엑셀 파일만 참조
     if 'material_list.xlsx' in files:
         mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
     if 'param_config.xlsx' in files:
         config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
+    
     return mat_df, config_df
 
 mat_df, config_df = load_external_data()
 
-# --- [3. 시스템 초기화 및 상태 관리] ---
+# --- [3. 시스템 상태 및 보안 설정] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
+if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
 IP_MARK = "IP by Synotech | Energy11 Production Intelligence"
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide")
 
+# CSS: 헤더/푸터 제거 및 레이아우스 스타일링
 st.markdown("""
     <style>
+    /* 기본 헤더, 푸터, 메뉴 숨기기 */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
     .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
     .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
-    .usage-badge { background-color: #1A729A; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
+    .admin-box { background-color: #fff4e6; border: 1px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바: 통합 로그인 및 언어] ---
+# --- [4. 사이드바: 로그인 및 환경설정] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
-    
-    # 언어 선택 (영어 기본)
     lang_sel = st.selectbox("🌐 Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
-    # 무료 횟수 표시
     st.divider()
     usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
-    st.markdown(f'<div style="text-align:center;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
+    st.info(usage_text)
     
-    # 통합 로그인 (Admin 자동 판별)
-    st.divider()
     st.subheader(L["login_sub"])
     u_email = st.text_input("Email", placeholder="your@email.com")
     u_pw = st.text_input("Password", type="password")
     if st.button("Login"):
+        # 관리자 로그인 체크
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
         else:
-            # 일반 가입 시나리오
-            st.info("Registration/Login successful.")
+            st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "User Logged In"})
+            st.info("User Login Successful.")
     
-    if st.button("🗑️ Clear Log"):
+    if st.button("🗑️ Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
         st.session_state.last_result = None; st.rerun()
 
-    # 하단 카피라이트
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [5. 메인 UI (수직)] ---
+# --- [5. 메인 레이아웃: 입력부] ---
 st.title(L["title"])
 st.caption(IP_MARK)
 
+# 5.1 관리자 전용 대시보드 (로그인 시 상단 노출)
+if st.session_state.is_pro:
+    with st.expander(L["admin_dash"], expanded=False):
+        st.markdown(f'<div class="admin-box"><h4>{L["user_info"]}</h4>', unsafe_allow_html=True)
+        if st.session_state.user_logs:
+            st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
+        else:
+            st.write("No user logs yet.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
 selected_mats, selected_params = {}, {}
 
-# 5.1 소재 레시피
+# 5.2 소재 레시피 (엑셀 기반 동적 생성)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -136,8 +155,10 @@ if not mat_df.empty:
                     m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
+else:
+    st.error("Error: material_list.xlsx not found.")
 
-# 5.2 공정 파라미터
+# 5.3 공정 파라미터 (엑셀 기반 동적 생성)
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -150,13 +171,14 @@ if not config_df.empty:
                     cfg = config_df.loc[p_name]
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
+else:
+    st.error("Error: param_config.xlsx not found.")
 
-# 5.3 목표 설정 (슬라이더 초기값 160)
+# 5.4 목표 설정 및 디자인 서머리
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 디자인 서머리
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -165,52 +187,60 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 마스터 진단 정보 (Admin 활성화 시)
-if st.session_state.is_pro:
-    st.markdown(f'<div class="section-box" style="background-color: #fff4e6; border-left: 5px solid #fd7e14;"><h4>{L["master_features"]}</h4>', unsafe_allow_html=True)
-    st.warning("⚠️ [Altris Guide] 수분 제어가 최우선입니다. 170°C 진공 건조를 권장합니다.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# 5.6 분석 실행 버튼
+# 5.5 분석 실행 버튼
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
-            c_name = selected_mats.get('Cathode', 'Default')
+            # 엑셀 데이터 기반 실시간 연산
+            c_name = selected_mats.get('Cathode', '')
             c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
             ld = selected_params.get('Loading', 13.0)
             ice = selected_params.get('ICE', 85.0)
+            
+            # 예측 모델 로직
             eff_cap = c_cap * (ice / 100.0) * 0.93
             whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
             
-            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
+            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld, "c_name": c_name}
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except Exception as e: st.error(f"Error: {e}")
+        except Exception as e:
+            st.error(f"Computation Error: Please check Excel values. ({e})")
 
-# --- [6. 하단 배치: 히스토리 -> 결과값 -> 그래프] ---
+# --- [6. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
+
+# 6.1 설계 이력 로그
 if st.session_state.history:
     st.divider()
     st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
 
+# 6.2 분석 결과 리포트 (히스토리 하단)
 if st.session_state.last_result:
     res = st.session_state.last_result
     st.markdown(f'''<div class="report-box">
         <h3 style="text-align:center; color:#1A729A;">{L["report_title"]}</h3>
-        <div style="display: flex; justify-content: space-around;">
+        <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
             <div class="stat-card"><h3>{res['whkg']:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
             <div class="stat-card"><h3>{res['eff_cap']:.1f} mAh/g</h3><small>{L["eff_cap"]}</small></div>
             <div class="stat-card"><h3>{res['target']}</h3><small>{L["target_label"]}</small></div>
         </div>
     </div>''', unsafe_allow_html=True)
     
+    # 6.3 시뮬레이션 그래프 (최하단)
     st.subheader(L["graph_title"])
     l_range = np.linspace(5, 30, 50)
+    # 현재 선택된 소재의 용량 기반 그래프 생성
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
-    fig, ax = plt.subplots(figsize=(10, 3.5))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=100)
-    ax.set_xlabel('Loading (mg/cm2)'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
+    
+    fig, ax = plt.subplots(figsize=(10, 3.8))
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5, label='Simulation Curve')
+    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5, label='Current Point')
+    ax.axvline(x=res['ld'], color='#fd7e14', linestyle='--', alpha=0.4)
+    ax.set_xlabel(f'{L["loading_label"]} (mg/cm2)')
+    ax.set_ylabel('Energy Density (Wh/kg)')
+    ax.legend(); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
