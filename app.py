@@ -184,4 +184,33 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
             
             st.session_state.last_res = res
             if st.session_state.is_pro:
-                if REPORTER_READY
+                if REPORTER_READY:
+                    pdf_bytes = generate_expert_report(res, st.session_state.user_info['name'], st.session_state.user_info['company'])
+                    st.download_button(T["pdf_btn"], pdf_bytes, "SynoCore_Report.pdf", use_container_width=True)
+                    st.balloons()
+            else:
+                if st.button("🚀 Upgrade to Pro for Report"): st.session_state.show_upgrade = True
+        except Exception as e:
+            st.error(f"분석 중 오류: {e}")
+    else:
+        st.error("Free trial limit reached.")
+
+# 전문가 등록 및 대시보드 (기존 로직 유지)
+if st.session_state.show_upgrade and not st.session_state.is_pro:
+    with st.form("enroll"):
+        st.subheader("🚀 Join Expert Partnership")
+        f_name = st.text_input("Name")
+        f_comp = st.text_input("Company")
+        if st.form_submit_button("Unlock Now"):
+            save_lead(f_name, f_comp, "", "")
+            st.session_state.user_info = {"name": f_name, "company": f_comp}
+            st.session_state.is_pro = True
+            st.session_state.show_upgrade = False
+            st.rerun()
+
+if st.session_state.admin_mode:
+    st.markdown("---")
+    st.header(f"🛡️ Intelligence Dashboard")
+    tab1, tab2 = st.tabs(["📈 Analytics", "📜 Logs"])
+    with tab1: st.bar_chart(get_leads()['company'].value_counts())
+    with tab2: st.dataframe(get_audit_logs(), use_container_width=True)
