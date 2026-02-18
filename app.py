@@ -5,47 +5,45 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의] ---
+# --- [1. 다국어 및 라벨 정의] ---
 LANG_DICT = {
     "Korean": {
-        "title": "SIB 설계 및 성능 분석 플랫폼",
-        "login_sub": "🔐 마스터 권한 로그인",
-        "target_set": "🎯 3. 목표 설정 (Target Setting)",
-        "design_sum": "📋 4. 디자인 서머리 (Design Summary)",
-        "mat_sel": "🧪 1. 소재 레시피 (Material Selection)",
-        "proc_param": "⚙️ 2. 공정 파라미터 (Process Params)",
-        "run_btn": "🚀 5. 분석 실행 (Run Master Analysis)",
+        "title": "SynoCore Master V1.3 | SIB 설계 플랫폼",
+        "login_sub": "🔐 마스터 로그인",
+        "pro_reg": "💎 Professional 등록",
+        "usage_label": "무료 이용 횟수",
+        "usage_limit_msg": "무료 이용 횟수(3회)를 초과했습니다. Pro 등록이 필요합니다.",
+        "target_set": "🎯 3. 목표 설정",
+        "design_sum": "📋 4. 디자인 서머리",
+        "mat_sel": "🧪 1. 소재 레시피",
+        "proc_param": "⚙️ 2. 공정 파라미터",
+        "run_btn": "🚀 5. 분석 실행",
         "history": "🔄 설계 이력 로그 (History Log)",
-        "target_label": "목표 에너지 밀도 (Wh/kg)",
-        "exp_energy": "예상 에너지 밀도",
-        "eff_cap": "실효 가역 용량",
         "report_title": "DESIGN ANALYSIS REPORT",
-        "auth_msg": "마스터 권한 승인됨",
-        "master_features": "🛠️ 마스터 진단 정보 (Master Insights)",
         "graph_title": "에너지 밀도 시뮬레이션 그래프",
-        "loading_label": "양극 로딩량"
+        "master_features": "🛠️ 마스터 진단 정보",
+        "reg_btn": "등록 신청하기"
     },
     "English": {
-        "title": "SIB Design & Performance Analysis Platform",
-        "login_sub": "🔐 Master Access Login",
+        "title": "SynoCore Master V1.3 | SIB Design Platform",
+        "login_sub": "🔐 Master Login",
+        "pro_reg": "💎 Pro Registration",
+        "usage_label": "Free Usage",
+        "usage_limit_msg": "Free limit (3/3) reached. Please register for Pro.",
         "target_set": "🎯 3. Target Setting",
         "design_sum": "📋 4. Design Summary",
         "mat_sel": "🧪 1. Material Selection",
         "proc_param": "⚙️ 2. Process Parameters",
-        "run_btn": "🚀 5. Run Master Analysis",
+        "run_btn": "🚀 5. Run Analysis",
         "history": "🔄 Design History Log",
-        "target_label": "Target Energy Density (Wh/kg)",
-        "exp_energy": "Expected Energy Density",
-        "eff_cap": "Effective Capacity",
         "report_title": "DESIGN ANALYSIS REPORT",
-        "auth_msg": "Master Authorized",
-        "master_features": "🛠️ Master Technical Insights",
         "graph_title": "Energy Density Simulation Graph",
-        "loading_label": "Cathode Loading"
+        "master_features": "🛠️ Master Technical Insights",
+        "reg_btn": "Register Now"
     }
 }
 
-# --- [2. 데이터 로드 엔진] ---
+# --- [2. 데이터 로드] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
@@ -60,42 +58,59 @@ mat_df, config_df = load_external_data()
 # --- [3. 시스템 초기화 및 상태 관리] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
+if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
 
 IP_MARK = "IP by Synotech | Energy11 Production Intelligence"
-st.set_page_config(page_title="SynoCore Master V1.2", layout="wide")
+st.set_page_config(page_title="SynoCore Master V1.3", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
     .summary-box { border: 2px solid #1A729A; padding: 20px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
-    .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; border-bottom: 1px solid #f9f9f9; padding-bottom: 2px; display: inline-block; margin-right: 15px; line-height: 1.1; }
+    .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
-    .master-insight-box { background-color: #fff4e6; border-left: 5px solid #fd7e14; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+    .usage-badge { background-color: #1A729A; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바] ---
+# --- [4. 사이드바: 로그인, 언어, Pro 등록] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("🌐 Language", ["Korean", "English"])
     L = LANG_DICT[lang_sel]
+    
+    # 무료 횟수 표시
     st.divider()
+    usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
+    st.markdown(f'<div style="text-align:center;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
+    
+    # Pro 등록 섹션
+    st.divider()
+    st.subheader(L["pro_reg"])
+    if not st.session_state.is_pro:
+        reg_email = st.text_input("Email for Registration", placeholder="your@email.com")
+        reg_company = st.text_input("Company", placeholder="Energy11")
+        if st.button(L["reg_btn"]):
+            st.info("Registration request sent to Master Admin.")
+    
+    # 마스터 로그인
+    st.divider()
+    st.subheader(L["login_sub"])
     u_email = st.text_input("ID", placeholder="company email")
     u_pw = st.text_input("Password", type="password")
     if st.button("Login"):
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
-            st.success(L["auth_msg"])
-        else: st.error("Login Error")
+            st.success("Welcome, Master.")
+    
     if st.button("🗑️ Clear Log"):
-        st.session_state.history = []
-        st.session_state.last_result = None
-        st.rerun()
+        st.session_state.history = []; st.session_state.usage_count = 0
+        st.session_state.last_result = None; st.rerun()
 
-# --- [5. 메인 레이아웃] ---
+# --- [5. 메인 UI (수직)] ---
 st.title(L["title"])
 st.caption(IP_MARK)
 
@@ -112,7 +127,7 @@ if not mat_df.empty:
                 cat = cats[i+j]
                 with cols[j]:
                     m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
-                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
+                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"v_mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 5.2 공정 파라미터
@@ -126,7 +141,7 @@ if not config_df.empty:
                 p_name = params[i+j]
                 with cols[j]:
                     cfg = config_df.loc[p_name]
-                    selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
+                    selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"v_p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 5.3 목표 설정 (슬라이더 초기값 160)
@@ -134,7 +149,7 @@ st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 디자인 서머리 (줄간격 밀착)
+# 5.4 디자인 서머리
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -145,52 +160,38 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # 5.5 마스터 진단 정보
 if st.session_state.is_pro:
-    st.markdown(f'<div class="master-insight-box"><h4>{L["master_features"]}</h4>', unsafe_allow_html=True)
-    c_name = selected_mats.get('Cathode', '')
-    if "프러시안" in c_name:
-        st.warning("⚠️ [공정 필수] 170°C~200°C 진공 건조로 잔류 수분을 100ppm 이하로 관리하십시오.")
-    st.info("💡 [설계 권장] Hard Carbon 매칭 시 N/P Ratio 1.15 이상이 안전합니다.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.info(f"💡 {L['master_features']}: Prussian White 소재는 고온 건조가 성능의 90%를 결정합니다.")
 
-# 5.6 분석 실행 버튼
+# 5.6 분석 실행 버튼 (횟수 제한 로직)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
-    try:
-        c_name = selected_mats.get('Cathode', 'Default')
-        c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
-        ld = selected_params.get('Loading', 13.0)
-        ice = selected_params.get('ICE', 85.0)
-        
-        eff_cap = c_cap * (ice / 100.0) * 0.93
-        whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
-        
-        # 세션 스테이트에 결과 저장 (이게 있어야 화면에 나타납니다)
-        res_data = {
-            "whkg": whkg_res,
-            "eff_cap": eff_cap,
-            "target": target_whkg,
-            "loading": ld,
-            "c_name": c_name
-        }
-        st.session_state.last_result = res_data
-        st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
-        st.rerun() # 데이터를 저장했으니 화면을 새로고침하여 아래쪽 결과창을 엽니다.
-    except Exception as e:
-        st.error(f"Error: {e}")
+    if not st.session_state.is_pro and st.session_state.usage_count >= 3:
+        st.error(L["usage_limit_msg"])
+    else:
+        try:
+            c_name = selected_mats.get('Cathode', 'Default')
+            c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
+            ld = selected_params.get('Loading', 13.0)
+            ice = selected_params.get('ICE', 85.0)
+            eff_cap = c_cap * (ice / 100.0) * 0.93
+            whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
+            
+            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
+            st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
+            if not st.session_state.is_pro: st.session_state.usage_count += 1
+            st.rerun()
+        except Exception as e: st.error(f"Error: {e}")
 
-# --- [6. 하단 배치부: 히스토리 -> 결과값 -> 그래프] ---
-
-# 6.1 설계 이력 로그
+# --- [6. 하단 배치: 히스토리 -> 결과값 -> 그래프] ---
 if st.session_state.history:
     st.divider()
     st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
 
-# 6.2 최종 결과 리포트 및 그래프 (메모리에 결과가 있을 때만 표시)
 if st.session_state.last_result:
     res = st.session_state.last_result
     st.markdown(f'''<div class="report-box">
         <h3 style="text-align:center; color:#1A729A;">{L["report_title"]}</h3>
-        <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
+        <div style="display: flex; justify-content: space-around;">
             <div class="stat-card"><h3>{res['whkg']:.1f} Wh/kg</h3><small>{L["exp_energy"]}</small></div>
             <div class="stat-card"><h3>{res['eff_cap']:.1f} mAh/g</h3><small>{L["eff_cap"]}</small></div>
             <div class="stat-card"><h3>{res['target']}</h3><small>{L["target_label"]}</small></div>
@@ -201,13 +202,7 @@ if st.session_state.last_result:
     st.subheader(L["graph_title"])
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
-    
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5, label='Simulation Curve')
-    ax.scatter(res['loading'], res['whkg'], color='#fd7e14', s=120, zorder=5, label='Current Point')
-    ax.axvline(x=res['loading'], color='#fd7e14', linestyle='--', alpha=0.5)
-    ax.set_xlabel(f'{L["loading_label"]} (mg/cm2)')
-    ax.set_ylabel('Energy Density (Wh/kg)')
-    ax.grid(True, linestyle=':', alpha=0.6)
-    ax.legend()
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=100)
+    ax.set_xlabel('Loading'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
