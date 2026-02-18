@@ -8,16 +8,14 @@ import os
 @st.cache_data
 def load_external_data():
     files = os.listdir('.')
-    # 1.1 소재 리스트 로딩
     if 'material_list.xlsx' in files: mat_df = pd.read_excel('material_list.xlsx')
     elif 'material_list.csv' in files: mat_df = pd.read_csv('material_list.csv')
     else:
         mat_df = pd.DataFrame({
-            'Category': ['Cathode', 'Anode', 'Electrolyte', 'Separator'],
-            'Name': ['프러시안 화이트 (PW)', '쿠라레 A', '표준 전해질', 'PE 분리막'],
-            'Base_Capacity': [162.0, 340.0, 1.0, 1.0]
+            'Category': ['Cathode', 'Anode', 'Electrolyte', 'Separator', 'Additive'],
+            'Name': ['프러시안 화이트 (PW)', '쿠라레 A', '표준 전해질', 'PE 분리막', 'VC'],
+            'Base_Capacity': [162.0, 340.0, 1.0, 1.0, 1.0]
         })
-    # 1.2 파라미터 범위 로딩
     if 'param_config.xlsx' in files: config_df = pd.read_excel('param_config.xlsx').set_index('Parameter')
     elif 'param_config.csv' in files: config_df = pd.read_csv('param_config.csv').set_index('Parameter')
     else:
@@ -29,120 +27,134 @@ def load_external_data():
 
 mat_df, config_df = load_external_data()
 
-# --- [2. 세션 및 테마 설정] ---
+# --- [2. 테마 및 세션 관리] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 IP_MARK = "IP by Synotech"
 
 st.set_page_config(page_title=f"SynoCore | {IP_MARK}", layout="wide")
 
+# 레이아웃 커스텀 CSS
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
-    .report-box {{ border: 2px solid #1A729A; padding: 30px; border-radius: 15px; background-color: #fcfcfc; margin-bottom: 30px; }}
-    .input-section {{ background-color: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #dee2e6; margin-top: 10px; }}
-    .stat-card {{ background-color: #ffffff; border-top: 4px solid #1A729A; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+    .section-container {{ 
+        border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; 
+        background-color: #f8f9fa; margin-bottom: 20px;
+    }}
+    .summary-box {{ 
+        background-color: #ffffff; border: 2px solid #1A729A; 
+        padding: 20px; border-radius: 12px; min-height: 300px;
+    }}
+    .report-box {{ 
+        background-color: #f0f4f8; border-top: 5px solid #1A729A; 
+        padding: 25px; border-radius: 15px; margin-bottom: 25px;
+    }}
+    .stat-card {{ background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
     div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div > div {{ color: #1A729A !important; font-weight: 800; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- [3. 사이드바: 로그인 전용] ---
+# --- [3. 사이드바: 로그인 전 전용] ---
 with st.sidebar:
-    st.markdown("<h1 style='color: #1A729A;'>SynoCore</h1>", unsafe_allow_html=True)
-    st.subheader("🔐 Master Login")
+    st.markdown("<h1 style='color: #1A729A; text-align: center;'>SynoCore</h1>", unsafe_allow_html=True)
+    st.divider()
+    st.subheader("🔐 Master Access")
     u_email = st.text_input("ID", placeholder="company email")
     u_pw = st.text_input("Password", type="password")
     if st.button("Login"):
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
-            st.success(f"Authorized: {u_email.split('@')[0]}")
-        else: st.error("Invalid Credentials")
+            st.success(f"Welcome, {u_email.split('@')[0]}")
+        else: st.error("Login Failed")
     st.divider()
     if st.button("🗑️ History Clear"):
         st.session_state.history = []
         st.rerun()
 
-# --- [4. 메인 판 상단: 분석 결과 리포트] ---
-st.title(f"SIB 설계 및 기술 보고서")
+# --- [4. 메인 판 레이아웃 (7:3 분할)] ---
+st.title(f"SIB 설계 분석 플랫폼")
 st.markdown(f"**{IP_MARK}** | Energy11 Production Intelligence")
 
-report_placeholder = st.empty() # 결과가 나타날 공간
+# 상단 리포트 출력 영역 (결과 발생 시 표시)
+report_placeholder = st.empty()
 
-# --- [5. 메인 판 하단: 4단 입력 시스템] ---
-st.markdown("---")
+# 입력 및 요약 판
+col_left, col_right = st.columns([7, 3])
 
-# [1단: 타겟 및 주요 소재 선택]
-st.subheader("🎯 1. Target & Main Materials")
-t_col1, t_col2, t_col3, t_col4, t_col5 = st.columns(5)
-with t_col1: target_whkg = st.number_input("목표 에너지 (Wh/kg)", value=160.0, step=1.0)
-
-# 파일의 카테고리 순서대로 배치
-cats = ['Cathode', 'Anode', 'Electrolyte', 'Separator']
-selected_mats = {}
-cols = [t_col2, t_col3, t_col4, t_col5]
-
-for i, cat in enumerate(cats):
-    with cols[i]:
-        m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
-        selected_mats[cat] = st.selectbox(f"{cat} 선택", m_list)
-
-# [2단: 추가 소재 레시피 (있을 경우)]
-# material_list에 위 4가지 외 다른 카테고리가 있다면 여기서 표시
-other_cats = [c for c in mat_df['Category'].unique() if c not in cats]
-if other_cats:
-    st.subheader("🧪 2. Additional Materials")
-    o_cols = st.columns(len(other_cats))
-    for i, cat in enumerate(other_cats):
-        with o_cols[i]:
+# --- [왼쪽 판: 상단 머트리얼 / 하단 파라미터] ---
+with col_left:
+    # 4.1 소재 레시피 (왼쪽 상단)
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
+    st.subheader("🧪 소재 레시피 (Material Selection)")
+    m_cols = st.columns(3)
+    selected_mats = {}
+    categories = mat_df['Category'].unique()
+    
+    for i, cat in enumerate(categories):
+        with m_cols[i % 3]:
             m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
-            selected_mats[cat] = st.selectbox(f"{cat} 선택", m_list)
+            selected_mats[cat] = st.selectbox(f"{cat}", m_list)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# [3단: 파라미터 설정]
-st.subheader("⚙️ 3. Process Parameters")
-p_cols = st.columns(len(config_df))
-selected_params = {}
-for i, p_name in enumerate(config_df.index):
-    with p_cols[i]:
-        cfg = config_df.loc[p_name]
-        selected_params[p_name] = st.slider(
-            f"{p_name}", 
-            float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step'])
-        )
+    # 4.2 공정 파라미터 (왼쪽 하단)
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
+    st.subheader("⚙️ 공정 파라미터 (Process Params)")
+    p_cols = st.columns(3)
+    selected_params = {}
+    for i, p_name in enumerate(config_df.index):
+        with p_cols[i % 3]:
+            cfg = config_df.loc[p_name]
+            selected_params[p_name] = st.slider(
+                f"{p_name}", 
+                float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step'])
+            )
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# [4단: 설계 요약 및 실행]
-st.subheader("📋 4. Design Summary")
-summary_box = st.container()
-with summary_box:
-    s_col1, s_col2 = st.columns([4, 1])
-    with s_col1:
-        # 가로로 요약 내용 표시
-        summary_text = " / ".join([f"**{k}**: {v}" for k, v in selected_mats.items()])
-        st.write(f"📝 **Recipe**: {summary_text}")
-        param_text = " | ".join([f"{k}: {v}" for k, v in selected_params.items()])
-        st.write(f"⚙️ **Params**: {param_text}")
-    with s_col2:
-        run_btn = st.button("🚀 분석 실행", use_container_width=True)
+# --- [오른쪽 판: 상단 목표 / 하단 디자인 서머리] ---
+with col_right:
+    # 4.3 목표 에너지 밀도 (오른쪽 상단)
+    st.markdown('<div class="section-container" style="background-color: #eef6fb;">', unsafe_allow_html=True)
+    st.subheader("🎯 목표 설정")
+    target_whkg = st.number_input("Target Energy Density (Wh/kg)", value=160.0, step=1.0)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- [6. 연산 및 리포트 업데이트 로직] ---
+    # 4.4 디자인 서머리 (오른쪽 하단)
+    st.markdown('<div class="summary-box">', unsafe_allow_html=True)
+    st.subheader("📋 Design Summary")
+    st.write("---")
+    for cat, name in selected_mats.items():
+        st.write(f"**{cat}**: {name}")
+    st.write("---")
+    for p_name, val in selected_params.items():
+        st.write(f"**{p_name}**: {val}")
+    
+    st.write("")
+    run_btn = st.button("🚀 분석 실행", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- [5. 연산 로직 및 결과 리포트] ---
 if run_btn:
-    # 계산 로직
-    c_name = selected_mats.get('Cathode')
+    # 예시 연산 로직 (Selected Mats & Params 활용)
+    c_name = selected_mats.get('Cathode', 'Default')
     c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
     loading = selected_params.get('Loading', 13.0)
     ice = selected_params.get('ICE', 85.0)
     
-    eff_cap = c_cap * (ice / 100.0) * 0.9
-    whkg = (eff_cap * 3.1 * 0.38 * (loading / (loading + 5.0))) * 10
+    # 알트리스 하이이브리드 모델 예측치
+    eff_cap = c_cap * (ice / 100.0) * 0.92 
+    whkg = (eff_cap * 3.1 * 0.38 * (loading / (loading + 4.9))) * 10
     
     # 히스토리 저장
-    log_entry = {"Time": time.strftime("%H:%M:%S"), "Wh/kg": round(whkg, 1), "Target": target_whkg, "Cathode": c_name}
-    st.session_state.history.append(log_entry)
+    st.session_state.history.append({
+        "Date": time.strftime("%Y-%m-%d %H:%M"),
+        "Recipe": f"{c_name}", "Wh/kg": round(whkg, 1), "Target": target_whkg
+    })
 
     # 상단 리포트 업데이트
     with report_placeholder.container():
         st.markdown('<div class="report-box">', unsafe_allow_html=True)
         st.markdown(f'<h3 style="text-align:center; color:#1A729A;">DESIGN ANALYSIS REPORT</h3>', unsafe_allow_html=True)
-        
         k1, k2, k3 = st.columns(3)
         diff = whkg - target_whkg
         color = "#28a745" if diff >= 0 else "#dc3545"
@@ -150,19 +162,10 @@ if run_btn:
         k1.markdown(f'<div class="stat-card"><div style="font-size:1.6rem; font-weight:bold; color:{color};">{whkg:.1f} Wh/kg</div><div>예상 에너지 밀도</div></div>', unsafe_allow_html=True)
         k2.markdown(f'<div class="stat-card"><div style="font-size:1.6rem; font-weight:bold;">{eff_cap:.1f} mAh/g</div><div>실효 가역 용량</div></div>', unsafe_allow_html=True)
         k3.markdown(f'<div class="stat-card"><div style="font-size:1.6rem; font-weight:bold;">{target_whkg}</div><div>목표 에너지 밀도</div></div>', unsafe_allow_html=True)
-        
-        st.divider()
-        if whkg < target_whkg:
-            st.error(f"⚠️ 목표 미달: 로딩량을 {loading * (target_whkg/whkg):.1f}mg/cm² 이상으로 상향하거나 고용량 소재를 선정하십시오.")
-        else:
-            st.success("✅ 설계 만족: 현재 레시피로 목표 달성이 가능합니다.")
         st.markdown('</div>', unsafe_allow_html=True)
-else:
-    with report_placeholder.container():
-        st.info("하단에서 설계를 완료한 후 '분석 실행' 버튼을 눌러주세요.")
 
-# --- [7. 최하단: 히스토리 로그] ---
+# --- [6. 히스토리 로그] ---
 if st.session_state.history:
     st.divider()
-    st.subheader("🔄 설계 이력 로그 (History Log)")
+    st.subheader("🔄 설계 이력 로그 (History)")
     st.dataframe(pd.DataFrame(st.session_state.history).iloc[::-1], use_container_width=True)
