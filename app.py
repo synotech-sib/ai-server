@@ -5,7 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의: English 기본, 넘버링 유지] ---
+# --- [1. 다국어 사전 정의: English 기본, 이모티콘 삭제] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -53,42 +53,45 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: 엑셀 전용] ---
+# --- [2. 데이터 로드 엔진: 엑셀 파일 강제 참조] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
-    try:
-        if 'material_list.xlsx' in files:
-            mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
-        if 'param_config.xlsx' in files:
-            config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
-    except Exception as e:
-        st.error(f"Excel Load Error: {e}")
+    # 코드 내 하드코딩 없이 엑셀 파일만 참조
+    if 'material_list.xlsx' in files:
+        mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
+    if 'param_config.xlsx' in files:
+        config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
     return mat_df, config_df
 
 mat_df, config_df = load_external_data()
 
-# --- [3. 시스템 상태 관리] ---
+# --- [3. 시스템 초기화 및 상태 관리] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
 if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
-# 초기 열 때 사이드바를 무조건 연 상태(expanded)로 시작
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# CSS: 사이드바 버튼은 살리고 불필요한 요소만 제거
+# CSS: 헤더/푸터 제거 및 사이드바 버튼 위치 조정
 st.markdown("""
     <style>
-    /* 상단 툴바와 메뉴 숨기기 (사이드바 버튼은 유지) */
-    [data-testid="stToolbar"] {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* 헤더 배경을 투명하게 하여 버튼만 남김 */
-    [data-testid="stHeader"] {
-        background: rgba(0,0,0,0);
-        color: #1A729A;
+    /* 기본 헤더와 푸터 숨기기 */
+    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
+    footer { visibility: hidden; }
+    #MainMenu { visibility: hidden; }
+
+    /* 사이드바 접기/펴기 버튼 위치를 살짝 아래로(40px) 조정하여 노출 유지 */
+    [data-testid="stSidebarCollapsedControl"] {
+        top: 40px;
+        left: 20px;
+        z-index: 10000;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     .stApp { background-color: #ffffff; }
@@ -98,7 +101,7 @@ st.markdown("""
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
     
-    /* 로고 컬러 버튼 커스텀 */
+    /* 분석 실행 버튼: 로고 칼라 (#1A729A) 적용 */
     div.stButton > button[kind="primary"] {
         background-color: #1A729A !important;
         color: white !important;
@@ -108,10 +111,11 @@ st.markdown("""
         font-size: 1.1rem;
     }
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
+    .admin-box { background-color: #fff4e6; border: 1px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바 구성] ---
+# --- [4. 사이드바: 통합 로그인 및 언어] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("Language", ["English", "Korean"])
@@ -128,8 +132,8 @@ with st.sidebar:
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
         else:
-            st.session_state.user_logs.append({"Time": time.strftime("%H:%M"), "User": u_email, "Status": "Logged In"})
-            st.info("User access recorded.")
+            st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "Logged In"})
+            st.info("User session recorded.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
@@ -137,16 +141,18 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [5. 메인 UI] ---
+# --- [5. 메인 레이아웃: 입력부] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-# 5.1 관리자 대시보드
+# 5.1 관리자 대시보드 (Admin 전용)
 if st.session_state.is_pro:
     with st.expander(L["admin_dash"], expanded=False):
+        st.markdown(f'<div class="admin-box"><h4>{L["user_info"]}</h4>', unsafe_allow_html=True)
         if st.session_state.user_logs:
             st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
-        else: st.write("No user records available.")
+        else: st.write("No user logs found.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 selected_mats, selected_params = {}, {}
 
@@ -192,12 +198,13 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.6 분석 실행 버튼 (5번)
+# 5.6 분석 실행 버튼 (5번, 로고 컬러)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
+            # 엑셀 기반 실시간 연산
             c_name = selected_mats.get('Cathode', 'Default')
             c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
             ld = selected_params.get('Loading', 13.0)
@@ -206,11 +213,11 @@ if st.button(L["run_btn"], use_container_width=True, type="primary"):
             eff_cap = c_cap * (ice / 100.0) * 0.93
             whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
             
-            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld, "c_name": c_name}
+            st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except Exception as e: st.error(f"Computation Error: {e}")
+        except Exception as e: st.error(f"Excel Data Error: {e}")
 
 # --- [6. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
 if st.session_state.history:
