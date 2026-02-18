@@ -25,55 +25,52 @@ st.set_page_config(
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# --- [2. 디자인 테마 및 고스트 슬라이더 CSS (최종 고도화)] ---
+# --- [2. 디자인 테마 및 슬라이더 무결점 CSS] ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
     
-    /* 메인 타이틀: 로고(2.2rem)보다 작은 1.1rem, 검정색 */
+    /* 메인 타이틀: 1.1rem, 검정색 */
     .main h1 {{ 
         color: #000000 !important; font-weight: 700 !important; font-size: 1.1rem !important; 
         border-bottom: 2px solid #1A729A; padding-bottom: 5px; margin-bottom: 30px;
     }}
     
-    /* [슬라이더 핵심 교정] */
-    /* 1. 기본 트랙 및 활성화 바 색상 */
+    /* [슬라이더 디자인 끝판왕] */
+    /* 1. 슬라이더 바 및 핸들 */
     div[data-testid="stSlider"] div[data-baseweb="slider"] > div {{ background-color: #e9ecef !important; }}
-    div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }}
     div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }}
+    div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }}
 
-    /* 2. 상단 현재 수치: 박스 제거 및 시노텍 블루 적용 */
-    div[data-baseweb="slider"] div[role="slider"] + div {{
+    /* 2. 상단 현재 수치: 박스 배경, 그림자, 테두리 완벽 제거 및 시노텍 블루 적용 */
+    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div,
+    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div > div {{
         background-color: transparent !important;
+        background: transparent !important;
         box-shadow: none !important;
         border: none !important;
-    }}
-    div[data-baseweb="slider"] div[role="slider"] + div > div {{
         color: #1A729A !important;
         font-weight: 800 !important;
         font-size: 1.1rem !important;
     }}
 
-    /* 3. 하단 최소/최대 수치: 평소에는 숨김, 호버 시 검정색으로 표시 (박스 없음) */
-    div[data-testid="stSlider"] div[data-baseweb="typography"] {{
+    /* 3. 하단 최소/최대 수치: 평소 투명 -> 호버 시 검정색 (박스 없음) */
+    div[data-testid="stSlider"] [data-baseweb="typography"] {{
+        background-color: transparent !important;
+        background: transparent !important;
         color: black !important;
         font-weight: 500 !important;
-        background-color: transparent !important;
-        opacity: 0; /* 평소에는 숨김 */
+        opacity: 0;
         transition: opacity 0.3s ease;
     }}
-    div[data-testid="stSlider"]:hover div[data-baseweb="typography"] {{
-        opacity: 1; /* 마우스 올리면 나타남 */
+    div[data-testid="stSlider"]:hover [data-baseweb="typography"] {{
+        opacity: 1;
     }}
     
-    /* 사이드바 스타일 및 메뉴 버튼 가시성 유지 */
+    /* 사이드바 스타일 */
     [data-testid="stSidebar"] {{ background-color: #f1f6f9; border-right: 2px solid #1A729A; }}
     .stSidebarCollapseButton {{ color: #1A729A !important; }}
     
-    /* 하단 크레딧 */
-    .streamlit-expanderHeader p {{ font-size: 0.8rem !important; color: #1A729A !important; }}
-    .streamlit-expanderContent {{ font-size: 0.7rem !important; color: #555555; }}
-
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     </style>
@@ -82,7 +79,7 @@ st.markdown(f"""
 if 'initialized' not in st.session_state:
     try:
         init_db()
-        log_action("System", "SynoCore V1.2.15 Ghost Slider Engine Online")
+        log_action("System", "SynoCore V1.2.16 Slider Fix Applied")
         st.session_state.initialized = True
     except: pass
 
@@ -138,7 +135,7 @@ with st.sidebar:
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
-# --- [5. 메인 화면: 고스트 슬라이더 인터페이스] ---
+# --- [5. 메인 화면: 슬라이더 인터페이스] ---
 st.title(T["title"])
 st.markdown("---")
 
@@ -155,7 +152,7 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
         
         try:
             res = calculate_battery_specs(loading, capacity, area, np_ratio)
-            log_action("User", f"Analysis Run: {res['specific_energy']} Wh/kg")
+            log_action("User", f"Run: {res['specific_energy']} Wh/kg")
             
             st.subheader(T["res_h"])
             m_c1, m_c2, m_c3, m_c4 = st.columns(4)
