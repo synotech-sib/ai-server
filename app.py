@@ -5,39 +5,23 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 시스템 초기 설정: 최상단 배치] ---
-# 사이드바를 무조건 열린 상태(expanded)로 시작하도록 강제 설정
+# --- [1. 시스템 초기 설정] ---
+# 사이드바를 무조건 열린 상태(expanded)로 시작
 st.set_page_config(
     page_title="SynoCore Master V1.3",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- [2. UI 제어 CSS: 헤더 박멸 및 사이드바 버튼 고정] ---
+# --- [2. UI 제어 CSS: 헤더 복원 및 하이라이트 설정] ---
 st.markdown("""
     <style>
-    /* 1. 상단 툴바(Share, GitHub 등)와 푸터 완전 제거 */
-    [data-testid="stHeader"] { background: rgba(0,0,0,0) !important; height: 0px !important; }
-    [data-testid="stToolbar"], footer { display: none !important; }
+    /* 헤더 가림 설정 삭제 - 기본 버튼 노출 */
     
-    /* 2. 사이드바 내부 Streamlit 기본 메뉴 제거 */
+    /* 1. 사이드바 내부 Streamlit 기본 메뉴 제거 */
     [data-testid="stSidebarNav"] { display: none !important; }
 
-    /* 3. 사이드바 제어 버튼(>) 강제 노출 및 위치 고정 (가장 중요) */
-    button[kind="headerNoPadding"] {
-        visibility: visible !important;
-        display: flex !important;
-        position: fixed !important;
-        top: 15px !important;
-        left: 15px !important;
-        z-index: 999999 !important;
-        background-color: #f8f9fa !important;
-        border: 1px solid #1A729A !important;
-        border-radius: 5px !important;
-        color: #1A729A !important;
-    }
-
-    /* 4. 무료 횟수 로고 컬러 하이라이트 (#1A729A) */
+    /* 2. 무료 횟수 로고 컬러 하이라이트 (#1A729A) */
     .usage-badge { 
         background-color: #1A729A; 
         color: white; 
@@ -48,8 +32,14 @@ st.markdown("""
         display: inline-block;
     }
     
-    /* 5. 디자인 서머리 간격 (10% 축소 고정) */
-    .summary-box { border: 2px solid #1A729A; padding: 18px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
+    /* 3. 디자인 서머리 줄간격 (10% 축소 고정) */
+    .summary-box { 
+        border: 2px solid #1A729A; 
+        padding: 18px; 
+        border-radius: 12px; 
+        background-color: #ffffff; 
+        margin-bottom: 20px; 
+    }
     .summary-item { 
         font-size: 0.9rem; 
         margin-bottom: 3px !important; 
@@ -57,7 +47,7 @@ st.markdown("""
         line-height: 1.4 !important; 
     }
     
-    /* 6. 메인 버튼 스타일 */
+    /* 4. 메인 분석 버튼 스타일 (시노텍 블루) */
     div.stButton > button[kind="primary"] {
         background-color: #1A729A !important;
         color: white !important;
@@ -116,13 +106,14 @@ LANG_DICT = {
     }
 }
 
-# --- [4. 데이터 로드 엔진] ---
+# --- [4. 데이터 로드 엔진: XLSX 강제 참조] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
     try:
         if 'material_list.xlsx' in files:
             mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
+            # 숫자 데이터 형변환 강제 적용
             mat_df['Base_Capacity'] = pd.to_numeric(mat_df['Base_Capacity'], errors='coerce')
         if 'param_config.xlsx' in files:
             config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
@@ -132,7 +123,7 @@ def load_external_data():
 
 mat_df, config_df = load_external_data()
 
-# --- [5. 상태 관리] ---
+# --- [5. 상태 관리 초기화] ---
 if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
@@ -156,7 +147,6 @@ with st.sidebar:
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
-        else: st.info("Logged in.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
@@ -164,14 +154,13 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [7. 메인 패널] ---
+# --- [7. 메인 패널 구성] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-# 1~5 수직 배치 및 엑셀 데이터 동적 바인딩
 selected_mats, selected_params = {}, {}
 
-# 1. 소재 선택
+# 1. 소재 레시피 (엑셀 기반)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -185,7 +174,7 @@ if not mat_df.empty:
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 2. 공정 파라미터
+# 2. 공정 파라미터 (엑셀 기반)
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -204,7 +193,7 @@ st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. 디자인 서머리 (2분할)
+# 4. 디자인 서머리 (좌우 2분할)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 col_sum1, col_sum2 = st.columns(2)
 with col_sum1:
@@ -233,9 +222,9 @@ if st.button(L["run_btn"], use_container_width=True, type="primary"):
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except: st.error("Calculation Error.")
+        except: st.error("Calculation Error: Check Excel Data Types.")
 
-# --- [8. 하단 결과부] ---
+# --- [8. 하단 결과 리포트 및 그래프] ---
 if st.session_state.history:
     st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
