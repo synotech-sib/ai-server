@@ -17,7 +17,6 @@ except Exception as e:
 
 # --- [1. 시스템 초기화 및 사이드바 상태 제어] ---
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
-# 초기 상태는 열림(expanded)으로 설정하여 브랜드 노출
 if 'sidebar_state' not in st.session_state: st.session_state.sidebar_state = "expanded"
 
 st.set_page_config(
@@ -26,7 +25,7 @@ st.set_page_config(
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# --- [2. 디자인 테마 및 슬라이더 숫자 스타일링 CSS] ---
+# --- [2. 디자인 테마 및 슬라이더 숫자 스타일링 CSS (최종 교정)] ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
@@ -37,30 +36,37 @@ st.markdown(f"""
         border-bottom: 2px solid #1A729A; padding-bottom: 5px; margin-bottom: 30px;
     }}
     
-    /* [수정] 슬라이더 트랙 및 핸들 색상 (기존 유지) */
-    div[data-testid="stSlider"] div[data-baseweb="slider"] > div:first-child {{ background-color: #e9ecef !important; }} /* 트랙 배경 */
-    div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }} /* 핸들 */
-    div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }} /* 활성화 바 */
+    /* 슬라이더 트랙 및 핸들 기본 색상 */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div {{ background-color: #e9ecef !important; }}
+    div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }}
+    div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }}
 
-    /* [새로 추가] 슬라이더 숫자 박스 스타일링 제거 및 글자색 변경 */
-    /* 1. 숫자 박스 배경 투명화 및 그림자 제거 */
-    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div {{
-        background-color: transparent !important; /* 박스 배경색 제거 */
-        box-shadow: none !important; /* 박스 그림자 제거 */
-        border: none !important; /* 테두리 제거 */
+    /* [재수정] 슬라이더 숫자 박스 투명화 및 글자색 강제 적용 */
+    /* 1. 숫자가 담긴 박스 배경과 그림자 제거 */
+    div[data-baseweb="slider"] div[role="slider"] + div {{
+        background-color: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
     }}
-    /* 2. 숫자 텍스트를 시노텍 블루로 변경하고 강조 */
-    div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div * {{
-        color: #1A729A !important; /* 글자색 로고 컬러 적용 */
-        font-weight: 800 !important; /* 배경이 없으므로 더 굵게 강조 */
-        font-family: 'Arial', sans-serif !important; /* 깔끔한 폰트 강제 적용 */
+    
+    /* 2. 숫자 텍스트 자체를 시노텍 블루로 강제 적용 및 굵기 조절 */
+    div[data-baseweb="slider"] div[role="slider"] + div > div {{
+        color: #1A729A !important;
+        font-weight: 800 !important;
+        font-size: 1.1rem !important;
+    }}
+    
+    /* 3. 슬라이더 양 끝의 최소/최대 숫자 색상도 시노텍 블루로 통일 */
+    div[data-testid="stSlider"] div[data-baseweb="typography"] {{
+        color: #1A729A !important;
+        font-weight: 600 !important;
     }}
     
     /* 사이드바 스타일 및 메뉴 버튼 가시성 유지 */
     [data-testid="stSidebar"] {{ background-color: #f1f6f9; border-right: 2px solid #1A729A; }}
     .stSidebarCollapseButton {{ color: #1A729A !important; }}
     
-    /* 하단 크레딧 폰트 설정 */
+    /* 하단 크레딧 */
     .streamlit-expanderHeader p {{ font-size: 0.8rem !important; color: #1A729A !important; }}
     .streamlit-expanderContent {{ font-size: 0.7rem !important; color: #555555; }}
 
@@ -72,7 +78,7 @@ st.markdown(f"""
 if 'initialized' not in st.session_state:
     try:
         init_db()
-        log_action("System", "SynoCore V1.2.13 Slider Number Style Applied")
+        log_action("System", "SynoCore V1.2.14 UI Final Polish")
         st.session_state.initialized = True
     except: pass
 
@@ -111,17 +117,16 @@ with st.sidebar:
     u_id = st.text_input("Admin ID", key="admin_id")
     u_pw = st.text_input("Password", type="password", key="admin_pw")
     
-    # 로그인 시 사이드바 자동 닫기 로직 (버튼은 유지됨)
     if verify_admin_access(u_id, u_pw):
         if not st.session_state.admin_mode:
             st.session_state.admin_mode = True
-            st.session_state.sidebar_state = "collapsed" # 로그인 성공 시 닫기
+            st.session_state.sidebar_state = "collapsed"
             st.rerun()
         st.success("✅ MASTER AUTHORIZED")
     else:
         if st.session_state.admin_mode:
             st.session_state.admin_mode = False
-            st.session_state.sidebar_state = "expanded" # 로그아웃 시 열기
+            st.session_state.sidebar_state = "expanded"
             st.rerun()
 
     st.divider()
@@ -135,7 +140,7 @@ st.markdown("---")
 
 with st.container():
     c1, c2, c3, c4 = st.columns(4)
-    # 슬라이더 숫자 박스 디자인 적용됨
+    # 슬라이더 숫자 디자인이 여기에서 CSS를 통해 제어됩니다.
     loading = c1.slider("Loading (mg/cm²)", 5.0, 35.0, 12.0, step=0.1)
     capacity = c2.slider("Cap. (mAh/g)", 100.0, 250.0, 140.0, step=1.0)
     area = c3.slider("Area (cm²)", 1.0, 50.0, 10.0, step=0.5)
@@ -195,7 +200,7 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
     else:
         st.error("Free trial limit reached.")
 
-# 전문가 등록 및 대시보드 (기존 로직 유지)
+# 전문가 등록 및 대시보드
 if st.session_state.show_upgrade and not st.session_state.is_pro:
     with st.form("enroll"):
         st.subheader("🚀 Join Expert Partnership")
@@ -212,5 +217,7 @@ if st.session_state.admin_mode:
     st.markdown("---")
     st.header(f"🛡️ Intelligence Dashboard")
     tab1, tab2 = st.tabs(["📈 Analytics", "📜 Logs"])
-    with tab1: st.bar_chart(get_leads()['company'].value_counts())
+    with tab1: 
+        leads = get_leads()
+        if not leads.empty: st.bar_chart(leads['company'].value_counts())
     with tab2: st.dataframe(get_audit_logs(), use_container_width=True)
