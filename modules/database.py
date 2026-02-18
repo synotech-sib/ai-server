@@ -1,4 +1,4 @@
-# modules/database.py
+# modules/database.py (업데이트된 버전)
 import sqlite3
 import pandas as pd
 from datetime import datetime
@@ -17,7 +17,6 @@ def init_db():
     conn.commit()
     conn.close()
     
-    # 감사 로그 테이블 생성
     conn_log = sqlite3.connect(LOG_PATH)
     cl = conn_log.cursor()
     cl.execute('''CREATE TABLE IF NOT EXISTS audit_logs 
@@ -33,4 +32,23 @@ def log_action(user, action):
     conn.commit()
     conn.close()
 
-# (save_lead, get_leads 함수는 기존과 동일하게 유지하되 DB_PATH 사용)
+def save_lead(name, company, mobile, email):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO leads (name, company, mobile, email, reg_date) VALUES (?, ?, ?, ?, ?)",
+              (name, company, mobile, email, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    conn.commit()
+    conn.close()
+
+def get_leads():
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query("SELECT * FROM leads ORDER BY reg_date DESC", conn)
+    conn.close()
+    return df
+
+# [Step 3 추가] 감사 로그 불러오기 함수
+def get_audit_logs():
+    conn = sqlite3.connect(LOG_PATH)
+    df = pd.read_sql_query("SELECT * FROM audit_logs ORDER BY timestamp DESC", conn)
+    conn.close()
+    return df
