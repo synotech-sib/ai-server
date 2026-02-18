@@ -2,14 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 
 # [안전 장치] 모듈 임포트
 try:
     from config.security_cfg import SECURITY_MODE, verify_admin_access
     from modules.engine import calculate_battery_specs
     from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
-    from modules.reporter import generate_expert_report
     REPORTER_READY = True
 except Exception as e:
     st.error(f"⚠️ 시스템 구성 요소 로드 중 오류 발생: {e}")
@@ -18,210 +16,131 @@ except Exception as e:
 # --- [1. 시스템 초기화 및 상태 관리] ---
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
 if 'sidebar_state' not in st.session_state: st.session_state.sidebar_state = "expanded"
-if 'history' not in st.session_state: st.session_state.history = [] # Step 11: 히스토리 저장소
+if 'history' not in st.session_state: st.session_state.history = []
 
 st.set_page_config(
-    page_title="SynoCore V1.2 | SynoTech Strategic Platform", 
+    page_title="SynoCore V1.2 | Energy11 Strategic Edition", 
     layout="wide",
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# --- [2. 디자인 테마 및 고도화된 슬라이더 CSS] ---
+# --- [2. 에너지11 테마 및 UI 스타일링] ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
-    
-    /* 메인 타이틀: 로고(2.2rem)보다 작은 1.1rem, 검정색 */
     .main h1 {{ 
         color: #000000 !important; font-weight: 700 !important; font-size: 1.1rem !important; 
         border-bottom: 2px solid #1A729A; padding-bottom: 5px; margin-bottom: 30px;
     }}
-    
     h2, h3 {{ color: #1A729A !important; font-weight: 600 !important; }}
     
-    /* [슬라이더 디자인 최적화] */
-    /* 1. 기본 바 및 핸들 */
-    div[data-testid="stSlider"] div[data-baseweb="slider"] > div {{ background-color: #e9ecef !important; }}
-    div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }}
-    div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }}
-
-    /* 2. 상단 현재 수치: 박스 제거 및 시노텍 블루 플로팅 텍스트 */
+    /* 슬라이더 박스 제거 및 시노텍 블루 숫자 스타일 */
     div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div {{
-        background-color: transparent !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        border: none !important;
-        color: #1A729A !important;
-        font-weight: 800 !important;
-        font-size: 1.1rem !important;
+        background-color: transparent !important; box-shadow: none !important; border: none !important;
     }}
     div[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] + div > div {{
-        color: #1A729A !important;
-    }}
-
-    /* 3. 하단 최소/최대 수치: 평소 투명 -> 호버 시 검정색 표시 */
-    div[data-testid="stSlider"] [data-baseweb="typography"] {{
-        color: black !important;
-        font-weight: 500 !important;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }}
-    div[data-testid="stSlider"]:hover [data-baseweb="typography"] {{
-        opacity: 1;
+        color: #1A729A !important; font-weight: 800 !important; font-size: 1.1rem !important;
     }}
     
-    /* 사이드바 스타일 및 메뉴 버튼 유지 */
+    /* 하단 최소/최대 수치 호버 효과 */
+    div[data-testid="stSlider"] [data-baseweb="typography"] {{ color: black !important; opacity: 0; transition: opacity 0.3s; }}
+    div[data-testid="stSlider"]:hover [data-baseweb="typography"] {{ opacity: 1; }}
+
     [data-testid="stSidebar"] {{ background-color: #f1f6f9; border-right: 2px solid #1A729A; }}
-    .stSidebarCollapseButton {{ color: #1A729A !important; }}
-    
-    /* 버튼 스타일 */
-    .stButton>button {{
-        background-color: #1A729A; color: white; border-radius: 6px; border: none; font-weight: bold;
-    }}
-
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
+    .stButton>button {{ background-color: #1A729A; color: white; border-radius: 6px; font-weight: bold; width: 100%; }}
     </style>
     """, unsafe_allow_html=True)
 
-if 'initialized' not in st.session_state:
-    try:
-        init_db()
-        log_action("System", "SynoCore V1.2.11 Integrated Master Online")
-        st.session_state.initialized = True
-    except: pass
+# --- [3. 데이터 시트 기반 계산 보정 로직] ---
+def get_adjusted_capacity(base_cap, v_window, c_rate):
+    # 전압 구간별 용량 효율 (미팅자료 Page 4 참조)
+    v_map = {"4.2V-2.0V": 1.0, "4.0V-2.0V": 0.92, "3.8V-2.0V": 0.85}
+    # C-rate별 용량 유지율 (미팅자료 Page 7 참조)
+    c_retention = 1.0 if c_rate <= 0.1 else max(0.6, 1.0 - (c_rate * 0.08))
+    return base_cap * v_map.get(v_window, 1.0) * c_retention
 
-# --- [3. 다국어 설정] ---
-LANG_DICT = {
-    "English": {
-        "title": "SynoCore V1.2: Strategic SIB Intelligence",
-        "btn_run": "🚀 EXECUTE STRATEGIC ANALYSIS",
-        "res_h": "📊 Design Performance Metrics",
-        "pdf_btn": "📥 Download Expert Intelligence Report (PDF)",
-        "chart_h": "📈 Design Sensitivity Analysis",
-        "hist_h": "🔄 Design History Comparison"
-    },
-    "한국어": {
-        "title": "SynoCore V1.2: 전략적 SIB 설계 인텔리전스",
-        "btn_run": "🚀 전략적 분석 실행",
-        "res_h": "📊 설계 성능 핵심 지표",
-        "pdf_btn": "📥 전문가용 인텔리전스 리포트 다운로드 (PDF)",
-        "chart_h": "📈 설계 민감도 분석",
-        "hist_h": "🔄 설계 이력 비교 분석"
-    }
-}
-
-# --- [4. 사이드바 로직: 로고 및 로그인] ---
+# --- [4. 사이드바: 에너지11 브랜드 로고 및 로그인] ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align: center; color: #1A729A; font-weight: 800; font-size: 2.2rem; border-bottom: none;'>SynoCore</h1>", unsafe_allow_html=True)
-    
-    selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
-    T = LANG_DICT[selected_lang]
+    st.caption("Energy11 R&D Strategic Platform")
     
     st.divider()
-    u_id = st.text_input("Admin ID", key="admin_id")
-    u_pw = st.text_input("Password", type="password", key="admin_pw")
-    
-    # 관리자 로그인 시 사이드바 자동 닫힘 제어
+    u_id = st.text_input("Admin ID")
+    u_pw = st.text_input("Password", type="password")
     if verify_admin_access(u_id, u_pw):
-        if not st.session_state.admin_mode:
-            st.session_state.admin_mode = True
-            st.session_state.sidebar_state = "collapsed"
-            st.rerun()
-        st.success("✅ MASTER AUTHORIZED")
-    else:
-        if st.session_state.admin_mode:
-            st.session_state.admin_mode = False
-            st.session_state.sidebar_state = "expanded"
-            st.rerun()
-
+        st.session_state.admin_mode = True
+        st.success("✅ R&D MASTER AUTHORIZED")
+    
     st.divider()
     with st.expander("Developer Credits"):
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
-# --- [5. 메인 화면: 설계 입력 인터페이스] ---
-st.title(T["title"])
+# --- [5. 메인 화면: 에너지11 테스트 파라미터 입력] ---
+st.title("SynoCore V1.2: 전략적 SIB 설계 인텔리전스 (에너지11 전용)")
 st.markdown("---")
 
-with st.container():
-    c1, c2, c3, c4 = st.columns(4)
-    loading = c1.slider("Loading (mg/cm²)", 5.0, 35.0, 12.0, step=0.1)
-    capacity = c2.slider("Cap. (mAh/g)", 100.0, 250.0, 140.0, step=1.0)
-    area = c3.slider("Area (cm²)", 1.0, 50.0, 10.0, step=0.5)
-    np_ratio = c4.slider("N/P Ratio", 0.8, 1.5, 1.1, step=0.01)
+# 입력 섹션 1: 물리적 설계
+st.subheader("🛠️ 전극 물리 설계 (Electrode Design)")
+in_c1, in_c2, in_c3, in_c4 = st.columns(4)
+loading = in_c1.slider("Loading (mg/cm²)", 3.0, 30.0, 12.0, step=0.1, help="양극 활물질 로딩량")
+density = in_c2.slider("Electrode Density (g/cc)", 1.0, 4.0, 2.5, step=0.1, help="압연 후 전극 합제 밀도")
+area = in_c3.slider("Electrode Area (cm²)", 1.0, 50.0, 10.0, step=0.5)
+np_ratio = in_c4.slider("N/P Ratio", 0.9, 1.5, 1.1, step=0.01)
 
-if st.button(T["btn_run"], type="primary", use_container_width=True):
+# 입력 섹션 2: 테스트 조건 (미팅 자료 반영)
+st.subheader("🧪 테스트 및 소재 변수 (Test Conditions)")
+in_c5, in_c6, in_c7 = st.columns(3)
+v_window = in_c5.selectbox("Voltage Window (V)", ["4.2V-2.0V", "4.0V-2.0V", "3.8V-2.0V"], index=1)
+c_rate = in_c6.slider("Discharge Rate (C-rate)", 0.1, 5.0, 0.2, step=0.1)
+base_capacity = in_c7.number_input("Base Cap. (mAh/g)", value=140.0)
+
+if st.button("🚀 전략적 분석 및 성능 시뮬레이션 실행"):
     try:
-        # 5.1. 분석 실행
-        res = calculate_battery_specs(loading, capacity, area, np_ratio)
-        log_action("User", f"Run: {res['specific_energy']} Wh/kg")
+        # 보정된 용량 계산
+        adjusted_cap = get_adjusted_capacity(base_capacity, v_window, c_rate)
+        res = calculate_battery_specs(loading, adjusted_cap, area, np_ratio)
         
-        # [Step 11] 히스토리 데이터 누적
-        history_entry = {
-            "Time": time.strftime("%H:%M:%S"),
-            "Loading": loading,
-            "N/P Ratio": np_ratio,
-            "Energy Density (Wh/kg)": res['specific_energy'],
-            "Areal Cap (mAh/cm²)": res['areal_capacity']
-        }
-        st.session_state.history.append(history_entry)
+        # 추가 지표 계산
+        thickness = (loading / 10) / density * 1000 # 전극 두께 (um)
         
-        # 5.2. 지표 표시
-        st.subheader(T["res_h"])
+        # --- 결과 출력 ---
+        st.subheader("📊 설계 성능 핵심 지표 (Performance Metrics)")
         m_c1, m_c2, m_c3, m_c4 = st.columns(4)
         m_c1.metric("Areal Capacity", f"{res['areal_capacity']} mAh/cm²")
         m_c2.metric("Specific Energy", f"{res['specific_energy']} Wh/kg")
-        m_c3.metric("Total Capacity", f"{res['total_capacity']} mAh")
+        m_c3.metric("Cathode Thick.", f"{thickness:.1f} μm")
         m_c4.metric("Anode Target", f"{res['required_anode']} mg/cm²")
 
         st.divider()
-
-        # 5.3. 시각화 및 인사이트
-        col_chart, col_ai = st.columns([2, 1])
-        with col_chart:
-            st.subheader(T["chart_h"])
-            load_range = np.linspace(5, 35, 20)
-            trend = [calculate_battery_specs(l, capacity, area, np_ratio)['specific_energy'] for l in load_range]
-            st.line_chart(pd.DataFrame({'Loading': load_range, 'Wh/kg': trend}).set_index('Loading'))
-
-        with col_ai:
-            st.subheader("🤖 AI Stability")
+        
+        col_left, col_right = st.columns([2, 1])
+        with col_left:
+            st.subheader("📈 로딩량 대비 에너지 밀도 민감도 (Sensitivity Analysis)")
+            l_range = np.linspace(3, 30, 20)
+            t_trend = [calculate_battery_specs(l, adjusted_cap, area, np_ratio)['specific_energy'] for l in l_range]
+            st.line_chart(pd.DataFrame({'Loading': l_range, 'Wh/kg': t_trend}).set_index('Loading'))
+        
+        with col_right:
+            st.subheader("🤖 AI Design Insight")
             score = 100
             if np_ratio < 1.05: score -= 30
-            if loading > 22: score -= 20
-            st.metric("Stability Score", f"{score}/100")
-            if score >= 80: st.success("✅ 설계가 안정적입니다.")
-            else: st.warning("⚠️ 보완이 권장됩니다.")
+            if thickness > 100: score -= 20
+            st.metric("Design Stability", f"{score}/100")
+            if score >= 80: st.success("✅ 양산 안정권 설계")
+            else: st.warning("⚠️ 공정 개선 필요")
+            st.info(f"선택 구간: {v_window}\n실효 용량: {adjusted_cap:.1f} mAh/g")
+
+        # 히스토리 저장
+        st.session_state.history.append({
+            "Time": time.strftime("%H:%M:%S"), "Loading": loading, "Wh/kg": res['specific_energy'], "V_Window": v_window
+        })
 
     except Exception as e:
-        st.error(f"분석 오류: {e}")
+        st.error(f"시뮬레이션 중 오류 발생: {e}")
 
-# --- [6. Step 11: 설계 히스토리 비교 분석 (자동 확장 테이블)] ---
+# --- [6. 설계 히스토리 비교] ---
 if st.session_state.history:
     st.divider()
-    st.subheader(T["hist_h"])
-    hist_df = pd.DataFrame(st.session_state.history)
-    
-    # 히스토리 테이블 표시
-    st.dataframe(hist_df.iloc[::-1], use_container_width=True) # 최신 설계가 위로 오도록 역순 표시
-    
-    # 히스토리 추이 그래프
-    if len(hist_df) > 1:
-        st.caption("설계 시뮬레이션 간 에너지 밀도 변화 추이 (History Log)")
-        st.line_chart(hist_df.set_index("Time")["Energy Density (Wh/kg)"])
-    
-    if st.button("🗑️ Clear History"):
-        st.session_state.history = []
-        st.rerun()
-
-# --- [7. 관리자 대시보드 및 전문가 기능] ---
-if st.session_state.admin_mode:
-    st.markdown("---")
-    st.header(f"🛡️ Intelligence Dashboard")
-    tab1, tab2 = st.tabs(["📈 Lead Analytics", "📜 Audit Logs"])
-    with tab1:
-        leads = get_leads()
-        if not leads.empty: st.bar_chart(leads['company'].value_counts())
-    with tab2:
-        st.dataframe(get_audit_logs(), use_container_width=True)
+    st.subheader("🔄 설계 이력 비교 분석")
+    st.table(pd.DataFrame(st.session_state.history).tail(5))
