@@ -3,26 +3,32 @@ import pandas as pd
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from fpdf import FPDF
-import io
-from logic_engine import calculate_battery_specs
-from database import init_db, save_lead, get_leads
 
-# --- [1. 시스템 설정 및 UI 숨기기] ---
+# [Step 1 & 2] 모듈화된 파일들로부터 기능 불러오기
+from config.security_cfg import SECURITY_MODE, check_admin
+from modules.engine import calculate_battery_specs
+from modules.database import init_db, save_lead, get_leads, log_action
+from modules.reporter import generate_expert_report
+
+# --- [1. 시스템 초기화 및 보안 설정] ---
 st.set_page_config(page_title="SynoCore V1.2 | SynoTech", layout="wide")
-init_db()
 
-# Streamlit 기본 헤더, 푸터, 메뉴 숨기기 (White Labeling)
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# 앱 시작 시 시스템 초기화 및 로그 기록
+if 'initialized' not in st.session_state:
+    init_db()
+    log_action("System", "Application Global Startup")
+    st.session_state.initialized = True
 
-# --- [2. 완벽한 다국어 사전] ---
+# 화이트 라벨링: 전문 소프트웨어 느낌을 위해 Streamlit 기본 UI 숨기기
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- [2. 다국어 사전 설정] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore V1.2: AI-Driven SIB Analysis",
@@ -39,7 +45,7 @@ LANG_DICT = {
         "blur_msg": "💡 Full degradation curves and PDF reports are locked.",
         "upgrade_btn": "Upgrade to Professional to Unlock",
         "pdf_btn": "📥 Download Official Analysis Report (PDF)",
-        "admin_label": "Admin Access",
+        "admin_label": f"Admin Access (Security: {SECURITY_MODE})",
         "quota_label": "Free Trials Remaining",
         "pro_active": "✅ PROFESSIONAL ACCESS ACTIVE"
     },
@@ -58,60 +64,38 @@ LANG_DICT = {
         "blur_msg": "💡 상세 열화 곡선 및 PDF 리포트는 잠겨 있습니다.",
         "upgrade_btn": "전문가 계정으로 업그레이드하여 잠금 해제",
         "pdf_btn": "📥 공식 분석 보고서 다운로드 (PDF)",
-        "admin_label": "관리자 접속",
+        "admin_label": f"관리자 접속 (보안 모드: {SECURITY_MODE})",
         "quota_label": "남은 무료 분석 횟수",
         "pro_active": "✅ 전문가 계정 활성화됨"
     }
 }
 
-# 세션 상태 관리
+# 세션 상태 초기화
 if 'trials' not in st.session_state: st.session_state.trials = 3
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
+if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
 
-# --- [3. 핵심 유틸리티 함수] ---
-
-def generate_pdf(res, name, company):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 15, txt="SynoTech - SynoCore Strategic Analysis Report", ln=True, align='C')
-    pdf.ln(10)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"Client: {name} / {company}", ln=True)
-    pdf.cell(200, 10, txt=f"Report Date: {time.strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
-    pdf.ln(10)
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, txt="[Analysis Summary]", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"- Areal Capacity: {res['areal_capacity']} mAh/cm2", ln=True)
-    pdf.cell(200, 10, txt=f"- Total Design Capacity: {res['total_capacity']} mAh", ln=True)
-    pdf.cell(200, 10, txt=f"- Target Anode Loading: {res['required_anode']} mg/cm2", ln=True)
-    pdf.ln(10)
-    pdf.set_font("Arial", 'I', 10)
-    # 저작권 표기 업데이트
-    pdf.multi_cell(0, 10, txt="This document is a confidential AI-generated report by SynoCore V1.2. All rights reserved by SynoTech Co., Ltd.")
-    return pdf.output(dest='S').encode('latin-1')
-
+# --- [3. 시각화 컴포넌트] ---
 def display_prediction_chart(is_blur=False):
     cycles = np.linspace(0, 2000, 100)
     retention = 100 - (cycles**1.18 / 650) 
     fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(cycles, retention, label='Capacity Retention', color='#1f77b4', linewidth=2.5)
-    ax.axhline(y=80, color='red', linestyle='--', alpha=0.5, label='EOL (80%)')
+    ax.plot(cycles, retention, color='#1f77b4', linewidth=2.5, label='SOH Prediction')
+    ax.axhline(y=80, color='red', linestyle='--', alpha=0.6)
     ax.set_ylim(60, 105)
-    ax.set_xlabel('Cycles')
-    ax.set_ylabel('Retention (%)')
-    ax.grid(True, alpha=0.3)
+    ax.set_ylabel("Retention (%)")
+    ax.set_xlabel("Cycles")
+    ax.grid(True, alpha=0.2)
     
     if is_blur:
-        st.markdown("<div style='filter: blur(8px); -webkit-filter: blur(8px); pointer-events: none;'>", unsafe_allow_html=True)
+        st.markdown("<div style='filter: blur(8px); pointer-events: none;'>", unsafe_allow_html=True)
         st.pyplot(fig)
         st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.pyplot(fig)
 
-# --- [4. 사이드바 구성] ---
+# --- [4. 사이드바 관제 센터] ---
 with st.sidebar:
     st.image("https://via.placeholder.com/200x60?text=SynoTech", use_container_width=True)
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
@@ -127,13 +111,16 @@ with st.sidebar:
     with st.expander("⚖️ System & IP Info"):
         st.write(f"**{T['subtitle']}**")
         st.caption("Patent Pending: SIB-2026-SYNO-01")
-        # 저작권 표기 업데이트
         st.caption("© 2026 SynoTech Co., Ltd.")
 
+    # 관리자 로그인 (보안 로직 적용)
     admin_pw = st.text_input(T["admin_label"], type="password")
-    st.session_state.admin_mode = (admin_pw == "synotech0773!")
+    if check_admin(admin_pw):
+        st.session_state.admin_mode = True
+    else:
+        st.session_state.admin_mode = False
 
-# --- [5. 메인 화면 구성] ---
+# --- [5. 메인 레이아웃 및 분석 로직] ---
 st.title(T["title"])
 st.write(f"**{T['subtitle']}**")
 st.markdown("---")
@@ -150,10 +137,13 @@ with col_in2:
 
 if st.button(T["btn_run"], use_container_width=True, type="primary"):
     if st.session_state.trials > 0 or st.session_state.is_pro:
+        # 시뮬레이션 실행 및 로그 기록
         if not st.session_state.is_pro: st.session_state.trials -= 1
         
         res = calculate_battery_specs(loading, capacity, area, np_ratio)
+        log_action("User", f"Simulated: {loading}mg/cm2, {np_ratio}NP")
         
+        # 기본 결과 표시
         st.divider()
         st.subheader(T["res_h"])
         res_c1, res_c2, res_c3 = st.columns(3)
@@ -161,6 +151,7 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
         res_c2.metric("Total Design Cap.", f"{res['total_capacity']} mAh")
         res_c3.metric("Anode Load Target", f"{res['required_anode']} mg/cm²")
         
+        # 전문가 리포트 섹션
         st.subheader(T["pro_h"])
         if not st.session_state.is_pro:
             display_prediction_chart(is_blur=True)
@@ -169,43 +160,71 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
                 st.session_state.show_upgrade = True
         else:
             display_prediction_chart(is_blur=False)
-            pdf_bytes = generate_pdf(res, "Professional User", "SynoTech Client")
+            
+            # [Step 2 적용] 전문 보고서 생성 로직
+            res['loading'] = loading
+            res['np_ratio'] = np_ratio
+            
+            # 사용자 정보 세션에서 가져오기
+            u_name = st.session_state.user_info.get("name", "Expert User")
+            u_comp = st.session_state.user_info.get("company", "SynoTech Partner")
+            
+            pdf_bytes = generate_expert_report(res, u_name, u_comp)
+            
             st.download_button(
                 label=T["pdf_btn"],
                 data=pdf_bytes,
-                file_name=f"SynoCore_Report_{int(time.time())}.pdf",
+                file_name=f"SynoCore_Expert_Report_{int(time.time())}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
             st.balloons()
     else:
-        st.error("Free trials exhausted. Please register for a Professional Account.")
+        st.error("Free trials exhausted. Please contact SynoTech for professional access.")
 
 # --- [6. 전문가 등록 폼] ---
 if st.session_state.show_upgrade and not st.session_state.is_pro:
     st.divider()
     with st.form("enroll_form"):
-        st.subheader("🚀 Professional Account Upgrade ($0 Promo)")
+        st.subheader("🚀 Professional Account Upgrade (Open Partnership)")
         f_name = st.text_input("Full Name *")
-        f_comp = st.text_input("Company *")
+        f_comp = st.text_input("Company/Institute *")
         f_mob  = st.text_input("Mobile Number *")
         f_email = st.text_input("Official Email *")
         
-        if st.form_submit_button("Submit & Unlock Immediate Access"):
+        if st.form_submit_button("Submit & Unlock Professional Features"):
             if f_name and f_comp and f_mob and f_email:
                 save_lead(f_name, f_comp, f_mob, f_email)
+                log_action(f_name, "Registered as Professional")
+                st.session_state.user_info = {"name": f_name, "company": f_comp}
                 st.session_state.is_pro = True
                 st.session_state.show_upgrade = False
-                st.success(f"Welcome, {f_name}! Full access has been granted.")
+                st.success(f"Welcome {f_name}, your professional access is now active.")
                 time.sleep(1)
                 st.rerun()
             else:
                 st.error("Please fill in all required fields.")
 
-# --- [7. 관리자 데이터 뷰어] ---
+# --- [7. 관리자 전용 커맨드 센터 (wschoi Only)] ---
 if st.session_state.get('admin_mode', False):
     st.divider()
-    st.subheader("📊 Lead Management Dashboard (Admin Only)")
+    st.subheader("🛡️ SynoCore Command Center")
+    
+    # 시스템 상태 요약
+    c1, c2, c3 = st.columns(3)
+    c1.success(f"Security: {SECURITY_MODE}")
+    c2.info("User: wschoi (Root)")
+    c3.warning("Audit Log: Active")
+
+    # 가망 고객(Leads) 데이터 대시보드
+    st.write("### 📊 Lead Management Dashboard")
     leads_df = get_leads()
     st.dataframe(leads_df, use_container_width=True)
-    st.download_button("Export to CSV", leads_df.to_csv(index=False), "synotech_leads.csv", "text/csv")
+    
+    # 데이터 엑셀/CSV 추출 센터
+    st.write("### 📂 Data Export Center")
+    ex_c1, ex_c2, ex_c3 = st.columns(3)
+    ex_c2.download_button("📥 Export Lead Data (CSV)", leads_df.to_csv(index=False), "synotech_leads.csv")
+    if ex_c1.button("📥 Download Audit Logs"):
+        st.info("Audit Log CSV export will be active in Step 3.")
+    ex_c3.button("📥 Backup System Data")
