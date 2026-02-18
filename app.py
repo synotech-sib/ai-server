@@ -4,7 +4,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# 모듈 및 설정 임포트 (왼쪽 벽에 밀착!)
+# 모듈 및 설정 임포트
 from config.security_cfg import SECURITY_MODE, verify_admin_access
 from modules.engine import calculate_battery_specs
 from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
@@ -18,11 +18,11 @@ st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
     
-    /* 타이틀 크기 축소 및 컬러 적용 */
-    h1 { 
+    /* 메인 타이틀 스타일 (사이드바 h1과는 별개) */
+    .main h1 { 
         color: #1A729A !important; 
         font-weight: 700 !important; 
-        font-size: 1.6rem !important; /* 대표님 요청에 따라 더 슬림하게 조정 */
+        font-size: 1.6rem !important;
         border-bottom: 2px solid #1A729A; 
         padding-bottom: 8px; 
     }
@@ -45,6 +45,11 @@ st.markdown("""
     /* 사이드바 스타일 */
     [data-testid="stSidebar"] { background-color: #f1f6f9; border-right: 1px solid #1A729A; }
     
+    /* Expander 스타일 조정 */
+    .streamlit-expanderHeader {
+        color: #1A729A; font-weight: 600;
+    }
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -53,21 +58,21 @@ st.markdown("""
 
 if 'initialized' not in st.session_state:
     init_db()
-    log_action("System", "SynoBlue Production Version Online")
+    log_action("System", "SynoCore UI/UX Optimized")
     st.session_state.initialized = True
 
 # --- [2. 다국어 사전 설정] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore V1.2: Strategic SIB Intelligence",
-        "subtitle": "Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.",
+        # "subtitle": "..."  <- 메인 화면에서 제거되었으므로 주석 처리
         "btn_run": "🚀 EXECUTE STRATEGIC ANALYSIS",
         "res_h": "📊 Design Performance Metrics",
         "pdf_btn": "📥 Download Expert Intelligence Report (PDF)"
     },
     "한국어": {
         "title": "SynoCore V1.2: 전략적 SIB 설계 인텔리전스",
-        "subtitle": "Woosuk Choi & SeoYeon Choi 공동 개발 | 시노텍 주식회사",
+        # "subtitle": "..." <- 메인 화면에서 제거되었으므로 주석 처리
         "btn_run": "🚀 전략적 분석 실행",
         "res_h": "📊 설계 성능 핵심 지표",
         "pdf_btn": "📥 전문가용 인텔리전스 리포트 다운로드 (PDF)"
@@ -79,22 +84,29 @@ if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
 
-# --- [3. 사이드바: 관리자 로그인] ---
+# --- [3. 사이드바: 브랜드 로고 및 로그인] ---
 with st.sidebar:
-    st.markdown(f"<h2 style='text-align: center; color: #1A729A;'>SynoTech</h2>", unsafe_allow_html=True)
+    # [요청 1] "SynoCore"로 변경하고 글자 크기를 키움 (h2 -> h1, font-size: 2.2rem)
+    st.markdown(f"<h1 style='text-align: center; color: #1A729A; font-weight: 800; font-size: 2.2rem;'>SynoCore</h1>", unsafe_allow_html=True)
+    
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
     T = LANG_DICT[selected_lang]
+    
     st.divider()
     u_id = st.text_input("Admin ID", key="admin_id")
     u_pw = st.text_input("Password", type="password", key="admin_pw")
     st.session_state.admin_mode = verify_admin_access(u_id, u_pw)
     if st.session_state.admin_mode: st.success("✅ MASTER AUTHORIZED")
+    
     st.divider()
+    # [요청 3] 사이드바 하단에 '눌러서 보기' (Expander) 추가
+    with st.expander("Developer Credits"):
+        st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
 # --- [4. 메인 화면: 설계 입력 및 분석] ---
 st.title(T["title"])
-st.write(f"*{T['subtitle']}*")
+# [요청 2] 메인 화면의 Subtitle(Developed by...) 제거함
 st.markdown("---")
 
 in_c1, in_c2, in_c3, in_c4 = st.columns(4)
