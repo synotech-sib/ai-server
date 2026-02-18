@@ -5,7 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의: English 기본, 넘버링 유지] ---
+# --- [1. 다국어 사전 정의: English 기본] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -21,8 +21,6 @@ LANG_DICT = {
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "Energy Density Simulation Graph",
         "master_features": "Master Technical Insights",
-        "admin_dash": "Admin Dashboard",
-        "user_info": "User Access Records",
         "target_label": "Target Energy Density (Wh/kg)",
         "exp_energy": "Expected Energy Density",
         "eff_cap": "Effective Capacity",
@@ -43,8 +41,6 @@ LANG_DICT = {
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "에너지 밀도 시뮬레이션 그래프",
         "master_features": "마스터 진단 정보",
-        "admin_dash": "관리자 대시보드",
-        "user_info": "사용자 접속 기록",
         "target_label": "목표 에너지 밀도 (Wh/kg)",
         "exp_energy": "예상 에너지 밀도",
         "eff_cap": "실효 가역 용량",
@@ -53,7 +49,7 @@ LANG_DICT = {
     }
 }
 
-# --- [2. 데이터 로드 엔진: 엑셀 파일 강제 참조] ---
+# --- [2. 데이터 로드 엔진: XLSX 전용] ---
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
@@ -70,34 +66,33 @@ if 'history' not in st.session_state: st.session_state.history = []
 if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'usage_count' not in st.session_state: st.session_state.usage_count = 0
 if 'last_result' not in st.session_state: st.session_state.last_result = None
-if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# --- [4. 디자인 고정 CSS: 헤더 제거 및 사이드바 버튼 강제 노출] ---
+# --- [4. Master V1.2 스타일 복원: 헤더 숨김 및 버튼 노출 CSS] ---
 st.markdown("""
     <style>
-    /* 헤더와 푸터 완전 제거 */
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* 1. 상단 기본 메뉴 및 푸터 숨기기 */
     #MainMenu {visibility: hidden;}
-
-    /* 사이드바 접기/펴기 버튼(>)을 강제로 화면 좌측 상단에 고정 */
-    button[kind="headerNoPadding"] {
-        visibility: visible !important;
-        position: fixed !important;
-        top: 15px !important;
-        left: 15px !important;
-        z-index: 99999 !important;
-        background-color: #f8f9fa !important;
-        border: 1px solid #ddd !important;
-        border-radius: 5px !important;
+    footer {visibility: hidden;}
+    
+    /* 2. 헤더 전체를 숨기지 않고 배경만 투명화하여 접기/펴기 버튼 살리기 */
+    header[data-testid="stHeader"] {
+        background-color: rgba(0, 0, 0, 0) !important;
+        border: none !important;
     }
 
-    .stApp { background-color: #ffffff; }
-    .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
-    
-    /* 무료 횟수 로고 컬러 하이라이트 (#1A729A) */
+    /* 3. 사이드바 접기/펴기 버튼 강조 및 위치 고정 */
+    button[kind="headerNoPadding"] {
+        visibility: visible !important;
+        background-color: #f8f9fa !important;
+        border: 1px solid #e6e9ef !important;
+        border-radius: 5px !important;
+        margin-top: 10px !important;
+        margin-left: 10px !important;
+    }
+
+    /* 4. 무료 횟수 로고 컬러 하이라이트 (#1A729A) */
     .usage-badge { 
         background-color: #1A729A; 
         color: white; 
@@ -106,11 +101,13 @@ st.markdown("""
         font-size: 0.9rem; 
         font-weight: bold;
     }
-    
+
+    .stApp { background-color: #ffffff; }
+    .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
     .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
     .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
     
-    /* 분석 실행 버튼: 로고 컬러 고정 */
+    /* 분석 실행 버튼: 로고 컬러 적용 */
     div.stButton > button[kind="primary"] {
         background-color: #1A729A !important;
         color: white !important;
@@ -118,7 +115,6 @@ st.markdown("""
         font-weight: bold;
         height: 50px;
     }
-    
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
     </style>
     """, unsafe_allow_html=True)
@@ -129,10 +125,12 @@ with st.sidebar:
     lang_sel = st.selectbox("Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
+    # 무료 횟수 하이라이트 표시
     st.divider()
     usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
     st.markdown(f'<div style="text-align:center; margin: 10px 0;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
     
+    # 통합 로그인 (wschoi@synotech.co.kr 전용)
     st.divider()
     st.subheader(L["login_sub"])
     u_email = st.text_input("Email", placeholder="your@email.com")
@@ -142,8 +140,7 @@ with st.sidebar:
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
         else:
-            st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "Logged In"})
-            st.info("User Login recorded.")
+            st.info("User session recorded.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
@@ -151,19 +148,13 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [6. 메인 UI (수직)] ---
+# --- [6. 메인 UI: 수직 배치] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-if st.session_state.is_pro:
-    with st.expander(L["admin_dash"], expanded=False):
-        if st.session_state.user_logs:
-            st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
-        else: st.write("No records.")
-
 selected_mats, selected_params = {}, {}
 
-# 1. Material Selection
+# 1. Material Selection (Grid 4)
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -191,7 +182,7 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. Target Setting
+# 3. Target Setting (Slider)
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
@@ -205,7 +196,7 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. Run Master Analysis
+# 5. Run Analysis
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
@@ -220,9 +211,9 @@ if st.button(L["run_btn"], use_container_width=True, type="primary"):
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except: st.error("Check Excel values.")
+        except: st.error("Error calculating results.")
 
-# --- [7. 하단 출력부] ---
+# --- [7. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
 if st.session_state.history:
     st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
