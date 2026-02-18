@@ -5,14 +5,10 @@ import time
 import matplotlib.pyplot as plt
 
 # 모든 import 문은 줄 맨 앞(왼쪽 끝)에 딱 붙어 있어야 합니다.
-from config.security_cfg 
-import SECURITY_MODE, verify_admin_access
-from modules.engine 
-import calculate_battery_specs
-from modules.database 
-import init_db, save_lead, get_leads, log_action, get_audit_logs
-from modules.reporter 
-import generate_expert_report
+from config.security_cfg import SECURITY_MODE, verify_admin_access
+from modules.engine import calculate_battery_specs
+from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
+from modules.reporter import generate_expert_report
 
 # --- [1. 시스템 초기화 & 브랜딩 테마 적용] ---
 st.set_page_config(page_title="SynoCore V1.2 | SynoTech Solutions", layout="wide")
