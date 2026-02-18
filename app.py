@@ -25,41 +25,45 @@ st.set_page_config(
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# --- [2. 디자인 테마 및 슬라이더 숫자 스타일링 CSS (최종 교정)] ---
+# --- [2. 디자인 테마 및 고스트 슬라이더 CSS (최종 고도화)] ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #ffffff; }}
     
-    /* 메인 타이틀 스타일 */
+    /* 메인 타이틀: 로고(2.2rem)보다 작은 1.1rem, 검정색 */
     .main h1 {{ 
         color: #000000 !important; font-weight: 700 !important; font-size: 1.1rem !important; 
         border-bottom: 2px solid #1A729A; padding-bottom: 5px; margin-bottom: 30px;
     }}
     
-    /* 슬라이더 트랙 및 핸들 기본 색상 */
+    /* [슬라이더 핵심 교정] */
+    /* 1. 기본 트랙 및 활성화 바 색상 */
     div[data-testid="stSlider"] div[data-baseweb="slider"] > div {{ background-color: #e9ecef !important; }}
-    div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }}
     div[data-testid="stSlider"] div[data-baseweb="slider"] div div {{ background-color: #1A729A !important; }}
+    div[data-testid="stSlider"] div[role="slider"] {{ background-color: #1A729A !important; border: 2px solid #ffffff !important; }}
 
-    /* [재수정] 슬라이더 숫자 박스 투명화 및 글자색 강제 적용 */
-    /* 1. 숫자가 담긴 박스 배경과 그림자 제거 */
+    /* 2. 상단 현재 수치: 박스 제거 및 시노텍 블루 적용 */
     div[data-baseweb="slider"] div[role="slider"] + div {{
         background-color: transparent !important;
         box-shadow: none !important;
         border: none !important;
     }}
-    
-    /* 2. 숫자 텍스트 자체를 시노텍 블루로 강제 적용 및 굵기 조절 */
     div[data-baseweb="slider"] div[role="slider"] + div > div {{
         color: #1A729A !important;
         font-weight: 800 !important;
         font-size: 1.1rem !important;
     }}
-    
-    /* 3. 슬라이더 양 끝의 최소/최대 숫자 색상도 시노텍 블루로 통일 */
+
+    /* 3. 하단 최소/최대 수치: 평소에는 숨김, 호버 시 검정색으로 표시 (박스 없음) */
     div[data-testid="stSlider"] div[data-baseweb="typography"] {{
-        color: #1A729A !important;
-        font-weight: 600 !important;
+        color: black !important;
+        font-weight: 500 !important;
+        background-color: transparent !important;
+        opacity: 0; /* 평소에는 숨김 */
+        transition: opacity 0.3s ease;
+    }}
+    div[data-testid="stSlider"]:hover div[data-baseweb="typography"] {{
+        opacity: 1; /* 마우스 올리면 나타남 */
     }}
     
     /* 사이드바 스타일 및 메뉴 버튼 가시성 유지 */
@@ -78,7 +82,7 @@ st.markdown(f"""
 if 'initialized' not in st.session_state:
     try:
         init_db()
-        log_action("System", "SynoCore V1.2.14 UI Final Polish")
+        log_action("System", "SynoCore V1.2.15 Ghost Slider Engine Online")
         st.session_state.initialized = True
     except: pass
 
@@ -106,7 +110,7 @@ if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
 if 'last_res' not in st.session_state: st.session_state.last_res = None
 
-# --- [4. 사이드바: 브랜드 로고 및 로그인 로직] ---
+# --- [4. 사이드바 로직] ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align: center; color: #1A729A; font-weight: 800; font-size: 2.2rem; border-bottom: none;'>SynoCore</h1>", unsafe_allow_html=True)
     
@@ -134,13 +138,12 @@ with st.sidebar:
         st.write("Developed by Woosuk Choi & SeoYeon Choi | SynoTech Co., Ltd.")
     st.caption("© 2026 SynoTech Co., Ltd.")
 
-# --- [5. 메인 화면: 슬라이더 분석 인터페이스] ---
+# --- [5. 메인 화면: 고스트 슬라이더 인터페이스] ---
 st.title(T["title"])
 st.markdown("---")
 
 with st.container():
     c1, c2, c3, c4 = st.columns(4)
-    # 슬라이더 숫자 디자인이 여기에서 CSS를 통해 제어됩니다.
     loading = c1.slider("Loading (mg/cm²)", 5.0, 35.0, 12.0, step=0.1)
     capacity = c2.slider("Cap. (mAh/g)", 100.0, 250.0, 140.0, step=1.0)
     area = c3.slider("Area (cm²)", 1.0, 50.0, 10.0, step=0.5)
@@ -152,7 +155,7 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
         
         try:
             res = calculate_battery_specs(loading, capacity, area, np_ratio)
-            log_action("User", f"Run: {res['specific_energy']} Wh/kg")
+            log_action("User", f"Analysis Run: {res['specific_energy']} Wh/kg")
             
             st.subheader(T["res_h"])
             m_c1, m_c2, m_c3, m_c4 = st.columns(4)
@@ -200,7 +203,7 @@ if st.button(T["btn_run"], type="primary", use_container_width=True):
     else:
         st.error("Free trial limit reached.")
 
-# 전문가 등록 및 대시보드
+# 전문가 등록 폼 및 대시보드 (기존 유지)
 if st.session_state.show_upgrade and not st.session_state.is_pro:
     with st.form("enroll"):
         st.subheader("🚀 Join Expert Partnership")
