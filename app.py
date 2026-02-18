@@ -4,7 +4,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# 모듈 및 설정 임포트 (맨 왼쪽에 딱 붙여서 입력해야 합니다)
+# 모듈 및 설정 임포트 (이 부분 앞에 공백이 절대 없어야 합니다)
 from config.security_cfg import SECURITY_MODE, verify_admin_access
 from modules.engine import calculate_battery_specs
 from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
