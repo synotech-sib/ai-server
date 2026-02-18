@@ -4,11 +4,11 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# 아래 import 문들이 왼쪽 벽에 바짝 붙어있는지 꼭 확인해주세요!
+# 모듈 및 설정 임포트 (11번 라인만 제외)
 from config.security_cfg import SECURITY_MODE, verify_admin_access
 from modules.engine import calculate_battery_specs
 from modules.database import init_db, save_lead, get_leads, log_action, get_audit_logs
-from modules.reporter import generate_expert_report
+# from modules.reporter import generate_expert_report  <-- 이 줄을 뺐습니다.
 
 # --- [1. 시스템 초기화 & 브랜딩 테마 적용] ---
 st.set_page_config(page_title="SynoCore V1.2 | SynoTech Solutions", layout="wide")
@@ -33,7 +33,7 @@ st.markdown("""
 
 if 'initialized' not in st.session_state:
     init_db()
-    log_action("System", "Application Online (Branding Applied)")
+    log_action("System", "Application Online (Isolation Test)")
     st.session_state.initialized = True
 
 # --- [2. 다국어 설정] ---
@@ -42,15 +42,13 @@ LANG_DICT = {
         "title": "SynoCore V1.2: Strategic SIB Intelligence",
         "subtitle": "SynoTech Co., Ltd. Proprietary Simulation Engine",
         "btn_run": "🚀 EXECUTE STRATEGIC ANALYSIS",
-        "res_h": "📊 Design Performance Metrics",
-        "pdf_btn": "📥 Download Expert Intelligence Report (PDF)"
+        "res_h": "📊 Design Performance Metrics"
     },
     "한국어": {
         "title": "SynoCore V1.2: 전략적 SIB 설계 인텔리전스",
         "subtitle": "시노텍 주식회사 독자 개발 시뮬레이션 엔진",
         "btn_run": "🚀 전략적 분석 실행",
-        "res_h": "📊 설계 성능 핵심 지표",
-        "pdf_btn": "📥 전문가용 인텔리전스 리포트 다운로드 (PDF)"
+        "res_h": "📊 설계 성능 핵심 지표"
     }
 }
 
@@ -100,13 +98,9 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
         m_c3.metric("Total Capacity", f"{res['total_capacity']} mAh")
         m_c4.metric("Anode Target", f"{res['required_anode']} mg/cm²")
         
+        # [PDF 리포트 기능만 잠시 비활성화]
         if st.session_state.is_pro:
-            st.divider()
-            res.update({'loading': loading, 'np_ratio': np_ratio})
-            u_name = st.session_state.user_info.get("name", "Expert")
-            u_comp = st.session_state.user_info.get("company", "Partner")
-            pdf_bytes = generate_expert_report(res, u_name, u_comp)
-            st.download_button(T["pdf_btn"], pdf_bytes, f"SynoCore_Report_{u_name}.pdf", use_container_width=True)
+            st.info("Expert PDF Report feature is currently under maintenance.")
             st.balloons()
         else:
             if st.button("🚀 Upgrade to Pro to see AI Insights"): st.session_state.show_upgrade = True
