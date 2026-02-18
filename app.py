@@ -9,7 +9,7 @@ from logic_engine import calculate_battery_specs
 from database import init_db, save_lead, get_leads
 
 # --- [1. 시스템 설정 및 UI 숨기기] ---
-st.set_page_config(page_title="SynoCore V1.2 | SYNOTECH", layout="wide")
+st.set_page_config(page_title="SynoCore V1.2 | SynoTech", layout="wide")
 init_db()
 
 # Streamlit 기본 헤더, 푸터, 메뉴 숨기기 (White Labeling)
@@ -75,7 +75,7 @@ def generate_pdf(res, name, company):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 15, txt="SYNOTECH - SynoCore Strategic Analysis Report", ln=True, align='C')
+    pdf.cell(200, 15, txt="SynoTech - SynoCore Strategic Analysis Report", ln=True, align='C')
     pdf.ln(10)
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"Client: {name} / {company}", ln=True)
@@ -89,7 +89,8 @@ def generate_pdf(res, name, company):
     pdf.cell(200, 10, txt=f"- Target Anode Loading: {res['required_anode']} mg/cm2", ln=True)
     pdf.ln(10)
     pdf.set_font("Arial", 'I', 10)
-    pdf.multi_cell(0, 10, txt="This document is a confidential AI-generated report by SynoCore V1.2. All rights reserved by SYNOTECH Corp.")
+    # 저작권 표기 업데이트
+    pdf.multi_cell(0, 10, txt="This document is a confidential AI-generated report by SynoCore V1.2. All rights reserved by SynoTech Co., Ltd.")
     return pdf.output(dest='S').encode('latin-1')
 
 def display_prediction_chart(is_blur=False):
@@ -112,7 +113,7 @@ def display_prediction_chart(is_blur=False):
 
 # --- [4. 사이드바 구성] ---
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x60?text=SYNOTECH", use_container_width=True)
+    st.image("https://via.placeholder.com/200x60?text=SynoTech", use_container_width=True)
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
     T = LANG_DICT[selected_lang]
     
@@ -126,7 +127,8 @@ with st.sidebar:
     with st.expander("⚖️ System & IP Info"):
         st.write(f"**{T['subtitle']}**")
         st.caption("Patent Pending: SIB-2026-SYNO-01")
-        st.caption("© 2026 SYNOTECH Corp.")
+        # 저작권 표기 업데이트
+        st.caption("© 2026 SynoTech Co., Ltd.")
 
     admin_pw = st.text_input(T["admin_label"], type="password")
     st.session_state.admin_mode = (admin_pw == "synotech0773!")
@@ -167,7 +169,7 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
                 st.session_state.show_upgrade = True
         else:
             display_prediction_chart(is_blur=False)
-            pdf_bytes = generate_pdf(res, "Professional User", "SYNOTECH Client")
+            pdf_bytes = generate_pdf(res, "Professional User", "SynoTech Client")
             st.download_button(
                 label=T["pdf_btn"],
                 data=pdf_bytes,
