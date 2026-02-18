@@ -5,12 +5,32 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의: KeyError 방지 완료] ---
+# --- [1. 다국어 사전 정의] ---
+# English를 기본값으로 하기 위해 첫 번째 순서로 배치
 LANG_DICT = {
+    "English": {
+        "title": "SynoCore Master V1.3 | SIB Design Platform",
+        "login_sub": "🔐 Access Login",
+        "usage_label": "Free Usage",
+        "usage_limit_msg": "Free limit (3/3) reached. Please register for Pro.",
+        "target_set": "🎯 3. Target Setting",
+        "design_sum": "📋 4. Design Summary",
+        "mat_sel": "🧪 1. Material Selection",
+        "proc_param": "⚙️ 2. Process Parameters",
+        "run_btn": "🚀 5. Run Master Analysis",
+        "history": "🔄 Design History Log",
+        "report_title": "DESIGN ANALYSIS REPORT",
+        "graph_title": "Energy Density Simulation Graph",
+        "master_features": "🛠️ Master Technical Insights",
+        "target_label": "Target Energy Density (Wh/kg)",
+        "exp_energy": "Expected Energy Density",
+        "eff_cap": "Effective Capacity",
+        "loading_label": "Cathode Loading",
+        "auth_msg": "Master Mode Activated"
+    },
     "Korean": {
         "title": "SynoCore Master V1.3 | SIB 설계 플랫폼",
-        "login_sub": "🔐 마스터 로그인",
-        "pro_reg": "💎 Professional 등록",
+        "login_sub": "🔐 접속 로그인",
         "usage_label": "무료 이용 횟수",
         "usage_limit_msg": "무료 이용 횟수(3회)를 초과했습니다. Pro 등록이 필요합니다.",
         "target_set": "🎯 3. 목표 설정",
@@ -22,34 +42,11 @@ LANG_DICT = {
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "에너지 밀도 시뮬레이션 그래프",
         "master_features": "🛠️ 마스터 진단 정보",
-        "reg_btn": "등록 신청하기",
         "target_label": "목표 에너지 밀도 (Wh/kg)",
         "exp_energy": "예상 에너지 밀도",
         "eff_cap": "실효 가역 용량",
         "loading_label": "양극 로딩량",
-        "auth_msg": "마스터 권한 승인됨"
-    },
-    "English": {
-        "title": "SynoCore Master V1.3 | SIB Design Platform",
-        "login_sub": "🔐 Master Login",
-        "pro_reg": "💎 Pro Registration",
-        "usage_label": "Free Usage",
-        "usage_limit_msg": "Free limit (3/3) reached. Please register for Pro.",
-        "target_set": "🎯 3. Target Setting",
-        "design_sum": "📋 4. Design Summary",
-        "mat_sel": "🧪 1. Material Selection",
-        "proc_param": "⚙️ 2. Process Parameters",
-        "run_btn": "🚀 5. Run Analysis",
-        "history": "🔄 Design History Log",
-        "report_title": "DESIGN ANALYSIS REPORT",
-        "graph_title": "Energy Density Simulation Graph",
-        "master_features": "🛠️ Master Technical Insights",
-        "reg_btn": "Register Now",
-        "target_label": "Target Energy Density (Wh/kg)",
-        "exp_energy": "Expected Energy Density",
-        "eff_cap": "Effective Capacity",
-        "loading_label": "Cathode Loading",
-        "auth_msg": "Master Authorized"
+        "auth_msg": "마스터 모드 활성화됨"
     }
 }
 
@@ -57,13 +54,10 @@ LANG_DICT = {
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
-    try:
-        if 'material_list.xlsx' in files:
-            mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
-        if 'param_config.xlsx' in files:
-            config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
-    except Exception as e:
-        st.error(f"Excel Load Error: {e}. 터미널에서 'pip install openpyxl'을 실행하세요.")
+    if 'material_list.xlsx' in files:
+        mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
+    if 'param_config.xlsx' in files:
+        config_df = pd.read_excel('param_config.xlsx', engine='openpyxl').set_index('Parameter')
     return mat_df, config_df
 
 mat_df, config_df = load_external_data()
@@ -81,18 +75,21 @@ st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
-    .summary-box { border: 2px solid #1A729A; padding: 20px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
+    .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
     .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
     .usage-badge { background-color: #1A729A; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+    .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바: 로그인, 언어, Pro 등록] ---
+# --- [4. 사이드바: 통합 로그인 및 언어] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
-    lang_sel = st.selectbox("🌐 Language", ["Korean", "English"])
+    
+    # 언어 선택 (영어 기본)
+    lang_sel = st.selectbox("🌐 Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
     # 무료 횟수 표시
@@ -100,28 +97,25 @@ with st.sidebar:
     usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
     st.markdown(f'<div style="text-align:center;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
     
-    # Pro 등록 섹션 (Company를 Password로 변경)
-    st.divider()
-    st.subheader(L["pro_reg"])
-    if not st.session_state.is_pro:
-        reg_email = st.text_input("Email", placeholder="your@email.com")
-        reg_pw = st.text_input("Password", type="password", key="reg_pw") # Password로 변경
-        if st.button(L["reg_btn"]):
-            st.info("Registration request sent.")
-    
-    # 마스터 로그인
+    # 통합 로그인 (Admin 자동 판별)
     st.divider()
     st.subheader(L["login_sub"])
-    u_email = st.text_input("ID", placeholder="company email")
-    u_pw = st.text_input("Password", type="password", key="login_pw")
+    u_email = st.text_input("Email", placeholder="your@email.com")
+    u_pw = st.text_input("Password", type="password")
     if st.button("Login"):
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
+        else:
+            # 일반 가입 시나리오
+            st.info("Registration/Login successful.")
     
     if st.button("🗑️ Clear Log"):
         st.session_state.history = []; st.session_state.usage_count = 0
         st.session_state.last_result = None; st.rerun()
+
+    # 하단 카피라이트
+    st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
 # --- [5. 메인 UI (수직)] ---
 st.title(L["title"])
@@ -129,7 +123,7 @@ st.caption(IP_MARK)
 
 selected_mats, selected_params = {}, {}
 
-# 5.1 소재 레시피 (Box 1)
+# 5.1 소재 레시피
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -140,10 +134,10 @@ if not mat_df.empty:
                 cat = cats[i+j]
                 with cols[j]:
                     m_list = mat_df[mat_df['Category'] == cat]['Name'].tolist()
-                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"v_mat_{cat}")
+                    selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.2 공정 파라미터 (Box 2)
+# 5.2 공정 파라미터
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -154,7 +148,7 @@ if not config_df.empty:
                 p_name = params[i+j]
                 with cols[j]:
                     cfg = config_df.loc[p_name]
-                    selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"v_p_{p_name}")
+                    selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 5.3 목표 설정 (슬라이더 초기값 160)
@@ -162,7 +156,7 @@ st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 디자인 서머리 (줄간격 밀착)
+# 5.4 디자인 서머리
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -171,11 +165,10 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 마스터 진단 정보 (로그인 시 노출)
+# 5.5 마스터 진단 정보 (Admin 활성화 시)
 if st.session_state.is_pro:
-    st.markdown('<div class="section-box" style="background-color: #fff4e6; border-left: 5px solid #fd7e14;">', unsafe_allow_html=True)
-    st.subheader(L["master_features"])
-    st.warning("⚠️ [Altris Guide] 수분 민감도가 극도로 높음: 공정 전 170°C 이상 진공 건조가 필수적입니다.")
+    st.markdown(f'<div class="section-box" style="background-color: #fff4e6; border-left: 5px solid #fd7e14;"><h4>{L["master_features"]}</h4>', unsafe_allow_html=True)
+    st.warning("⚠️ [Altris Guide] 수분 제어가 최우선입니다. 170°C 진공 건조를 권장합니다.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 5.6 분석 실행 버튼
@@ -214,12 +207,10 @@ if st.session_state.last_result:
         </div>
     </div>''', unsafe_allow_html=True)
     
-    # 그래프
     st.subheader(L["graph_title"])
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
     fig, ax = plt.subplots(figsize=(10, 3.5))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2)
-    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=100)
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=100)
     ax.set_xlabel('Loading (mg/cm2)'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
