@@ -20,7 +20,6 @@ LANG_DICT = {
         "history": "Design History Log",
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "Energy Density Simulation Graph",
-        "master_features": "Master Technical Insights",
         "target_label": "Target Energy Density (Wh/kg)",
         "exp_energy": "Expected Energy Density",
         "eff_cap": "Effective Capacity",
@@ -40,7 +39,6 @@ LANG_DICT = {
         "history": "설계 이력 로그",
         "report_title": "DESIGN ANALYSIS REPORT",
         "graph_title": "에너지 밀도 시뮬레이션 그래프",
-        "master_features": "마스터 진단 정보",
         "target_label": "목표 에너지 밀도 (Wh/kg)",
         "exp_energy": "예상 에너지 밀도",
         "eff_cap": "실효 가역 용량",
@@ -69,13 +67,19 @@ if 'last_result' not in st.session_state: st.session_state.last_result = None
 
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# --- [4. 강력한 헤더 제거 및 서머리 간격 최적화 CSS] ---
+# --- [4. 강력한 UI 제어 CSS] ---
 st.markdown("""
     <style>
-    /* 1. 상단 툴바/헤더/푸터 강제 박멸 (사이드바 버튼 제외) */
-    header[data-testid="stHeader"], [data-testid="stToolbar"], footer { visibility: hidden !important; height: 0px !important; }
+    /* 1. 상단 툴바/헤더/푸터 및 사이드바 내부 Streamlit 기본 메뉴 완전 삭제 */
+    header[data-testid="stHeader"], 
+    [data-testid="stToolbar"], 
+    footer,
+    [data-testid="stSidebarNav"] { 
+        display: none !important; 
+        visibility: hidden !important; 
+    }
     
-    /* 2. 사이드바 접기/펴기 버튼 강제 노출 및 위치 고정 */
+    /* 2. 사이드바 접기/펴기 화살표 버튼 강제 노출 (위치 고정) */
     button[kind="headerNoPadding"] {
         visibility: visible !important;
         position: fixed !important;
@@ -90,14 +94,14 @@ st.markdown("""
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 18px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 12px; }
     
-    /* 3. 디자인 서머리 박스 및 줄간격(30% 축소) */
-    .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 15px; }
+    /* 3. 디자인 서머리 간격 (기본 대비 10% 축소로 완화) */
+    .summary-box { border: 2px solid #1A729A; padding: 18px; border-radius: 12px; background-color: #ffffff; margin-bottom: 15px; }
     .summary-item { 
-        font-size: 0.85rem; 
-        margin-bottom: 0px !important; 
+        font-size: 0.9rem; 
+        margin-bottom: 2px !important; 
         color: #333; 
-        line-height: 0.9 !important; /* 줄간격 대폭 축소 */
-        padding: 1px 0;
+        line-height: 1.3 !important; /* 30% 축소에서 10% 축소 수준으로 복구 */
+        padding: 2px 0;
     }
     
     .usage-badge { background-color: #1A729A; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
@@ -106,15 +110,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- [5. 사이드바 구성] ---
+# --- [5. 사이드바 구성 (오직 로그인과 언어만)] ---
 with st.sidebar:
-    st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #1A729A; text-align: center; margin-top: 20px;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
     st.divider()
     usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
-    st.markdown(f'<div style="text-align:center; margin: 5px 0;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center; margin: 10px 0;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
     
     st.divider()
     st.subheader(L["login_sub"])
@@ -124,14 +128,14 @@ with st.sidebar:
         if u_email == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
             st.session_state.is_pro = True
             st.success(L["auth_msg"])
-        else: st.info("User session logged.")
+        else: st.info("Logged in.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0; st.session_state.last_result = None; st.rerun()
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [6. 메인 UI] ---
+# --- [6. 메인 UI (1~5 수직 배치)] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
@@ -170,7 +174,7 @@ st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. Design Summary (좌: Material / 우: Process 2분할 배치)
+# 4. Design Summary (좌우 분할 + 가독성 높은 간격)
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 sum_col1, sum_col2 = st.columns(2)
 with sum_col1:
@@ -181,7 +185,7 @@ with sum_col2:
         st.markdown(f'<p class="summary-item"><b>{p_name}</b>: {val}</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5. Run Analysis
+# 5. Run Analysis (로고 컬러 버튼)
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
@@ -196,7 +200,7 @@ if st.button(L["run_btn"], use_container_width=True, type="primary"):
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except: st.error("Calculation Error.")
+        except: st.error("Error calculating results.")
 
 # --- [7. 하단 출력부] ---
 if st.session_state.history:
@@ -214,7 +218,6 @@ if st.session_state.last_result:
         </div>
     </div>''', unsafe_allow_html=True)
     
-    # 그래프 출력
     st.subheader(L["graph_title"])
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
