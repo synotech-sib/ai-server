@@ -5,7 +5,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- [1. 다국어 사전 정의: English 기본, 이모티콘 삭제] ---
+# --- [1. 다국어 사전 정의: English 기본] ---
 LANG_DICT = {
     "English": {
         "title": "SynoCore Master V1.3 | SIB Design Platform",
@@ -57,7 +57,6 @@ LANG_DICT = {
 def load_external_data():
     files = os.listdir('.')
     mat_df, config_df = pd.DataFrame(), pd.DataFrame()
-    # 코드 내 하드코딩 없이 엑셀 파일만 참조
     if 'material_list.xlsx' in files:
         mat_df = pd.read_excel('material_list.xlsx', engine='openpyxl')
     if 'param_config.xlsx' in files:
@@ -75,17 +74,17 @@ if 'user_logs' not in st.session_state: st.session_state.user_logs = []
 
 st.set_page_config(page_title="SynoCore Master V1.3", layout="wide", initial_sidebar_state="expanded")
 
-# CSS: 헤더/푸터 제거 및 사이드바 버튼 위치 조정
+# --- [4. 디자인 고정 CSS] ---
 st.markdown("""
     <style>
-    /* 기본 헤더와 푸터 숨기기 */
-    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
+    /* 1. 헤더/푸터 제거 및 사이드바 버튼 유지 */
+    [data-testid="stHeader"] { background: rgba(0,0,0,0); height: 0rem; }
     footer { visibility: hidden; }
     #MainMenu { visibility: hidden; }
-
-    /* 사이드바 접기/펴기 버튼 위치를 살짝 아래로(40px) 조정하여 노출 유지 */
+    
+    /* 사이드바 접기/펴기 버튼 위치 조정 및 항상 노출 */
     [data-testid="stSidebarCollapsedControl"] {
-        top: 40px;
+        top: 20px;
         left: 20px;
         z-index: 10000;
         background-color: #f8f9fa;
@@ -96,12 +95,25 @@ st.markdown("""
 
     .stApp { background-color: #ffffff; }
     .section-box { border: 1px solid #e6e9ef; padding: 20px; border-radius: 12px; background-color: #f8f9fa; margin-bottom: 15px; }
+    
+    /* 2. 무료 횟수 로고 컬러 하이라이트 */
+    .usage-badge { 
+        background-color: #1A729A; 
+        color: white; 
+        padding: 8px 15px; 
+        border-radius: 25px; 
+        font-size: 0.9rem; 
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
     .summary-box { border: 2px solid #1A729A; padding: 15px; border-radius: 12px; background-color: #ffffff; margin-bottom: 20px; }
     .summary-item { font-size: 0.88rem; margin-bottom: 2px; color: #333; display: inline-block; margin-right: 15px; line-height: 1.1; }
+    
     .report-box { background-color: #f0f4f8; border-top: 5px solid #1A729A; padding: 25px; border-radius: 15px; margin: 30px 0; }
     .stat-card { background-color: #ffffff; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; margin: 0 10px; }
     
-    /* 분석 실행 버튼: 로고 칼라 (#1A729A) 적용 */
+    /* 분석 실행 버튼: 로고 컬러 고정 */
     div.stButton > button[kind="primary"] {
         background-color: #1A729A !important;
         color: white !important;
@@ -110,20 +122,24 @@ st.markdown("""
         height: 50px;
         font-size: 1.1rem;
     }
+    
     .sidebar-footer { position: fixed; bottom: 20px; left: 20px; font-size: 0.8rem; color: #888; }
-    .admin-box { background-color: #fff4e6; border: 1px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [4. 사이드바: 통합 로그인 및 언어] ---
+# --- [5. 사이드바 구성] ---
 with st.sidebar:
     st.markdown("<h2 style='color: #1A729A; text-align: center;'>SynoCore</h2>", unsafe_allow_html=True)
     lang_sel = st.selectbox("Language", ["English", "Korean"])
     L = LANG_DICT[lang_sel]
     
+    # 5.1 무료 횟수 하이라이트 표시
     st.divider()
-    st.info(f"{L['usage_label']}: {st.session_state.usage_count}/3")
+    usage_text = f"{L['usage_label']}: {st.session_state.usage_count}/3"
+    st.markdown(f'<div style="text-align:center; margin: 10px 0;"><span class="usage-badge">{usage_text}</span></div>', unsafe_allow_html=True)
     
+    # 5.2 통합 로그인
+    st.divider()
     st.subheader(L["login_sub"])
     u_email = st.text_input("Email", placeholder="your@email.com")
     u_pw = st.text_input("Password", type="password")
@@ -133,7 +149,7 @@ with st.sidebar:
             st.success(L["auth_msg"])
         else:
             st.session_state.user_logs.append({"Time": time.strftime("%Y-%m-%d %H:%M"), "User": u_email, "Status": "Logged In"})
-            st.info("User session recorded.")
+            st.info("User Login recorded.")
     
     if st.button("Reset All"):
         st.session_state.history = []; st.session_state.usage_count = 0
@@ -141,22 +157,20 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-footer">© Synotech Co., Ltd</div>', unsafe_allow_html=True)
 
-# --- [5. 메인 레이아웃: 입력부] ---
+# --- [6. 메인 UI (수직)] ---
 st.title(L["title"])
 st.caption("IP by Synotech | Energy11 Production Intelligence")
 
-# 5.1 관리자 대시보드 (Admin 전용)
+# 6.1 관리자 대시보드 (로그인 시 노출)
 if st.session_state.is_pro:
     with st.expander(L["admin_dash"], expanded=False):
-        st.markdown(f'<div class="admin-box"><h4>{L["user_info"]}</h4>', unsafe_allow_html=True)
         if st.session_state.user_logs:
             st.table(pd.DataFrame(st.session_state.user_logs).iloc[::-1])
-        else: st.write("No user logs found.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        else: st.write("No records.")
 
 selected_mats, selected_params = {}, {}
 
-# 5.2 소재 레시피 (1번)
+# 1. Material Selection
 if not mat_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["mat_sel"]}</h3>', unsafe_allow_html=True)
     cats = mat_df['Category'].unique()
@@ -170,7 +184,7 @@ if not mat_df.empty:
                     selected_mats[cat] = st.selectbox(f"{cat}", m_list, key=f"mat_{cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.3 공정 파라미터 (2번)
+# 2. Process Parameters
 if not config_df.empty:
     st.markdown(f'<div class="section-box"><h3>{L["proc_param"]}</h3>', unsafe_allow_html=True)
     params = config_df.index.tolist()
@@ -184,12 +198,12 @@ if not config_df.empty:
                     selected_params[p_name] = st.slider(f"{p_name}", float(cfg['Min']), float(cfg['Max']), float(cfg['Default']), float(cfg['Step']), key=f"p_{p_name}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.4 목표 설정 (3번)
+# 3. Target Setting
 st.markdown(f'<div class="section-box" style="background-color: #eef6fb;"><h3>{L["target_set"]}</h3>', unsafe_allow_html=True)
 target_whkg = st.slider(L["target_label"], 100.0, 250.0, 160.0, 1.0)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.5 디자인 서머리 (4번)
+# 4. Design Summary
 st.markdown(f'<div class="summary-box"><h3>{L["design_sum"]}</h3>', unsafe_allow_html=True)
 for cat, name in selected_mats.items():
     st.markdown(f'<span class="summary-item"><b>{cat}</b>: {name}</span>', unsafe_allow_html=True)
@@ -198,28 +212,24 @@ for p_name, val in selected_params.items():
     st.markdown(f'<span class="summary-item"><b>{p_name}</b>: {val}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 5.6 분석 실행 버튼 (5번, 로고 컬러)
+# 5. Run Master Analysis
 if st.button(L["run_btn"], use_container_width=True, type="primary"):
     if not st.session_state.is_pro and st.session_state.usage_count >= 3:
         st.error(L["usage_limit_msg"])
     else:
         try:
-            # 엑셀 기반 실시간 연산
             c_name = selected_mats.get('Cathode', 'Default')
             c_cap = mat_df[mat_df['Name'] == c_name]['Base_Capacity'].values[0]
-            ld = selected_params.get('Loading', 13.0)
-            ice = selected_params.get('ICE', 85.0)
-            
+            ld = selected_params.get('Loading', 13.0); ice = selected_params.get('ICE', 85.0)
             eff_cap = c_cap * (ice / 100.0) * 0.93
             whkg_res = (eff_cap * 3.1 * 0.38 * (ld / (ld + 4.9))) * 10
-            
             st.session_state.last_result = {"whkg": whkg_res, "eff_cap": eff_cap, "target": target_whkg, "ld": ld}
             st.session_state.history.append({"Time": time.strftime("%H:%M"), "Recipe": c_name, "Wh/kg": round(whkg_res, 1)})
             if not st.session_state.is_pro: st.session_state.usage_count += 1
             st.rerun()
-        except Exception as e: st.error(f"Excel Data Error: {e}")
+        except Exception as e: st.error(f"Computation Error: {e}")
 
-# --- [6. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
+# --- [7. 하단 출력부: 히스토리 -> 결과 리포트 -> 그래프] ---
 if st.session_state.history:
     st.divider(); st.subheader(L["history"])
     st.table(pd.DataFrame(st.session_state.history).iloc[::-1])
@@ -239,7 +249,6 @@ if st.session_state.last_result:
     l_range = np.linspace(5, 30, 50)
     w_range = (res['eff_cap'] * 3.1 * 0.38 * (l_range / (l_range + 4.9))) * 10
     fig, ax = plt.subplots(figsize=(10, 3.8))
-    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5)
-    ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5)
+    ax.plot(l_range, w_range, color='#1A729A', linewidth=2.5); ax.scatter(res['ld'], res['whkg'], color='#fd7e14', s=150, zorder=5)
     ax.set_xlabel('mg/cm2'); ax.set_ylabel('Wh/kg'); ax.grid(True, alpha=0.3)
     st.pyplot(fig)
