@@ -18,7 +18,7 @@ if 'initialized' not in st.session_state:
     log_action("System", f"Core Bootup (Mode: {SECURITY_MODE})")
     st.session_state.initialized = True
 
-# UI 클리닝
+# UI 클리닝 (White Labeling)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -59,7 +59,7 @@ if 'is_pro' not in st.session_state: st.session_state.is_pro = False
 if 'show_upgrade' not in st.session_state: st.session_state.show_upgrade = False
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "company": ""}
 
-# --- [3. 사이드바: Security Barrier 적용] ---
+# --- [3. 사이드바: Security Barrier (ID: synotech0773! 적용)] ---
 with st.sidebar:
     st.image("https://via.placeholder.com/200x60?text=SynoTech", use_container_width=True)
     selected_lang = st.selectbox("🌐 Language", ["English", "한국어"])
@@ -68,7 +68,7 @@ with st.sidebar:
     st.divider()
     st.markdown(f"**🛡️ Security Barrier: {SECURITY_MODE}**")
     
-    # [Step 4 핵심] ID 화이트리스트 대조 로그인
+    # ID 입력창 (이제 여기에 synotech0773! 입력)
     input_id = st.text_input(T["admin_id"])
     input_pw = st.text_input(T["admin_pw"], type="password")
     
@@ -94,7 +94,6 @@ st.title(T["title"])
 st.write(f"**{T['subtitle']}**")
 st.markdown("---")
 
-# 입력창 (4컬럼 배치)
 in_c1, in_c2, in_c3, in_c4 = st.columns(4)
 loading = in_c1.number_input("Loading (mg/cm²)", value=12.0)
 capacity = in_c2.number_input("Capacity (mAh/g)", value=140.0)
@@ -115,7 +114,6 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
         if st.session_state.is_pro:
             st.divider()
             st.subheader(T["pro_h"])
-            # 전문 보고서 생성 (Step 2 연동)
             res.update({'loading': loading, 'np_ratio': np_ratio})
             u_name = st.session_state.user_info.get("name", "Expert")
             u_comp = st.session_state.user_info.get("company", "Partner")
@@ -127,7 +125,7 @@ if st.button(T["btn_run"], use_container_width=True, type="primary"):
     else:
         st.error("Free trial limit reached. Please register.")
 
-# 전문가 등록 폼 (생략 - 기존 유지)
+# 전문가 등록 폼
 if st.session_state.show_upgrade and not st.session_state.is_pro:
     with st.form("enroll"):
         st.subheader("🚀 Register for Professional Access")
@@ -142,10 +140,10 @@ if st.session_state.show_upgrade and not st.session_state.is_pro:
             st.session_state.show_upgrade = False
             st.rerun()
 
-# --- [5. Step 4: Security Barrier Command Center] ---
+# --- [5. Command Center (ID: synotech0773! 전용)] ---
 if st.session_state.get('admin_mode', False):
     st.markdown("---")
-    # 관리자 전용 UI (동적 분리)
+    # 로그인한 ID가 화면에 표시됩니다.
     st.header(f"🛡️ Command Center: {input_id} (Master)")
     
     m1, m2, m3 = st.columns(3)
