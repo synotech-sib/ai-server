@@ -5,11 +5,12 @@ import plotly.graph_objects as go
 import os
 from datetime import datetime
 import random
+import smtplib  # 향후 실제 메일 발송 시 사용
+from email.mime.text import MIMEText
 
-# 1. 페이지 설정
+# 1. 페이지 설정 및 디자인
 st.set_page_config(page_title="SynoCore V1.4 Pro Max", layout="wide")
 
-# 2. 커스텀 CSS (기존 스타일 유지 및 최적화)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -36,15 +37,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 3. 데이터 및 세션 초기화
+# 2. 데이터베이스 자동 생성 및 로드 (users.xlsx 자동화)
+# -----------------------------------------------------------------------------
+USER_DB = "users.xlsx"
+
+def init_user_db():
+    if not os.path.exists(USER_DB):
+        df = pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "RegDate", "IsPro"])
+        df.to_excel(USER_DB, index=False)
+
+def save_new_user(user_data):
+    df = pd.read_excel(USER_DB)
+    df = pd.concat([df, pd.DataFrame([user_data])], ignore_index=True)
+    df.to_excel(USER_DB, index=False)
+
+init_user_db()
+
+# -----------------------------------------------------------------------------
+# 3. 세션 상태 초기화
 # -----------------------------------------------------------------------------
 if 'history' not in st.session_state: st.session_state.history = []
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'trial_count' not in st.session_state: st.session_state.trial_count = 0
 if 'show_reg' not in st.session_state: st.session_state.show_reg = False
-if 'sim_result' not in st.session_state: st.session_state.sim_result = None
+if 'reg_stage' not in st.session_state: st.session_state.reg_stage = 0 # 0:메일입력, 1:인증번호, 2:정보입력
+if 'v_code' not in st.session_state: st.session_state.v_code = ""
+if 'temp_email' not in st.session_state: st.session_state.temp_email = ""
 
-# 소재 데이터베이스
 mat_db = {
     "Prussian White": {"cap": 162, "volt": 3.05, "dens": 2.2, "life": 4000, "load": 14.0},
     "Layered Oxide": {"cap": 140, "volt": 3.00, "dens": 2.4, "life": 3000, "load": 15.0},
@@ -56,7 +75,7 @@ mat_db = {
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.4 Pro</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-logo">SynoCore</span><span class="syno-subtitle">V1.4 Pro</span></div>', unsafe_allow_html=True)
 
 with h_r:
     if not st.session_state.logged_in:
@@ -64,35 +83,67 @@ with h_r:
         u_id = l_c1.text_input("ID", placeholder="company email", key="login_id", label_visibility="collapsed")
         u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="login_pw", label_visibility="collapsed")
         if l_c3.button("Login"):
+            # 관리자 계정 또는 DB 체크
+            df_u = pd.read_excel(USER_DB)
+            user_check = df_u[(df_u['Email'] == u_id) & (df_u['Password'].astype(str) == u_pw)]
             if u_id == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                st.session_state.logged_in = True
-                st.rerun()
+                st.session_state.logged_in = True; st.rerun()
+            elif not user_check.empty:
+                st.session_state.logged_in = True; st.rerun()
+            else: st.error("계정 정보를 확인하세요.")
         
         reg_c1, reg_c2 = st.columns([1, 1])
         with reg_c1:
-            # 계정생성 버튼 클릭 시 세션 상태 토글
             if st.button("계정생성 ㅣ Pro 회원가입"):
                 st.session_state.show_reg = not st.session_state.show_reg
         with reg_c2:
-            # 무료 시도 10회로 상향 표시
             st.markdown(f'<div class="trial-highlight" style="font-size:16px; padding:5px; margin-top:0;">무료 시도 {st.session_state.trial_count}/10</div>', unsafe_allow_html=True)
     else:
-        st.info(f"✅ **wschoi@synotech.co.kr** (Admin) 님 접속 중")
-        if st.button("Logout"): 
-            st.session_state.logged_in = False
-            st.rerun()
+        st.info(f"✅ **{st.session_state.get('login_id', 'Admin')}** 님 접속 중")
+        if st.button("Logout"): st.session_state.logged_in = False; st.rerun()
 
-# [수정] 계정 생성 박스 (동작 확인 완료)
+# [중요] 3단계 보안 가입 로직
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
-        st.markdown('<p class="main-header">계정 신청 및 정보 입력 (Pro)</p>', unsafe_allow_html=True)
-        r_email = st.text_input("회사 이메일(인증용)")
-        r_name = st.text_input("이름")
-        r_comp = st.text_input("회사/부서")
-        if st.button("6자리 인증번호 발송 및 정보 저장"):
-            # 가상의 인증번호 생성 및 안내
-            v_code = str(random.randint(100000, 999999))
-            st.success(f"회원 정보가 **users.xlsx**에 예약되었습니다. 인증번호: {v_code}")
+        st.markdown('<p class="main-header">계정 신청 및 보안 인증 (Pro)</p>', unsafe_allow_html=True)
+        
+        if st.session_state.reg_stage == 0:
+            email_input = st.text_input("회사 이메일 주소 입력")
+            if st.button("인증번호 6자리 발송"):
+                if "@" in email_input:
+                    st.session_state.v_code = str(random.randint(100000, 999999))
+                    st.session_state.temp_email = email_input
+                    st.session_state.reg_stage = 1
+                    st.success(f"[{email_input}]로 인증번호를 보냈습니다. (인증번호: {st.session_state.v_code})")
+                    st.rerun()
+                else: st.error("올바른 이메일 형식이 아닙니다.")
+        
+        elif st.session_state.reg_stage == 1:
+            st.write(f"이메일: **{st.session_state.temp_email}**")
+            code_input = st.text_input("인증번호 6자리 입력")
+            if st.button("인증번호 확인"):
+                if code_input == st.session_state.v_code:
+                    st.session_state.reg_stage = 2
+                    st.success("인증 성공! 상세 정보를 입력해주세요.")
+                    st.rerun()
+                else: st.error("인증번호가 일치하지 않습니다.")
+        
+        elif st.session_state.reg_stage == 2:
+            st.write(f"가입 이메일: **{st.session_state.temp_email}**")
+            with st.form("reg_detail"):
+                new_name = st.text_input("이름")
+                new_comp = st.text_input("회사명")
+                new_dept = st.text_input("부서")
+                new_pw = st.text_input("비밀번호 설정", type="password")
+                if st.form_submit_button("가입 완료 및 Pro 권한 획득"):
+                    save_new_user({
+                        "Email": st.session_state.temp_email, "Password": new_pw,
+                        "Name": new_name, "Company": new_comp, "Dept": new_dept,
+                        "RegDate": datetime.now().strftime("%Y-%m-%d"), "IsPro": True
+                    })
+                    st.success("회원가입이 완료되었습니다! 로그인 해주세요.")
+                    st.session_state.show_reg = False
+                    st.session_state.reg_stage = 0
         st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -131,7 +182,7 @@ with st.container(border=True):
         s4.markdown(f'<p class="sub-header-bold">Base Life</p>{c_life} Cycles', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters (더 자세히 보기 완전 구현)
+# [3] Process Parameters
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     show_adv = st.checkbox("🔍 더 자세히 보기 (Advanced Settings)", key="chk_adv")
@@ -148,13 +199,11 @@ with st.container(border=True):
         np_ratio = st.slider("N/P Ratio", 1.0, 1.5, 1.15, key="sld_np")
         if show_adv:
             st.slider("Anode Press Density (g/cc)", 0.8, 2.0, 1.1, key="sld_a_dens")
-            st.slider("Anode Active %", 90.0, 98.0, 95.0, key="sld_a_act")
     with p3:
         st.markdown('<p class="sub-header-bold">(C) Electrolyte & Cell</p>', unsafe_allow_html=True)
         active_ratio = st.slider("Active Ratio (%)", 85.0, 99.0, 92.0, key="sld_act")
         if show_adv:
             st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="sld_ec")
-            st.slider("Separator Thick (μm)", 12, 25, 16, key="sld_sep_t")
     st.markdown("<br>", unsafe_allow_html=True)
 
 # [4] Target Configuration
@@ -169,16 +218,16 @@ with st.container(border=True):
         target_c = st.slider("C-rate Goal", 0.1, 20.0, 1.0, key="sld_target_c", label_visibility="collapsed")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [5] Simulation History & Run (이력 및 컴퓨터 시간 기록)
+# [5] Simulation History & Run (PC 시간 기록 및 10회 제한)
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation History & Run</p>', unsafe_allow_html=True)
     if st.button("🚀 RUN DESIGN SIMULATION"):
         if st.session_state.trial_count < 10 or st.session_state.logged_in:
             st.session_state.trial_count += 1
-            # 계산 AI 로직
+            # 계산 엔진 (AI)
             res_whkg = (c_cap * (active_ratio/100) * (c_volt - 0.1)) / (2.4 + (loading/35))
             
-            # [기록] 현재 컴퓨터의 시간으로 기록
+            # [기록] 현재 PC의 시간 기록
             sim_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             new_log = {
                 "id": f"{st.session_state.trial_count:03d}",
@@ -190,18 +239,16 @@ with st.container(border=True):
         else:
             st.error("무료 시도 횟수(10회)를 초과했습니다. Pro 계정 로그인이 필요합니다.")
 
-    # 이력 선택창
     if st.session_state.history:
         st.markdown('<p class="sub-header-bold">과거 시뮬레이션 기록 선택 (최근 순)</p>', unsafe_allow_html=True)
         hist_labels = [item["label"] for item in st.session_state.history]
         selected_label = st.selectbox("기록 선택", hist_labels, label_visibility="collapsed", key="sel_hist")
         st.session_state.sim_result = next(item for item in st.session_state.history if item["label"] == selected_label)
 
-    # 결과 분석 리포트
     if st.session_state.sim_result:
         res = st.session_state.sim_result["data"]
         st.markdown("---")
-        st.markdown(f'<p class="main-header">Engineering Analysis Result (Recorded: {res["time"]})</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="main-header">Engineering Analysis Result (Time: {res["time"]})</p>', unsafe_allow_html=True)
         r1, r2, r3 = st.columns(3)
         r1.metric("Energy Density", f"{res['whkg']:.1f} Wh/kg")
         r2.metric("Cell Voltage", f"{res['v']:.2f} V")
@@ -217,9 +264,6 @@ with st.container(border=True):
             fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=300, template="plotly_white")
             st.plotly_chart(fig, use_container_width=True, key="res_plot")
         with g_col2:
-            st.markdown('<p class="sub-header-bold">Detailed Design Parameters</p>', unsafe_allow_html=True)
-            st.table(pd.DataFrame({
-                "Parameter": ["Cathode Loading", "N/P Ratio", "Target Energy", "C-rate", "Simulated Time"],
-                "Value": [f"{res['loading']} mg/cm2", f"{res['np']}", f"{target_e} Wh/kg", f"{target_c} C", res["time"]]
-            }))
+            st.markdown('<p class="sub-header-bold">Detailed Design Table</p>', unsafe_allow_html=True)
+            st.table(pd.DataFrame({"Parameter": ["Loading", "N/P", "Active%", "Sim Time"], "Value": [f"{res['loading']} mg/cm2", f"{res['np']}", f"{active_ratio}%", res["time"]]}))
     st.markdown("<br>", unsafe_allow_html=True)
