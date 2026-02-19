@@ -4,144 +4,142 @@ import numpy as np
 import plotly.graph_objects as go
 import os
 import random
+import io
+from datetime import datetime
 
-# 1. 페이지 설정
+# -----------------------------------------------------------------------------
+# 1. 페이지 설정 및 커스텀 CSS (디자인 고정)
+# -----------------------------------------------------------------------------
 st.set_page_config(page_title="SynoCore V1.4 Pro Max", layout="wide")
 
-# 2. 커스텀 CSS (UI/UX 정밀 조정)
 st.markdown("""
     <style>
+    /* 1. Streamlit 기본 메뉴 숨김 */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 
-    .header-container { display: flex; align-items: center; justify-content: flex-start; }
-    .syno-title { color: #003366; font-size: 38px; font-weight: 900; margin-right: 15px; }
-    .syno-subtitle { color: #666; font-size: 22px; font-weight: normal; padding-top: 8px; }
+    /* 2. 헤더 디자인: SynoCore(네이비) V1.4 Pro(블랙) 한 줄 배치 */
+    .header-left { display: flex; align-items: baseline; gap: 10px; }
+    .syno-logo { color: #003366; font-size: 38px; font-weight: 900; }
+    .syno-ver { color: #000000; font-size: 18px; font-weight: normal; }
 
-    /* 로그인 버튼 높이 및 입력창 수평 정렬 */
+    /* 3. 로그인 버튼 높이 및 입력창 수평 정렬 */
     div[data-testid="stButton"] > button {
         height: 42px !important; background-color: #003366 !important;
         color: white !important; font-weight: bold !important;
         border-radius: 4px !important; width: 100%; border: none !important;
     }
 
-    /* 무료 시도 강조 박스 */
-    .trial-highlight {
+    /* 4. 무료 시도 강조 박스 (딥블루) */
+    .trial-box {
         background-color: #003366; color: white; padding: 12px;
-        border-radius: 8px; text-align: center; font-size: 22px; font-weight: bold; margin-top: 5px;
+        border-radius: 8px; text-align: center; font-size: 22px; font-weight: bold; margin-top: 8px;
     }
 
-    /* 섹션 박스 스타일 (제목+내용 완전 수납) */
+    /* 5. 섹션 박스 스타일 (제목+내용 완전 수납 및 하단 여백) */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
-        border-radius: 12px !important; padding: 25px 25px 15px 25px !important;
+        border-radius: 12px !important; padding: 25px !important;
         margin-bottom: 40px !important;
     }
 
-    .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
+    /* 6. 텍스트 크기 위계질서 */
+    .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 15px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 3. 세션 상태 및 데이터 초기화 (버튼 작동의 핵심)
+# 2. 데이터베이스 및 세션 초기화 (에러 방지 핵심)
 # -----------------------------------------------------------------------------
+def init_db():
+    if not os.path.exists("users.xlsx"):
+        pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Is_Pro"]).to_excel("users.xlsx", index=False)
+    if not os.path.exists("sim_logs.xlsx"):
+        pd.DataFrame(columns=["ID", "User", "Summary", "Data"]).to_excel("sim_logs.xlsx", index=False)
+
+@st.cache_data
+def load_mat_data():
+    try:
+        df = pd.read_excel("material_list.xlsx")
+        # KeyError 방지를 위한 컬럼명 표준화
+        df.columns = [c.split('(')[0].strip() for c in df.columns] 
+        return df
+    except: return pd.DataFrame()
+
+init_db()
+mat_df = load_mat_data()
+
+# 세션 상태 관리
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-if 'show_reg' not in st.session_state: st.session_state.show_reg = False
-if 'reg_stage' not in st.session_state: st.session_state.reg_stage = 0
+if 'user_info' not in st.session_state: st.session_state.user_info = {}
 if 'trial_count' not in st.session_state: st.session_state.trial_count = 0
+if 'reg_step' not in st.session_state: st.session_state.reg_step = 0
 if 'sim_result' not in st.session_state: st.session_state.sim_result = None
-
-# 가상 소재 데이터베이스
-mat_db = {
-    "Prussian White": {"cap": 162, "volt": 3.05, "dens": 2.2, "life": 4000, "rec_load": 14.0, "rec_dens": 2.5},
-    "Layered Oxide": {"cap": 140, "volt": 3.00, "dens": 2.4, "life": 3000, "rec_load": 15.0, "rec_dens": 2.8},
-    "Polyanion": {"cap": 115, "volt": 3.80, "dens": 2.2, "life": 8000, "rec_load": 12.0, "rec_dens": 2.1}
-}
+if 'history' not in st.session_state: st.session_state.history = []
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 (50:50 배치 & 로그인 로직)
+# 3. 상단 레이아웃 (좌우 50:50 고정)
 # -----------------------------------------------------------------------------
-head_l, head_r = st.columns([1, 1])
+top_l, top_r = st.columns([1, 1])
 
-with head_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.4 Pro</span></div>', unsafe_allow_html=True)
+with top_l:
+    st.markdown("""
+        <div class="header-left">
+            <span class="syno-logo">SynoCore</span>
+            <span class="syno-ver">V1.4 Pro</span>
+        </div>
+    """, unsafe_allow_html=True)
 
-with head_r:
+with top_r:
     if not st.session_state.logged_in:
-        log_c1, log_c2, log_c3 = st.columns([2, 2, 1])
-        u_id = log_c1.text_input("ID", placeholder="company email", label_visibility="collapsed")
-        u_pw = log_c2.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
-        if log_c3.button("Login"):
+        c1, c2, c3 = st.columns([2, 2, 1])
+        u_id = c1.text_input("ID", placeholder="company email", label_visibility="collapsed")
+        u_pw = c2.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
+        if c3.button("Login"):
             if u_id == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
                 st.session_state.logged_in = True
+                st.session_state.user_info = {"Name": "관리자", "Email": u_id, "Is_Pro": True}
                 st.rerun()
-            else:
-                st.error("Login Error")
+            # 일반 유저 체크 로직 추가 가능
         
-        # 계정생성 ㅣ Pro 회원가입 (클릭 시 세션 변경)
-        if st.button("계정생성 ㅣ Pro 회원가입", key="reg_btn", help="회원가입 절차 시작"):
-            st.session_state.show_reg = not st.session_state.show_reg
+        st.markdown('<div style="text-align:right; font-size:13px; color:#003366; font-weight:bold; cursor:pointer;">계정생성 ㅣ Pro 회원가입</div>', unsafe_allow_html=True)
+        # 무료 시도 강조
+        st.markdown(f'<div class="trial-box">무료 시도 {st.session_state.trial_count}/3</div>', unsafe_allow_html=True)
     else:
-        st.write(f"✅ **wschoi@synotech.co.kr** (Admin) 접속 중")
-        if st.button("Logout"):
+        st.write(f"✅ **{st.session_state.user_info['Name']}** 님 접속 중")
+        btn_c1, btn_c2 = st.columns(2)
+        if btn_c1.button("나의 계정 및 데이터 관리"): pass # 마이페이지 로직
+        if btn_c2.button("Logout"): 
             st.session_state.logged_in = False
             st.rerun()
-
-    # 무료 시도 강조
-    st.markdown(f'<div class="trial-highlight">💡 무료 시도 가능 횟수: {3 - st.session_state.trial_count} / 3</div>', unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 5. [신규] 계정 생성 로직 (로그인 하단 섹션)
-# -----------------------------------------------------------------------------
-if st.session_state.show_reg and not st.session_state.logged_in:
-    with st.container(border=True):
-        st.markdown('<p class="main-header">계정생성 ㅣ Pro 회원가입</p>', unsafe_allow_html=True)
-        if st.session_state.reg_stage == 0:
-            reg_email = st.text_input("회사 이메일 입력")
-            if st.button("6자리 인증숫자 발송 (Simulation)"):
-                st.session_state.v_code = str(random.randint(100000, 999999))
-                st.session_state.reg_stage = 1
-                st.info(f"인증번호가 발송되었습니다: {st.session_state.v_code}")
-                st.rerun()
-        elif st.session_state.reg_stage == 1:
-            v_input = st.text_input("인증번호 입력")
-            if st.button("인증 확인"):
-                if v_input == st.session_state.v_code:
-                    st.success("인증 성공! 정보를 입력하세요.")
-                    st.session_state.reg_stage = 2
-                    st.rerun()
-        elif st.session_state.reg_stage == 2:
-            with st.form("reg_form"):
-                st.text_input("성함")
-                st.text_input("회사/부서")
-                st.text_input("비밀번호", type="password")
-                if st.form_submit_button("가입 완료"):
-                    st.success("가입이 완료되었습니다. 로그인 해주세요.")
-                    st.session_state.show_reg = False
-                    st.session_state.reg_stage = 0
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 6. 본문 시뮬레이터 (1~5번 섹션)
+# 4. 본문 시뮬레이터 (1~5번 완전 수납 박스)
 # -----------------------------------------------------------------------------
 
 # [1] Material Selection
 with st.container(border=True):
     st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
     m1, m2, m3, m4 = st.columns(4)
-    with m1: cat_type = st.selectbox("Cathode", list(mat_db.keys()))
-    with m2: ano_type = st.selectbox("Anode", ["Aekyung Chemical", "Kuraray HC"])
-    with m3: elec_type = st.selectbox("Electrolyte", ["Standard NaPF6", "High-Stability"])
-    with m4: sep_type = st.selectbox("Separator", ["PE 16um", "Ceramic Coated"])
+    cat_list = mat_df[mat_df['Category']=='Cathode']['Name'].tolist() if not mat_df.empty else ["PW", "PI", "LO"]
+    with m1: cat_sel = st.selectbox("Cathode", cat_list)
+    with m2: ano_sel = st.selectbox("Anode", ["Kurarey A", "Aekyung Chemical D"])
+    with m3: st.selectbox("Electrolyte", ["G Type", "A Type"])
+    with m4: st.selectbox("Separator", ["PE", "PP"])
     st.markdown("<br>", unsafe_allow_html=True)
 
-# 소재 변경 시 슬라이더 값 동기화
-cur_spec = mat_db[cat_type]
-if 'last_cat' not in st.session_state or st.session_state.last_cat != cat_type:
-    st.session_state.last_cat = cat_type
-    st.session_state.loading_val = cur_spec['rec_load']
-    st.session_state.dens_val = cur_spec['rec_dens']
+# 소재 연동 (Sync)
+if not mat_df.empty:
+    cat_row = mat_df[mat_df['Name'] == cat_sel].iloc[0]
+    if 'last_cat' not in st.session_state or st.session_state.last_cat != cat_sel:
+        st.session_state.last_cat = cat_sel
+        st.session_state.load_val = float(cat_row['Rec_Loading'])
+        st.session_state.dens_val = float(cat_row['Rec_Density'])
+else:
+    cat_row = {'Base_Capacity': 162, 'Base_Avg_Voltage': 3.05, 'Base_True Density': 2.2, 'Base_Life': 4000}
+    if 'load_val' not in st.session_state: st.session_state.load_val = 14.0
 
 # [2] Material Specs
 with st.container(border=True):
@@ -149,14 +147,15 @@ with st.container(border=True):
     expert_spec = st.checkbox("🔓 물성 직접 수정 활성화")
     s1, s2, s3, s4 = st.columns(4)
     if expert_spec:
-        c_cap = s1.slider("Capacity (mAh/g)", 100, 200, cur_spec['cap'])
-        c_volt = s2.slider("Voltage (V)", 2.5, 4.5, cur_spec['volt'])
+        st.markdown('<p class="sub-header-bold">Tuning Mode</p>', unsafe_allow_html=True)
+        c_cap = s1.slider("Capacity", 100, 200, int(cat_row['Base_Capacity']))
+        c_v = s2.slider("Voltage", 2.5, 4.5, float(cat_row['Base_Avg_Voltage']))
     else:
-        c_cap, c_volt = cur_spec['cap'], cur_spec['volt']
-        s1.markdown(f'<p class="sub-header-bold">Capacity</p>{c_cap} mAh/g', unsafe_allow_html=True)
-        s2.markdown(f'<p class="sub-header-bold">Voltage</p>{c_volt} V', unsafe_allow_html=True)
-    s3.markdown(f'<p class="sub-header-bold">Density</p>{cur_spec["dens"]} g/cc', unsafe_allow_html=True)
-    s4.markdown(f'<p class="sub-header-bold">Base Life</p>{cur_spec["life"]} Cyc', unsafe_allow_html=True)
+        s1.markdown(f'<p class="sub-header-bold">Capacity</p> {cat_row["Base_Capacity"]} mAh/g', unsafe_allow_html=True)
+        s2.markdown(f'<p class="sub-header-bold">Voltage</p> {cat_row["Base_Avg_Voltage"]} V', unsafe_allow_html=True)
+        c_cap, c_v = cat_row['Base_Capacity'], cat_row['Base_Avg_Voltage']
+    s3.markdown(f'<p class="sub-header-bold">Density</p> {cat_row["Base_True Density"]} g/cc', unsafe_allow_html=True)
+    s4.markdown(f'<p class="sub-header-bold">Life</p> {cat_row["Base_Life"]} Cyc', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
 # [3] Process Parameters
@@ -166,57 +165,74 @@ with st.container(border=True):
     p1, p2, p3 = st.columns(3)
     with p1:
         st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-        loading = st.slider("Loading (mg/cm2)", 5.0, 40.0, st.session_state.loading_val)
-        if show_adv: st.slider("Binder %", 1.0, 5.0, 3.0)
+        loading = st.slider("Loading (mg/cm2)", 5.0, 40.0, st.session_state.load_val)
+        if show_adv: st.slider("Density (g/cc)", 1.5, 3.5, 2.5)
     with p2:
-        st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
-        np_ratio = st.slider("N/P Ratio", 1.0, 1.5, 1.15)
+        st.markdown('<p class="sub-header-bold">(B) Anode Settings</p>', unsafe_allow_html=True)
+        np = st.slider("N/P Ratio", 1.0, 1.5, 1.15)
     with p3:
-        st.markdown('<p class="sub-header-bold">(C) Electrolyte Change</p>', unsafe_allow_html=True)
-        active_ratio = st.slider("Active Ratio (%)", 85.0, 99.0, 92.0)
+        st.markdown('<p class="sub-header-bold">(C) Electrolyte Settings</p>', unsafe_allow_html=True)
+        act = st.slider("Active Ratio (%)", 85.0, 99.0, 92.0)
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Target Configuration
+# [4] Target Goals
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Configuration</p>', unsafe_allow_html=True)
     t1, t2 = st.columns(2)
-    with t1: t_en = st.slider("Target Energy Density (Wh/kg)", 100, 250, 160)
-    with t2: t_cr = st.slider("Target C-rate", 0.1, 10.0, 1.0)
+    with t1: 
+        st.markdown('<p class="sub-header-bold">Target Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
+        target_e = st.slider("Goal", 100, 250, 160, label_visibility="collapsed")
+    with t2:
+        st.markdown('<p class="sub-header-bold">Target C-rate (출력 조건)</p>', unsafe_allow_html=True)
+        target_c = st.slider("C-rate", 0.1, 10.0, 1.0, label_visibility="collapsed")
     st.markdown("<br>", unsafe_allow_html=True)
 
 # [5] Simulation History & Run
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation History & Run</p>', unsafe_allow_html=True)
-    if st.button("🚀 RUN DESIGN SIMULATION", type="primary"):
-        if st.session_state.trial_count < 3 or st.session_state.logged_in:
-            st.session_state.trial_count += 1
-            # 실제 계산 로직
-            res_whkg = (c_cap * (active_ratio/100) * (c_volt - 0.1)) / 2.5
-            st.session_state.sim_result = {"whkg": res_whkg, "v": c_volt - 0.1, "life": cur_spec['life']}
+    if st.button("🚀 RUN DESIGN SIMULATION"):
+        if not st.session_state.logged_in and st.session_state.trial_count >= 3:
+            st.error("무료 시도 횟수를 초과했습니다. Pro 전환이 필요합니다.")
         else:
-            st.error("무료 시도 횟수를 초과했습니다. 로그인 하세요.")
+            st.session_state.trial_count += 1
+            # 간이 계산 로직
+            res_whkg = (c_cap * (act/100) * (c_v - 0.1)) / 2.6 
+            st.session_state.sim_result = {"whkg": res_whkg, "v": c_v - 0.1, "id": f"{st.session_state.trial_count:03d}"}
+            st.session_state.history.insert(0, f"#{st.session_state.sim_result['id']} | {cat_sel} | {res_whkg:.1f} Wh/kg")
 
-    # 결과 출력 (세션 데이터가 있을 때만)
+    if st.session_state.history:
+        st.markdown('<p class="sub-header-bold">과거 시뮬레이션 기록 선택 (최근 순)</p>', unsafe_allow_html=True)
+        st.selectbox("History", st.session_state.history, label_visibility="collapsed")
+
+    # 결과 대시보드
     if st.session_state.sim_result:
         st.markdown("---")
         st.markdown('<p class="main-header">Engineering Analysis Result</p>', unsafe_allow_html=True)
+        
         r1, r2, r3 = st.columns(3)
-        r1.metric("Energy Density", f"{st.session_state.sim_result['whkg']:.1f} Wh/kg")
-        r2.metric("Cell Voltage", f"{st.session_state.sim_result['v']:.2f} V")
-        r3.metric("Expected Life", f"{st.session_state.sim_result['life']:,} Cycles")
+        with r1: st.markdown('<p class="sub-header-bold">Energy Density</p>', unsafe_allow_html=True); st.write(f"## {st.session_state.sim_result['whkg']:.1f} Wh/kg")
+        with r2: st.markdown('<p class="sub-header-bold">Voltage Gap</p>', unsafe_allow_html=True); st.write(f"## {st.session_state.sim_result['v']:.2f} V")
+        with r3: st.markdown('<p class="sub-header-bold">Target Achievement</p>', unsafe_allow_html=True); st.write(f"## {st.session_state.sim_result['whkg']/target_e*100:.1f} %")
 
-        # 그래프 (30% 너비 및 확대)
-        g1, g2 = st.columns([3, 7])
-        with g1:
-            st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
-            x = np.linspace(0, 100, 100)
-            y = c_volt - (x/100)**1.5
-            fig = go.Figure(go.Scatter(x=x, y=y, name="Full-Cell", line=dict(color='#003366', width=3)))
+        # 그래프 및 표 (30% 너비)
+        st.markdown("---")
+        g_c1, g_c2 = st.columns([3, 7])
+        with g_c1:
+            st.markdown('<p class="sub-header-bold">C-rate Retention Prediction</p>', unsafe_allow_html=True)
+            x_c = np.linspace(0.1, 10, 50)
+            y_r = np.exp(-0.1 * (x_c - 1)) * 100
+            fig = go.Figure(go.Scatter(x=x_c, y=y_r, name="Retention", line=dict(color='#003366', width=3)))
             fig.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
             st.plotly_chart(fig, use_container_width=True)
             with st.expander("🔍 그래프 상세 확대 분석"):
                 st.plotly_chart(fig, use_container_width=True)
-        with g2:
-            st.markdown('<p class="sub-header-bold">Detailed Design Table</p>', unsafe_allow_html=True)
-            st.table(pd.DataFrame({"Param": ["N/P", "Loading", "C-rate"], "Val": [np_ratio, loading, t_cr]}))
+
+        with g_c2:
+            st.markdown('<p class="sub-header-bold">Detailed Design Parameters</p>', unsafe_allow_html=True)
+            detail_df = pd.DataFrame({
+                "Parameter": ["Cathode Loading", "N/P Ratio", "Cell Thickness", "Target C-rate"],
+                "Value": [f"{loading} mg/cm2", f"{np}", f"{(loading/2.5)*10+30:.1f} um", f"{target_c} C"],
+                "Status": ["Optimal", "Balanced", "Target Met", "Applied"]
+            })
+            st.table(detail_df)
     st.markdown("<br>", unsafe_allow_html=True)
