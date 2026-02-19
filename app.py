@@ -34,17 +34,18 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # 2. [에러 해결] 세션 상태 초기화 (AttributeError 방지)
 # -----------------------------------------------------------------------------
-session_defaults = {
+# image_1f5f1e, image_1fe9e4 에러 해결을 위해 초기값 선언
+init_keys = {
     'logged_in': False, 'trial_count': 0, 'show_reg': False, 'reg_stage': 0,
     'v_code': "", 'temp_email': "", 'history': [], 'sim_result': None,
     'loading_val': 14.0, 'c_cap': 160.0, 'c_volt': 3.05, 'c_dens': 2.2, 'c_life': 4000
 }
-for key, val in session_defaults.items():
+for key, val in init_keys.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
 # -----------------------------------------------------------------------------
-# 3. [에러 해결] 엑셀 데이터 로드 및 전처리 (KeyError 방지)
+# 3. [에러 해결] 엑셀 데이터 로드 및 컬럼 표준화 (KeyError 방지)
 # -----------------------------------------------------------------------------
 @st.cache_data
 def load_materials():
@@ -52,14 +53,18 @@ def load_materials():
     if not os.path.exists(file_path):
         return pd.DataFrame()
     df = pd.read_excel(file_path)
-    # 컬럼명 전처리: 공백 제거 및 단위(괄호) 제거하여 코드와 일치시킴
+    # image_1f62bf 에러 해결을 위해 컬럼명의 공백 및 단위(괄호) 제거
     df.columns = [c.split('(')[0].strip() for c in df.columns]
     return df
 
 mat_df = load_materials()
 
+# 구글 시트 연결 (가입자 DB용)
+# image_2a5aac 에러 해결: 정확한 연결 설정
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 (50:50 배치)
+# 4. 상단 헤더 (50:50)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l:
@@ -68,29 +73,86 @@ with h_l:
 with h_r:
     if not st.session_state.logged_in:
         l_c1, l_c2, l_c3 = st.columns([2, 2, 1])
-        u_id = l_c1.text_input("ID", placeholder="email", key="top_id", label_visibility="collapsed")
-        u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="top_pw", label_visibility="collapsed")
+        u_id = l_c1.text_input("ID", placeholder="email", key="top_login_id", label_visibility="collapsed")
+        u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="top_login_pw", label_visibility="collapsed")
         if l_c3.button("Login", key="top_login_btn"):
             if u_id == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
                 st.session_state.logged_in = True; st.rerun()
         
-        reg_c1, reg_c2 = st.columns([1, 1])
-        with reg_c1:
+        c1, c2 = st.columns([1, 1])
+        with c1:
             if st.button("계정생성 ㅣ Pro 회원가입", key="top_reg_btn"):
                 st.session_state.show_reg = not st.session_state.show_reg
-        with reg_c2:
+        with c2:
             st.markdown(f'<div style="background-color:#003366; color:white; padding:5px; border-radius:8px; text-align:center;">무료 시도 {st.session_state.trial_count}/10</div>', unsafe_allow_html=True)
     else:
         st.info(f"✅ 접속 중: Admin")
         if st.button("Logout", key="top_logout_btn"): st.session_state.logged_in = False; st.rerun()
 
+# -----------------------------------------------------------------------------
+# 5. [업데이트] 계정 신청 (7개 항목 및 비밀번호 확인)
+# -----------------------------------------------------------------------------
+if st.session_state.show_reg and not st.session_state.logged_in:
+    with st.container(border=True):
+        st.markdown('<p class="main-header">📝 계정 신청 및 상세 정보 입력 (Pro)</p>', unsafe_allow_html=True)
+        if st.session_state.reg_stage < 2:
+            # 1단계: 이메일 인증
+            e_in = st.text_input("1. 회사 이메일 주소 입력", key="reg_email")
+            if st.button("인증번호 발송", key="btn_send_v"):
+                st.session_state.v_code = str(random.randint(100000, 999999))
+                st.session_state.temp_email = e_in
+                st.session_state.reg_stage = 1
+                st.info(f"인증번호: {st.session_state.v_code}"); st.rerun()
+            
+            if st.session_state.reg_stage == 1:
+                v_in = st.text_input("인증번호 입력", key="reg_v_code")
+                if st.button("인증 확인", key="btn_v_confirm"):
+                    if v_in == st.session_state.v_code:
+                        st.session_state.reg_stage = 2; st.rerun()
+        
+        else:
+            # 2단계: 상세 정보 입력
+            st.write(f"가입 이메일: **{st.session_state.temp_email}**")
+            p_c1, p_c2 = st.columns(2)
+            new_pw = p_c1.text_input("2. Password 설정", type="password", key="reg_pw")
+            confirm_pw = p_c2.text_input("2-1. Password 확인", type="password", key="reg_pw_conf")
+            
+            if new_pw and confirm_pw and new_pw != confirm_pw:
+                st.error("비밀번호가 일치하지 않습니다.")
+            
+            new_name = st.text_input("3. 이름", key="reg_name")
+            new_comp = st.text_input("4. Company (회사명)", key="reg_comp")
+            new_dept = st.text_input("5. 부서", key="reg_dept")
+            new_job = st.text_input("6. 담당업무", key="reg_job")
+            new_phone = st.text_input("7. 연락처 (전화번호)", key="reg_phone")
+            
+            with st.expander("(동의) 내용보기"):
+                st.markdown("""
+                이 시뮬레이션 자료는 참조용으로만 사용해야 하며, 보고서의 내용과 다른 실제 결과가 나오는 것에 대해 
+                **시노코어는 책임을 지지 않는다.**
+                """)
+            agree = st.checkbox("위 약관에 동의합니다.", key="reg_agree")
+            
+            can_submit = agree and (new_pw == confirm_pw) and new_name and new_comp
+            if st.button("가입신청", disabled=not can_submit, key="btn_reg_final"):
+                # GSheets 저장 로직
+                df_u = conn.read(worksheet="Sheet1")
+                new_user = pd.DataFrame([{
+                    "Email": st.session_state.temp_email, "Password": new_pw, "Name": new_name,
+                    "Company": new_comp, "Dept": new_dept, "Job": new_job, "Phone": new_phone,
+                    "RegDate": datetime.now().strftime("%Y-%m-%d")
+                }])
+                updated_df = pd.concat([df_u, new_user], ignore_index=True)
+                conn.update(worksheet="Sheet1", data=updated_df)
+                st.success("가입신청 완료!"); st.session_state.show_reg = False; st.session_state.reg_stage = 0
+
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 5. 본문 시뮬레이터 (박스 수납 및 데이터 연동)
+# 6. 본문 시뮬레이터 (엑셀 연동)
 # -----------------------------------------------------------------------------
 
-# [1] Material Selection (엑셀 데이터 연동)
+# [1] Material Selection
 with st.container(border=True):
     st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
     if not mat_df.empty:
@@ -98,7 +160,7 @@ with st.container(border=True):
         cat_list = mat_df[mat_df['Category'] == 'Cathode']['Name'].tolist()
         cat_sel = m1.selectbox("Cathode", cat_list, key="sel_cat")
         
-        # 선택된 소재 수치 자동 업데이트 (Sync)
+        # 선택 소재 데이터 동기화
         sel_row = mat_df[mat_df['Name'] == cat_sel].iloc[0]
         st.session_state.c_cap = float(sel_row.get('Capacity', 160))
         st.session_state.c_volt = float(sel_row.get('Voltage', 3.05))
@@ -135,20 +197,18 @@ with st.container(border=True):
     show_adv = st.checkbox("🔍 더 자세히 보기 (Advanced Settings)", key="chk_adv")
     p1, p2, p3 = st.columns(3)
     with p1:
-        load = st.slider("Loading (mg/cm2)", 5.0, 45.0, st.session_state.loading_val, key="sld_load")
+        load = st.slider("Loading", 5.0, 45.0, st.session_state.loading_val, key="sld_load")
         if show_adv: 
             st.slider("Cathode Density", 1.5, 3.5, 2.5, key="sld_cat_dens")
-            st.slider("Conductive Agent %", 0.5, 5.0, 2.0, key="sld_cond")
             st.slider("Binder %", 0.5, 5.0, 3.0, key="sld_bind")
     with p2:
         np = st.slider("N/P Ratio", 1.0, 1.5, 1.15, key="sld_np")
-        if show_adv: st.slider("Anode Density", 0.8, 2.0, 1.1, key="sld_ano_dens")
     with p3:
         act = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sld_act")
         if show_adv: st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="sld_ec")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Target & [5] Simulation (Duplicate ID 해결)
+# [4] Target & [5] Simulation
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Configuration</p>', unsafe_allow_html=True)
     t1, t2 = st.columns(2)
@@ -161,6 +221,7 @@ with st.container(border=True):
     if st.button("🚀 RUN DESIGN SIMULATION", key="btn_run"):
         if st.session_state.trial_count < 10 or st.session_state.logged_in:
             st.session_state.trial_count += 1
+            # 에너지 밀도 $Wh/kg = \frac{Cap \times Volt \times Active}{Cell Weight Factor}$
             res_whkg = (c_cap * (act/100) * (c_volt - 0.1)) / 2.5
             st.session_state.sim_result = {"whkg": res_whkg, "v": c_volt - 0.1, "time": datetime.now().strftime("%H:%M:%S")}
         else: st.error("횟수 초과!")
@@ -176,9 +237,9 @@ with st.container(border=True):
         
         g1, g2 = st.columns([3, 7])
         with g1:
+            # image_1f7163 에러 해결: 고유 key 부여
             fig = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=c_volt-0.1-(np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
             fig.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
-            # [에러 해결] 고유 key 부여하여 DuplicateElementId 방지
             st.plotly_chart(fig, use_container_width=True, key="plot_res_main")
         with g2:
             st.table(pd.DataFrame({"Param": ["Loading", "N/P", "C-rate"], "Value": [load, np, t_cr]}))
