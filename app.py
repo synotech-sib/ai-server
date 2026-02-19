@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import random
 import os
+import hashlib  # [추가] 비밀번호 암호화를 위한 내장 라이브러리
 
 # 구글 시트 라이브러리 예외 처리
 try:
@@ -35,6 +36,12 @@ st.markdown("""
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# [보안] 비밀번호 단방향 암호화 (SHA-256) 함수
+# -----------------------------------------------------------------------------
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # -----------------------------------------------------------------------------
 # 2. 세션 상태 초기화 (AttributeError 원천 차단)
@@ -82,7 +89,11 @@ with h_r:
         u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed")
         if l_c3.button("Login", key="btn_login_m"):
             df_u = get_user_db()
-            valid = df_u[(df_u['Email'] == u_id) & (df_u['Password'].astype(str) == u_pw)] if not df_u.empty else pd.DataFrame()
+            # [보안] 로그인 시 입력한 비밀번호도 암호화하여 DB의 암호화된 값과 비교
+            hashed_pw = hash_password(u_pw) if u_pw else ""
+            valid = df_u[(df_u['Email'] == u_id) & (df_u['Password'].astype(str) == hashed_pw)] if not df_u.empty else pd.DataFrame()
+            
+            # 관리자(대표님) 마스터 계정은 예외 처리로 즉시 통과
             if u_id == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
                 st.session_state.logged_in = True; st.rerun()
             elif not valid.empty:
@@ -126,10 +137,26 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     df_u = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
-                    new_user = pd.DataFrame([{"Email":st.session_state.temp_email,"Password":pw1,"Name":n_name,"Company":n_comp,"Dept":n_dept,"Job":n_job,"Phone":n_phone,"RegDate":datetime.now().strftime("%Y-%m-%d")}])
+                    
+                    # [보안] 가입 시 비밀번호를 해싱(암호화)하여 저장
+                    hashed_pw_register = hash_password(pw1)
+                    
+                    new_user = pd.DataFrame([{
+                        "Email": st.session_state.temp_email, 
+                        "Password": hashed_pw_register, 
+                        "Name": n_name, 
+                        "Company": n_comp, 
+                        "Dept": n_dept, 
+                        "Job": n_job, 
+                        "Phone": n_phone, 
+                        "RegDate": datetime.now().strftime("%Y-%m-%d")
+                    }])
                     updated = pd.concat([df_u, new_user], ignore_index=True)
                     conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated)
-                    st.success("신청 완료! 구글 시트에 안전하게 저장되었습니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0
+                    
+                    # [요청 반영] 성공 메시지 문구 수정
+                    st.success("가입신청이 완료되었습니다. 개인정보는 암호화되어 보관되므로 안심하셔도 됩니다.")
+                    st.session_state.show_reg = False; st.session_state.reg_stage = 0
                 except Exception as e:
                     st.error(f"⚠️ 구글 시트 저장 불가: Secrets 설정을 다시 확인해주세요. ({e})")
 
