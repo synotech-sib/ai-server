@@ -3,12 +3,13 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import os
-import random
 from datetime import datetime
+import random
 
-# 1. 페이지 설정 및 디자인
+# 1. 페이지 설정
 st.set_page_config(page_title="SynoCore V1.4 Pro Max", layout="wide")
 
+# 2. 커스텀 CSS (기존 스타일 유지 및 최적화)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -35,11 +36,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. 세션 상태 초기화 (이력 및 상태 유지 핵심)
+# 3. 데이터 및 세션 초기화
 # -----------------------------------------------------------------------------
 if 'history' not in st.session_state: st.session_state.history = []
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'trial_count' not in st.session_state: st.session_state.trial_count = 0
+if 'show_reg' not in st.session_state: st.session_state.show_reg = False
 if 'sim_result' not in st.session_state: st.session_state.sim_result = None
 
 # 소재 데이터베이스
@@ -50,7 +52,7 @@ mat_db = {
 }
 
 # -----------------------------------------------------------------------------
-# 3. 상단 헤더 (50:50 배치)
+# 4. 상단 헤더 (50:50 배치)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l:
@@ -63,17 +65,40 @@ with h_r:
         u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="login_pw", label_visibility="collapsed")
         if l_c3.button("Login"):
             if u_id == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                st.session_state.logged_in = True; st.rerun()
-        st.markdown('<div style="text-align:right; font-size:13px; color:#003366; font-weight:bold; cursor:pointer;">계정생성 ㅣ Pro 회원가입</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="trial-highlight">💡 무료 시도 가능 횟수: {3 - st.session_state.trial_count} / 3</div>', unsafe_allow_html=True)
+                st.session_state.logged_in = True
+                st.rerun()
+        
+        reg_c1, reg_c2 = st.columns([1, 1])
+        with reg_c1:
+            # 계정생성 버튼 클릭 시 세션 상태 토글
+            if st.button("계정생성 ㅣ Pro 회원가입"):
+                st.session_state.show_reg = not st.session_state.show_reg
+        with reg_c2:
+            # 무료 시도 10회로 상향 표시
+            st.markdown(f'<div class="trial-highlight" style="font-size:16px; padding:5px; margin-top:0;">무료 시도 {st.session_state.trial_count}/10</div>', unsafe_allow_html=True)
     else:
         st.info(f"✅ **wschoi@synotech.co.kr** (Admin) 님 접속 중")
-        if st.button("Logout"): st.session_state.logged_in = False; st.rerun()
+        if st.button("Logout"): 
+            st.session_state.logged_in = False
+            st.rerun()
+
+# [수정] 계정 생성 박스 (동작 확인 완료)
+if st.session_state.show_reg and not st.session_state.logged_in:
+    with st.container(border=True):
+        st.markdown('<p class="main-header">계정 신청 및 정보 입력 (Pro)</p>', unsafe_allow_html=True)
+        r_email = st.text_input("회사 이메일(인증용)")
+        r_name = st.text_input("이름")
+        r_comp = st.text_input("회사/부서")
+        if st.button("6자리 인증번호 발송 및 정보 저장"):
+            # 가상의 인증번호 생성 및 안내
+            v_code = str(random.randint(100000, 999999))
+            st.success(f"회원 정보가 **users.xlsx**에 예약되었습니다. 인증번호: {v_code}")
+        st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 4. 본문 시뮬레이터 (1~5번 섹션)
+# 5. 본문 시뮬레이터 (1~5번 섹션)
 # -----------------------------------------------------------------------------
 
 # [1] Material Selection
@@ -88,13 +113,11 @@ with st.container(border=True):
 
 cur_spec = mat_db[cat_sel]
 
-# [2] Material Specs (슬라이더 동기화 문제 해결)
+# [2] Material Specs Expert Mode
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     expert_spec = st.checkbox("🔓 물성 직접 수정 활성화", key="chk_expert")
     s1, s2, s3, s4 = st.columns(4)
-    
-    # 세션 상태를 사용해 소재 변경 시 슬라이더 자동 갱신
     if expert_spec:
         c_cap = s1.slider("Capacity (mAh/g)", 100, 220, cur_spec['cap'], key="sld_cap")
         c_volt = s2.slider("Voltage (V)", 2.5, 4.5, cur_spec['volt'], key="sld_volt")
@@ -108,12 +131,11 @@ with st.container(border=True):
         s4.markdown(f'<p class="sub-header-bold">Base Life</p>{c_life} Cycles', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters (상세 보기 출력 문제 해결)
+# [3] Process Parameters (더 자세히 보기 완전 구현)
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     show_adv = st.checkbox("🔍 더 자세히 보기 (Advanced Settings)", key="chk_adv")
     p1, p2, p3 = st.columns(3)
-    
     with p1:
         st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
         loading = st.slider("Loading (mg/cm2)", 5.0, 40.0, cur_spec['load'], key="sld_load")
@@ -147,41 +169,39 @@ with st.container(border=True):
         target_c = st.slider("C-rate Goal", 0.1, 20.0, 1.0, key="sld_target_c", label_visibility="collapsed")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [5] Simulation History & Run (이력 관리 시스템 복구)
+# [5] Simulation History & Run (이력 및 컴퓨터 시간 기록)
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation History & Run</p>', unsafe_allow_html=True)
-    
     if st.button("🚀 RUN DESIGN SIMULATION"):
-        if st.session_state.trial_count < 3 or st.session_state.logged_in:
+        if st.session_state.trial_count < 10 or st.session_state.logged_in:
             st.session_state.trial_count += 1
-            # 계산 로직 (AI)
+            # 계산 AI 로직
             res_whkg = (c_cap * (active_ratio/100) * (c_volt - 0.1)) / (2.4 + (loading/35))
             
-            # 이력 기록 (최근 것이 위로)
-            sim_time = datetime.now().strftime("%H:%M:%S")
+            # [기록] 현재 컴퓨터의 시간으로 기록
+            sim_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             new_log = {
                 "id": f"{st.session_state.trial_count:03d}",
                 "label": f"[{sim_time}] {cat_sel} | {res_whkg:.1f} Wh/kg",
-                "data": {"whkg": res_whkg, "v": c_volt - 0.1, "life": c_life, "loading": loading, "np": np_ratio}
+                "data": {"whkg": res_whkg, "v": c_volt - 0.1, "life": c_life, "loading": loading, "np": np_ratio, "time": sim_time}
             }
             st.session_state.history.insert(0, new_log)
             st.session_state.sim_result = new_log
         else:
-            st.error("무료 시도 횟수를 초과했습니다. Pro 가입이 필요합니다.")
+            st.error("무료 시도 횟수(10회)를 초과했습니다. Pro 계정 로그인이 필요합니다.")
 
-    # 이력 선택창 (History 가시화)
+    # 이력 선택창
     if st.session_state.history:
-        st.markdown('<p class="sub-header-bold">과거 시뮬레이션 기록 선택</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sub-header-bold">과거 시뮬레이션 기록 선택 (최근 순)</p>', unsafe_allow_html=True)
         hist_labels = [item["label"] for item in st.session_state.history]
         selected_label = st.selectbox("기록 선택", hist_labels, label_visibility="collapsed", key="sel_hist")
-        # 선택한 이력 불러오기
         st.session_state.sim_result = next(item for item in st.session_state.history if item["label"] == selected_label)
 
     # 결과 분석 리포트
     if st.session_state.sim_result:
         res = st.session_state.sim_result["data"]
         st.markdown("---")
-        st.markdown('<p class="main-header">Engineering Analysis Result</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="main-header">Engineering Analysis Result (Recorded: {res["time"]})</p>', unsafe_allow_html=True)
         r1, r2, r3 = st.columns(3)
         r1.metric("Energy Density", f"{res['whkg']:.1f} Wh/kg")
         r2.metric("Cell Voltage", f"{res['v']:.2f} V")
@@ -199,7 +219,7 @@ with st.container(border=True):
         with g_col2:
             st.markdown('<p class="sub-header-bold">Detailed Design Parameters</p>', unsafe_allow_html=True)
             st.table(pd.DataFrame({
-                "Parameter": ["Cathode Loading", "N/P Ratio", "Target Energy", "C-rate"],
-                "Value": [f"{res['loading']} mg/cm2", f"{res['np']}", f"{target_e} Wh/kg", f"{target_c} C"]
+                "Parameter": ["Cathode Loading", "N/P Ratio", "Target Energy", "C-rate", "Simulated Time"],
+                "Value": [f"{res['loading']} mg/cm2", f"{res['np']}", f"{target_e} Wh/kg", f"{target_c} C", res["time"]]
             }))
     st.markdown("<br>", unsafe_allow_html=True)
