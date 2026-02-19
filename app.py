@@ -7,7 +7,7 @@ import os
 # 1. 페이지 설정
 st.set_page_config(page_title="SynoCore V1.4 Pro Max", layout="wide")
 
-# 2. 커스텀 CSS (박스 간격 및 여유 공간 정밀 조정)
+# 2. 커스텀 CSS (박스 간격 및 내부 여백 정밀 조정)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -33,22 +33,22 @@ st.markdown("""
         border-radius: 8px; text-align: center; font-size: 24px; font-weight: bold; margin-top: 10px;
     }
 
-    /* [수정] 박스 상하 여유 공간 (margin-bottom 추가) */
+    /* 박스 자체의 여백 및 상하 간격 */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important;
         border: 1px solid #dee2e6 !important;
         border-radius: 12px !important;
-        padding: 25px !important;
-        margin-bottom: 40px !important; /* 박스 사이의 간격을 줄간격 하나 이상으로 확보 */
+        padding: 30px 25px 10px 25px !important; /* 상 우 하 좌 패딩 조정 */
+        margin-bottom: 45px !important; /* 박스 사이의 외부 간격 */
     }
 
-    .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 15px; display: block; }
-    .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; }
+    .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
+    .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [상단] 헤더 50:50
+# [상단] 헤더 50:50 배치
 # -----------------------------------------------------------------------------
 head_l, head_r = st.columns([1, 1])
 with head_l:
@@ -65,7 +65,7 @@ with head_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [본문] 1~5번 섹션 (박스 수납 및 여백 적용)
+# [본문] 1~5번 섹션 (박스 수납 및 하단 빈 줄 추가)
 # -----------------------------------------------------------------------------
 
 # 1. Material Selection
@@ -76,6 +76,7 @@ with st.container(border=True):
     with m2: ano_type = st.selectbox("Anode", ["Aekyung Chemical", "Kuraray HC"])
     with m3: elec_type = st.selectbox("Electrolyte", ["Standard NaPF6", "High-Stability"])
     with m4: sep_type = st.selectbox("Separator", ["PE 16um", "Ceramic Coated"])
+    st.markdown("<br>", unsafe_allow_html=True) # 박스 내 하단 여백 확보
 
 # 2. Material Specs
 with st.container(border=True):
@@ -93,6 +94,7 @@ with st.container(border=True):
         s2.markdown(f'<p class="sub-header-bold">Voltage</p>{c_volt} V', unsafe_allow_html=True)
         s3.markdown(f'<p class="sub-header-bold">Density</p>{c_dens} g/cc', unsafe_allow_html=True)
         s4.markdown(f'<p class="sub-header-bold">Base Life</p>{c_life} Cycles', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
 # 3. Process Parameters
 with st.container(border=True):
@@ -107,6 +109,7 @@ with st.container(border=True):
     with p3:
         st.markdown('<p class="sub-header-bold">(C) Electrolyte Change</p>', unsafe_allow_html=True)
         active_ratio = st.slider("Active Ratio (%)", 85.0, 99.0, 92.0)
+    st.markdown("<br>", unsafe_allow_html=True)
 
 # 4. Target Configuration
 with st.container(border=True):
@@ -118,16 +121,16 @@ with st.container(border=True):
     with t2:
         st.markdown('<p class="sub-header-bold">Target C-rate (출력 조건)</p>', unsafe_allow_html=True)
         target_c = st.slider("C-rate Goal", 0.1, 20.0, 1.0, label_visibility="collapsed")
+    st.markdown("<br>", unsafe_allow_html=True)
 
 # 5. Simulation History & Run
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation History & Run</p>', unsafe_allow_html=True)
     if st.button("🚀 RUN DESIGN SIMULATION"):
-        # [AI/Calculation Logic] 실제 변수들을 사용하여 계산 수행
-        cell_v = c_volt - 0.1 # 음극 전압 차감
-        total_energy = (c_cap * (active_ratio/100) * cell_v)
-        # 무게 에너지 밀도 간이 계산식 (로딩 및 팩터 반영)
-        wh_kg_res = total_energy / (2.5 + (loading/40)) 
+        # AI 계산 로직: 입력 변수들을 끌어와서 실시간 결과 도출
+        cell_v = c_volt - 0.1
+        total_e = (c_cap * (active_ratio/100) * cell_v)
+        wh_kg_res = total_e / (2.4 + (loading/35)) # SIB 특성 계수 적용
         st.session_state.result = {"wh_kg": wh_kg_res, "v": cell_v, "life": c_life}
 
     if 'result' in st.session_state:
@@ -138,13 +141,18 @@ with st.container(border=True):
         r2.metric("Cell Voltage", f"{st.session_state.result['v']:.2f} V")
         r3.metric("Expected Life", f"{st.session_state.result['life']:,} Cycles")
 
-        # 그래프 및 표 30% 레이아웃
+        # 결과 상세 데이터 (그래프/표)
         g_c1, g_c2 = st.columns([3, 7])
         with g_c1:
             st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
-            fig = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=c_volt - (np.linspace(0,1,100)**2), line=dict(color='#003366', width=3)))
+            # SIB 거동을 모사한 전압 강하 곡선
+            fig = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=c_volt - 0.1 - (np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
             fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=300, template="plotly_white")
             st.plotly_chart(fig, use_container_width=True)
         with g_c2:
             st.markdown('<p class="sub-header-bold">Detailed Design Parameters</p>', unsafe_allow_html=True)
-            st.table(pd.DataFrame({"Parameters": ["N/P Ratio", "Loading", "Active %"], "Values": [np_ratio, loading, active_ratio]}))
+            st.table(pd.DataFrame({
+                "Parameter": ["N/P Ratio", "Loading Level", "Active Material %", "Sim. C-rate"],
+                "Value": [np_ratio, f"{loading} mg/cm²", f"{active_ratio} %", f"{target_c} C"]
+            }))
+    st.markdown("<br>", unsafe_allow_html=True)
