@@ -116,19 +116,28 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 
+# ✉️ [이메일 발송 시스템 - 스마트 Secrets 파싱 로직 적용] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    # ⚠️ 보안 적용: Secrets에서 비밀번호를 불러옵니다.
     primary_email = "wschoi@synotech.co.kr"
-    
-    try:
-        app_password = st.secrets["EMAIL_PASSWORD"]
-    except KeyError:
-        st.error("서버 설정 오류: EMAIL_PASSWORD가 Secrets에 등록되지 않았습니다.")
-        return False
-        
     alias_email = "synocore@synotech.co.kr"
+    
+    # ✅ 스마트 로직: Secrets 파일의 위치(섹션 유무)에 상관없이 비밀번호를 찾아냅니다.
+    app_password = None
+    try:
+        # 1순위: 최상단에 적힌 경우 확인
+        app_password = st.secrets.get("EMAIL_PASSWORD")
+        
+        # 2순위: 구글 시트 연결([connections.gsheets]) 블록 아래에 적힌 경우 확인
+        if not app_password:
+            app_password = st.secrets.get("connections", {}).get("gsheets", {}).get("EMAIL_PASSWORD")
+            
+        if not app_password:
+            st.error("서버 설정 오류: EMAIL_PASSWORD가 Secrets에 등록되지 않았습니다.")
+            return False
+    except Exception as e:
+        st.error(f"Secrets 로드 오류: {e}")
+        return False
     
     try:
         msg = MIMEMultipart()
@@ -250,7 +259,7 @@ for key, value in default_session_vars.items():
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈 (비율 및 문구 수정)
+# 4. 상단 헤더 및 로그인 모듈
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
@@ -259,15 +268,13 @@ with h_l:
 
 with h_r:
     if not st.session_state.logged_in:
-        # ID/PW 입력창과 로그인/회원가입 버튼의 폭을 완벽하게 1:1로 맞춤
         r1_c1, r1_c2 = st.columns(2)
         u_id = r1_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
         u_pw = r1_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
         
         r2_c1, r2_c2 = st.columns(2)
         login_btn = r2_c1.button("Login", key="btn_login_m", use_container_width=True)
-        # 문구를 요청하신대로 변경
-        reg_btn = r2_c2.button("계정신청 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True) 
+        reg_btn = r2_c2.button("계정신청 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True)
         
         if login_btn or st.session_state.pop('trigger_login', False):
             df_u = get_user_db()
@@ -293,48 +300,48 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [가입 및 계정 관리]
+# [계정 신청 (이메일 인증)]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
-        st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
+        st.markdown('<p class="main-header">📝 계정 신청 (이메일 인증)</p>', unsafe_allow_html=True)
         if st.session_state.reg_stage == 0:
-            e_in = st.text_input("1. 회사 이메일 주소", key="r_email_m")
-            if st.button("인증번호 발송", key="r_v_send_m"):
+            e_in = st.text_input("가입용 회사 이메일 입력")
+            if st.button("인증번호 발송"):
                 if not e_in or "@" not in e_in:
                     st.error("올바른 이메일 주소를 입력해주세요.")
                 else:
                     v_code = str(random.randint(100000, 999999))
-                    with st.spinner("📧 이메일을 발송 중입니다... (최대 10초 소요)"):
-                        is_sent = send_verification_email(e_in, v_code)
-                        
-                    if is_sent:
-                        st.session_state.v_code = v_code
-                        st.session_state.temp_email = e_in
-                        st.session_state.reg_stage = 1
-                        st.rerun()
-                    else:
-                        st.error("이메일 발송에 실패했습니다. 관리자에게 문의하거나 발신 서버 설정을 확인해주세요.")
-                        
+                    with st.spinner("📧 SynoCore에서 인증 메일을 발송 중입니다... (최대 10초 소요)"):
+                        if send_verification_email(e_in, v_code):
+                            st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
+                        else: 
+                            # 사용자 편의를 위한 에러 처리 (스피너 내부의 에러는 이미 출력됨)
+                            pass
         elif st.session_state.reg_stage == 1:
             st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다. 메일함을 확인해주세요.")
-            v_in = st.text_input("인증번호 6자리 입력", key="r_v_in_m")
-            if st.button("인증 확인", key="r_v_chk_m"):
-                if v_in == st.session_state.v_code: 
-                    st.session_state.reg_stage = 2
+            v_in = st.text_input("인증번호 6자리 입력")
+            if st.button("인증 확인"):
+                if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
+                else: st.error("인증번호가 일치하지 않습니다.")
+        elif st.session_state.reg_stage == 2:
+            p1, p2 = st.columns(2)
+            pw1 = p1.text_input("Password", type="password")
+            pw2 = p2.text_input("Password 확인", type="password")
+            n_name = st.text_input("이름")
+            n_comp = st.text_input("회사명")
+            if st.button("최종 가입신청"):
+                if pw1 == pw2 and n_name:
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
+                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
+                    conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
+                    st.success("가입이 완료되었습니다! 로그인 창에서 접속해 주세요.")
+                    st.session_state.show_reg = False
+                    st.session_state.reg_stage = 0
                     st.rerun()
                 else:
-                    st.error("인증번호가 일치하지 않습니다.")
-                    
-        elif st.session_state.reg_stage == 2:
-            p1, p2 = st.columns(2); pw1 = p1.text_input("2. Password", type="password"); pw2 = p2.text_input("2-1. Password 확인", type="password")
-            n_name = st.text_input("3. 이름"); n_comp = st.text_input("4. Company")
-            if st.button("가입신청", disabled=not (pw1==pw2 and n_name)):
-                conn = st.connection("gsheets", type=GSheetsConnection)
-                df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
-                new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
-                conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
-                st.success("가입신청 완료! 승인 후 이용 가능합니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
+                    st.error("비밀번호가 일치하지 않거나 이름을 입력하지 않으셨습니다.")
 
 if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
@@ -358,7 +365,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (클라우드 데이터 지능형 연동)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 
 with st.container(border=True):
@@ -450,6 +457,7 @@ with st.container(border=True):
         with t2:
             st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
             v_tc = st.slider("C-rate", min_value=get_p('target_crate', 'Min', 0.1), max_value=get_p('target_crate', 'Max', 10.0), value=get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
+        
         # ✅ 4번 박스 하단 한 줄 여유 추가
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -460,12 +468,11 @@ with st.container(border=True):
         col_btn, col_msg = st.columns([1, 3])
         with col_btn:
             run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
+            # ✅ 5번 박스 RUN 버튼 아래 한 줄 여유 추가
+            st.markdown("<br>", unsafe_allow_html=True)
         with col_msg:
             if not st.session_state.history:
                 st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
-        
-        # ✅ 5번 박스 RUN 버튼 아래 한 줄 여유 추가
-        st.markdown("<br>", unsafe_allow_html=True)
                 
         if run_clicked:
             ir_drop = 0.1 + (v_tc * 0.02)
@@ -545,9 +552,9 @@ if is_pro and st.session_state.history:
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                         conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
-                    # ✅ 버그 픽스: if문을 풀어써서 DeltaGenerator 텍스트 출력 오류 방지
+                    # ✅ 버그 픽스: if문을 풀어써서 DeltaGenerator 텍스트 출력 오류 완벽 방지, 요청 문구 적용 완료
                     if is_duplicate:
-                        st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하였습니다. 내 기록 다운로드를 실행해 주세요.") 
+                        st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하고 저장하였습니다.")
                     else:
                         st.success("내 계정에 저장하기가 완료되었습니다.")
                 except Exception as e: 
