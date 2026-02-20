@@ -21,7 +21,7 @@ st.markdown("""
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
     
-    /* [요청 반영] SynoCore 타이틀 폰트 사이즈 확대 (38px -> 46px) */
+    /* SynoCore 타이틀 폰트 사이즈 */
     .syno-title { color: #003366; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 14px; }
     
@@ -47,6 +47,12 @@ st.markdown("""
     }
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
+    
+    /* 사용자 환영 메시지 박스 커스텀 디자인 */
+    .user-greeting {
+        background-color: #e8f4f8; color: #003366; font-weight: bold; border-radius: 4px; 
+        height: 44px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid #b8daff;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -57,13 +63,14 @@ def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
 # -----------------------------------------------------------------------------
-# 2. 세션 상태 초기화 (엔터 로그인 지원)
+# 2. 세션 상태 초기화
 # -----------------------------------------------------------------------------
 if 'init_master' not in st.session_state:
     st.session_state.update({
         'logged_in': False, 'show_reg': False, 'reg_stage': 0,
         'v_code': "", 'temp_email': "", 'history': [], 'sim_result': None,
-        'init_master': True, 'trigger_login': False
+        'init_master': True, 'trigger_login': False,
+        'user_name': "", 'user_email': "", 'show_profile': False  # 유저 정보 및 프로필 토글 변수 추가
     })
 
 def process_login():
@@ -93,9 +100,8 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈 (우측 2x2 정렬)
+# 4. 상단 헤더 및 로그인/마이페이지 모듈
 # -----------------------------------------------------------------------------
-# 화면을 1:1 비율로 나누어 좌측엔 타이틀, 우측엔 로그인 블록을 배치합니다.
 h_l, h_r = st.columns([1, 1])
 
 with h_l:
@@ -103,12 +109,10 @@ with h_l:
 
 with h_r:
     if not st.session_state.logged_in:
-        # [요청 반영] 윗줄: ID / PW
         r1_c1, r1_c2 = st.columns(2)
         u_id = r1_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
         u_pw = r1_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
         
-        # [요청 반영] 아랫줄: 로그인 / 회원가입
         r2_c1, r2_c2 = st.columns(2)
         login_btn = r2_c1.button("Login", key="btn_login_m", use_container_width=True)
         reg_btn = r2_c2.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m", use_container_width=True)
@@ -119,25 +123,44 @@ with h_r:
             hashed_pw = hash_password(u_pw) if u_pw else ""
             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
             
+            # 로그인 성공 시 유저 이름과 이메일 세션에 저장
             if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                st.session_state.logged_in = True; st.rerun()
+                st.session_state.logged_in = True
+                st.session_state.user_name = "최우석 대표"
+                st.session_state.user_email = u_id_clean
+                st.rerun()
             elif not valid.empty:
-                st.session_state.logged_in = True; st.rerun()
-            else: st.error("정보 확인 필요")
+                st.session_state.logged_in = True
+                st.session_state.user_name = valid.iloc[0]['Name']
+                st.session_state.user_email = valid.iloc[0]['Email']
+                st.rerun()
+            else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         
         if reg_btn:
             st.session_state.show_reg = not st.session_state.show_reg
+            st.session_state.show_profile = False
             st.rerun()
     else:
-        # 로그인 후에도 우측에 정돈된 레이아웃 유지
-        r1_c1, r1_c2 = st.columns(2)
-        r1_c1.info("✅ Authorized Pro Member")
-        if r1_c2.button("Logout", key="btn_logout_m", use_container_width=True): 
-            st.session_state.logged_in = False; st.rerun()
+        # [요청 반영] 로그인 후 사용자 이름 표시 및 My 계정 버튼 추가
+        r_name, r_my, r_out = st.columns([2, 1, 1])
+        r_name.markdown(f'<div class="user-greeting">✅ {st.session_state.user_name} 님 (Pro)</div>', unsafe_allow_html=True)
+        
+        if r_my.button("My 계정", key="btn_profile_m", use_container_width=True):
+            st.session_state.show_profile = not st.session_state.show_profile
+            st.rerun()
+            
+        if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
+            st.session_state.logged_in = False
+            st.session_state.user_name = ""
+            st.session_state.user_email = ""
+            st.session_state.show_profile = False
+            st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 가입신청 섹션
+# -----------------------------------------------------------------------------
+# [계정 관리] 가입신청 & My 계정 수정 섹션
+# -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
@@ -168,6 +191,51 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     st.success("가입신청이 완료되었습니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0
                 except:
                     st.error("가입 처리 중 오류가 발생했습니다.")
+
+# [요청 반영] My 계정 수정 폼
+if st.session_state.get('show_profile') and st.session_state.logged_in:
+    with st.container(border=True):
+        st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
+        if st.session_state.user_email == "wschoi@synotech.co.kr":
+            st.info("관리자(Admin) 마스터 계정은 시트 수정 대상이 아닙니다.")
+        else:
+            df_u = get_user_db()
+            user_data = df_u[df_u['Email'] == st.session_state.user_email]
+            
+            if not user_data.empty:
+                u_row = user_data.iloc[0]
+                st.markdown(f"**이메일(ID):** {st.session_state.user_email} (변경 불가)")
+                
+                p1, p2 = st.columns(2)
+                m_pw = p1.text_input("새 Password (변경 시에만 입력)", type="password", key="m_pw")
+                m_name = p2.text_input("이름", value=u_row.get('Name', ''), key="m_name")
+                m_comp = p1.text_input("Company", value=u_row.get('Company', ''), key="m_comp")
+                m_dept = p2.text_input("부서", value=u_row.get('Dept', ''), key="m_dept")
+                m_job = p1.text_input("담당업무", value=u_row.get('Job', ''), key="m_job")
+                m_phone = p2.text_input("연락처", value=u_row.get('Phone', ''), key="m_phone")
+                
+                if st.button("개인정보 수정 완료", key="m_save"):
+                    try:
+                        conn = st.connection("gsheets", type=GSheetsConnection)
+                        df_update = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
+                        idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+                        
+                        if m_pw:  # 비밀번호를 새로 입력한 경우에만 해싱하여 업데이트
+                            df_update.at[idx, 'Password'] = hash_password(m_pw)
+                        
+                        df_update.at[idx, 'Name'] = m_name
+                        df_update.at[idx, 'Company'] = m_comp
+                        df_update.at[idx, 'Dept'] = m_dept
+                        df_update.at[idx, 'Job'] = m_job
+                        df_update.at[idx, 'Phone'] = m_phone
+                        
+                        conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=df_update)
+                        st.session_state.user_name = m_name  # 상단 표시 이름 즉시 갱신
+                        st.session_state.show_profile = False
+                        st.success("개인정보가 성공적으로 수정되었습니다.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"정보 수정 중 오류가 발생했습니다: {e}")
 
 # 권한 체크
 is_pro = st.session_state.logged_in
