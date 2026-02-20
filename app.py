@@ -21,22 +21,23 @@ st.markdown("""
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
     
-    /* SynoCore 타이틀 폰트 사이즈 확대 */
-    .syno-title { color: #003366; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
+    /* [요청 반영] SynoCore 타이틀 시노텍 로고컬러(#1A729A) 적용 */
+    .syno-title { color: #1A729A; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 14px; }
     
     /* 메트릭(결과값) 카드 및 폰트 사이즈 조정 */
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
-    div[data-testid="stMetricValue"] { font-size: 28px !important; color: #003366 !important; } 
+    div[data-testid="stMetricValue"] { font-size: 28px !important; color: #1A729A !important; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; }
     
-    /* 입력창과 버튼의 높이/디자인 완벽 통일 */
+    /* [요청 반영] 입력창과 버튼의 높이를 10% 축소 (44px -> 40px) 및 디자인 완벽 통일 */
     div[data-testid="stTextInput"] input {
-        height: 44px !important;
+        height: 40px !important;
         font-size: 16px !important;
     }
     div[data-testid="stButton"] > button {
-        height: 44px !important; background-color: #003366 !important;
+        height: 40px !important; 
+        background-color: #1A729A !important; /* 시노텍 로고컬러 적용 */
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
@@ -45,12 +46,12 @@ st.markdown("""
         border-radius: 12px !important; padding: 25px 25px 15px 25px !important;
         margin-bottom: 40px !important; 
     }
-    .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
+    .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
-    /* 사용자 환영 메시지 텍스트 디자인 (박스 제거, 우측 정렬 및 높이 동기화) */
+    /* 사용자 환영 메시지 텍스트 디자인 (높이 40px 동기화 및 컬러 매칭) */
     .user-greeting {
-        color: #003366; font-weight: bold; height: 44px; 
+        color: #1A729A; font-weight: bold; height: 40px; 
         display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px;
     }
     </style>
@@ -132,13 +133,10 @@ with h_r:
                 st.rerun()
             elif not valid.empty:
                 st.session_state.logged_in = True
-                # [강화된 추출 로직] 실제 이름을 가장 안전하게 가져옵니다.
                 if 'Name' in valid.columns and str(valid['Name'].values[0]).strip() != "":
                     st.session_state.user_name = str(valid['Name'].values[0])
                 else:
                     st.session_state.user_name = "회원"
-                
-                # 이메일 세션 저장
                 if 'Email' in valid.columns:
                     st.session_state.user_email = str(valid['Email'].values[0])
                 else:
@@ -151,9 +149,8 @@ with h_r:
             st.session_state.show_profile = False
             st.rerun()
     else:
-        # 로그인 후 우측 정렬된 텍스트와 버튼
         r_name, r_my, r_out = st.columns([2, 1, 1])
-        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} 님 (Pro)</div>', unsafe_allow_html=True)
+        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
         
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True):
             st.session_state.show_profile = not st.session_state.show_profile
@@ -375,7 +372,7 @@ with st.container(border=True):
         st.session_state.sim_result = log_data
         st.rerun()
 
-    # 과거 기록 복원
+    # 과거 기록 복원 및 결과/그래프 연동
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
@@ -394,7 +391,7 @@ with st.container(border=True):
         g1, g2 = st.columns([1, 1])
         with g1:
             st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
-            fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
+            fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
             fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
             st.plotly_chart(fig1, use_container_width=True, key=f"plot_v_{res['Time']}")
         with g2:
