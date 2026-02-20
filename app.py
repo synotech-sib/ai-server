@@ -80,7 +80,7 @@ def get_user_db():
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.4 Pro</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Demo</span></div>', unsafe_allow_html=True)
 
 with h_r:
     if not st.session_state.logged_in:
