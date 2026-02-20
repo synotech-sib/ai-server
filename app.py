@@ -44,7 +44,7 @@ st.markdown("""
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* 파일 다운로드/출력 버튼 (윈도우 폴더 색상) */
+    /* ✅ 파일 다운로드/출력 버튼 (윈도우 폴더 색상) */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
@@ -66,23 +66,22 @@ st.markdown("""
 # https://www.247connect.cloud/ko/%EA%B8%B0%EA%B3%84%EC%A0%81-%EC%9D%B8%EC%A1%B0-%EC%9D%B8%EA%B0%84/
 # -----------------------------------------------------------------------------
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
+
+# ⚠️ 반드시 새로 생성된 '구글 스프레드시트'의 새 링크를 넣어주세요!
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 
 def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# ✅ 에러창 방지를 위해 강력한 예외 처리 적용 (에러 발생 시 즉시 빈 데이터 반환)
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=60)
 def load_cloud_data(url):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         df = conn.read(spreadsheet=url)
-        if df is None or df.empty: return pd.DataFrame()
         df.columns = [str(c).split('(')[0].strip() for c in df.columns]
         return df
-    except Exception:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 mat_df = load_cloud_data(URL_MATS)
 param_df = load_cloud_data(URL_PARAM)
@@ -95,25 +94,25 @@ def get_p(pid, prop, fallback):
 def get_user_db():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
-        return df.astype(str) if df is not None else pd.DataFrame()
-    except Exception:
-        return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
+        return conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5).astype(str)
+    except: return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템 - 하이브리드 안전 모드] 
+# ✉️ [이메일 발송 시스템 - 완벽한 보안 처리] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
+    
+    # ✅ 보안 강화: 코드에 비밀번호가 1도 없습니다.
+    # 클라우드의 Secrets 설정이나 로컬의 .streamlit/secrets.toml 에서만 불러옵니다.
+    try:
+        app_password = st.secrets["EMAIL_PASSWORD"]
+    except KeyError:
+        st.error("보안 설정 오류: 앱 비밀번호가 설정되지 않았습니다. 관리자에게 문의하세요.")
+        return False
+        
     alias_email = "synocore@synotech.co.kr"  
     
-    # ✅ PC(로컬) 테스트를 위해 st.secrets를 찾지 못하면 임시로 비밀번호를 적용합니다.
-    # (주의: 깃허브에 올리실 때는 "uziozsazzbgrqxio" 부분을 지워주세요!)
-    try:
-        app_password = st.secrets.get("EMAIL_PASSWORD", "uziozsazzbgrqxio")
-    except Exception:
-        app_password = "uziozsazzbgrqxio"
-        
     try:
         msg = MIMEMultipart()
         msg['From'] = f"SynoCore 공식 센터 <{alias_email}>"
@@ -175,8 +174,6 @@ def load_user_history(email):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
-        if db_df is None or db_df.empty: return []
-        
         my_logs = db_df[db_df['Email'] == email]
         hist = []
         for _, row in my_logs.iterrows():
@@ -225,35 +222,33 @@ if 'logged_in' not in st.session_state:
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# [상단 헤더 & 로그인 - ✅ UI 비율/텍스트 완벽 수정]
+# [상단 헤더 & 로그인]
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l: st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
 with h_r:
     if not st.session_state.logged_in:
-        # 1:1 비율을 맞추기 위해 columns 구조를 통일
-        c1, c2 = st.columns(2)
-        u_id = c1.text_input("ID", placeholder="company email", label_visibility="collapsed")
-        u_pw = c2.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
+        r1_c1, r1_c2 = st.columns(2)
+        u_id = r1_c1.text_input("ID", placeholder="company email", label_visibility="collapsed")
+        u_pw = r1_c2.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
         
-        b1, b2 = st.columns(2)
-        if b1.button("Login", use_container_width=True):
+        r2_c1, r2_c2 = st.columns(2)
+        if r2_c1.button("Login", use_container_width=True):
             df_u = get_user_db()
             u_id_clean = u_id.strip().lower()
-            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hash_password(u_pw))] if not df_u.empty else pd.DataFrame()
-            
+            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hash_password(u_pw))]
             if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
                 st.session_state.update({'logged_in': True, 'user_name': "최우석 대표", 'user_email': u_id_clean, 'history': load_user_history(u_id_clean)}); st.rerun()
             elif not valid.empty:
                 st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': u_id_clean, 'history': load_user_history(u_id_clean)}); st.rerun()
             else: st.error("계정 정보를 확인해주세요.")
             
-        if b2.button("계정신청 ㅣ Pro Mode", use_container_width=True): 
+        if r2_c2.button("계정신청 ㅣ Pro Mode", use_container_width=True): 
             st.session_state.show_reg = True; st.rerun()
     else:
         r1, r2 = st.columns([3, 1])
         r1.markdown(f'<div class="user-greeting">{st.session_state.get("user_name")}님 (Pro)</div>', unsafe_allow_html=True)
-        if r2.button("Logout", use_container_width=True): 
+        if r2.button("Logout"): 
             st.session_state.logged_in = False
             st.session_state.history = []
             st.session_state.user_name = ""
@@ -293,16 +288,14 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             n_comp = st.text_input("회사명")
             if st.button("최종 가입신청"):
                 if pw1 == pw2 and n_name:
-                    try:
-                        conn = st.connection("gsheets", type=GSheetsConnection)
-                        df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
-                        new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
-                        conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
-                        st.success("가입이 완료되었습니다! 로그인 창에서 접속해 주세요.")
-                        st.session_state.show_reg = False
-                        st.session_state.reg_stage = 0
-                        st.rerun()
-                    except Exception as e: st.error(f"회원 정보 저장 중 오류 발생: {e}")
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
+                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
+                    conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
+                    st.success("가입이 완료되었습니다! 로그인 창에서 접속해 주세요.")
+                    st.session_state.show_reg = False
+                    st.session_state.reg_stage = 0
+                    st.rerun()
                 else:
                     st.error("비밀번호가 일치하지 않거나 이름을 입력하지 않으셨습니다.")
 
@@ -387,8 +380,6 @@ with st.container(border=True):
     with t2:
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
         v_tc = st.slider("C-rate", min_value=get_p('target_crate', 'Min', 0.1), max_value=get_p('target_crate', 'Max', 10.0), value=get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
-    
-    # ✅ 4번 박스 하단 여백 추가
     st.markdown("<br>", unsafe_allow_html=True)
 
 with st.container(border=True):
@@ -396,11 +387,11 @@ with st.container(border=True):
     col_btn, col_msg = st.columns([1, 3])
     with col_btn:
         run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
-        # ✅ 실행 버튼 하단 여백 추가
-        st.markdown("<br>", unsafe_allow_html=True)
     with col_msg:
         if not st.session_state.history:
             st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
+            
+    st.markdown("<br>", unsafe_allow_html=True)
             
     if run_clicked:
         ir_drop = 0.1 + (v_tc * 0.02)
@@ -468,7 +459,7 @@ if is_pro and st.session_state.history:
                 db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
                 is_duplicate = False
                 
-                if db_df is not None and not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
+                if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
                     if not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])].empty:
                         is_duplicate = True
                         
