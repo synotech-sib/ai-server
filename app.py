@@ -28,7 +28,7 @@ st.markdown("""
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     /* 여기서부터 아래 6줄을 추가/조정하시면 가로폭이 컴팩트하게 잡힙니다 */
     .main .block-container {
-        max-width: 1300px;     /* 숫자가 작을수록 더 좁고 컴팩트해집니다 (1100~1300 추천) */
+        max-width: 1150px;     /* 숫자가 작을수록 더 좁고 컴팩트해집니다 (1100~1300 추천) */
         padding-top: 2rem;
         padding-bottom: 2rem;
         margin: auto;          /* 화면 중앙 정렬 */
