@@ -78,8 +78,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# https://www.247connect.cloud/ko/%EA%B8%B0%EA%B3%84%EC%A0%81-%EC%9D%B8%EC%A1%B0-%EC%9D%B8%EA%B0%84/
-# -----------------------------------------------------------------------------
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
@@ -121,30 +119,39 @@ def get_user_db():
 # ✉️ [이메일 발송 시스템] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    # ⚠️ 대표님의 이메일과 발급받은 '앱 비밀번호(16자리)'를 아래에 입력해주세요!
-    sender_email = "wschoi@synotech.co.kr"  # 발신자 이메일 주소
-    sender_password = "여기에_16자리_앱비밀번호를_입력하세요" # 예: "abcd efgh ijkl mnop"
+    # ⚠️ 보안 적용: Secrets에서 비밀번호를 불러옵니다.
+    primary_email = "wschoi@synotech.co.kr"
+    
+    try:
+        app_password = st.secrets["EMAIL_PASSWORD"]
+    except KeyError:
+        st.error("서버 설정 오류: EMAIL_PASSWORD가 Secrets에 등록되지 않았습니다.")
+        return False
+        
+    alias_email = "synocore@synotech.co.kr"
     
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore Admin <{sender_email}>"
+        msg['From'] = f"SynoCore 공식 센터 <{alias_email}>"
         msg['To'] = to_email
-        msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
+        msg['Subject'] = "[SynoCore Pro] 회원가입을 위한 인증번호가 발급되었습니다."
 
-        body = f"""안녕하세요.
-SynoCore Pro 시뮬레이터 플랫폼 회원가입을 위한 인증번호 안내입니다.
+        body = f"""안녕하세요. 시노텍(SynoTech) 차세대 배터리 설계 플랫폼 SynoCore입니다.
 
-▶ 인증번호 : {code}
+SynoCore Pro 서비스 이용을 위한 회원가입 인증번호를 안내해 드립니다.
 
-위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.
+■ 인증번호 : {code}
+
+본 메일은 발신 전용이며, 인증번호는 1회에 한해 유효합니다.
 감사합니다.
+
+ⓒ SynoTech All rights reserved.
 """
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-        # SMTP 서버 설정 (Gmail 기준) - 회사 이메일이 다른 서버면 변경 필요
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(sender_email, sender_password.replace(" ", "")) # 공백 제거 후 로그인
+        server.login(primary_email, app_password)
         server.send_message(msg)
         server.quit()
         return True
@@ -243,7 +250,7 @@ for key, value in default_session_vars.items():
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈
+# 4. 상단 헤더 및 로그인 모듈 (비율 및 문구 수정)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
@@ -252,13 +259,15 @@ with h_l:
 
 with h_r:
     if not st.session_state.logged_in:
+        # ID/PW 입력창과 로그인/회원가입 버튼의 폭을 완벽하게 1:1로 맞춤
         r1_c1, r1_c2 = st.columns(2)
         u_id = r1_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
         u_pw = r1_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
         
         r2_c1, r2_c2 = st.columns(2)
         login_btn = r2_c1.button("Login", key="btn_login_m", use_container_width=True)
-        reg_btn = r2_c2.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m", use_container_width=True)
+        # 문구를 요청하신대로 변경
+        reg_btn = r2_c2.button("계정신청 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True) 
         
         if login_btn or st.session_state.pop('trigger_login', False):
             df_u = get_user_db()
@@ -283,7 +292,9 @@ with h_r:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 가입 및 계정 관리 (✅ 실 이메일 발송 적용)
+# -----------------------------------------------------------------------------
+# [가입 및 계정 관리]
+# -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
@@ -439,6 +450,8 @@ with st.container(border=True):
         with t2:
             st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
             v_tc = st.slider("C-rate", min_value=get_p('target_crate', 'Min', 0.1), max_value=get_p('target_crate', 'Max', 10.0), value=get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
+        # ✅ 4번 박스 하단 한 줄 여유 추가
+        st.markdown("<br>", unsafe_allow_html=True)
 
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
@@ -450,6 +463,9 @@ with st.container(border=True):
         with col_msg:
             if not st.session_state.history:
                 st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
+        
+        # ✅ 5번 박스 RUN 버튼 아래 한 줄 여유 추가
+        st.markdown("<br>", unsafe_allow_html=True)
                 
         if run_clicked:
             ir_drop = 0.1 + (v_tc * 0.02)
@@ -529,7 +545,11 @@ if is_pro and st.session_state.history:
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                         conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
-                    st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하였습니다. 내 기록 다운로드를 실행해 주세요.") if is_duplicate else st.success("내 계정에 저장하기가 완료되었습니다.")
+                    # ✅ 버그 픽스: if문을 풀어써서 DeltaGenerator 텍스트 출력 오류 방지
+                    if is_duplicate:
+                        st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하였습니다. 내 기록 다운로드를 실행해 주세요.") 
+                    else:
+                        st.success("내 계정에 저장하기가 완료되었습니다.")
                 except Exception as e: 
                     st.error(f"저장 오류: {e}")
 
