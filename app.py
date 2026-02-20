@@ -66,8 +66,7 @@ st.markdown("""
 # https://www.247connect.cloud/ko/%EA%B8%B0%EA%B3%84%EC%A0%81-%EC%9D%B8%EC%A1%B0-%EC%9D%B8%EA%B0%84/
 # -----------------------------------------------------------------------------
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
-
-# ⚠️ 반드시 새로 생성된 '구글 스프레드시트'의 새 링크를 넣어주세요!
+# ⚠️ 주의: 아래 두 링크는 엑셀(.xlsx) 원본이 아닌 '구글 스프레드시트'로 변환된 새 링크를 넣으셔야 에러가 안 납니다!
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 
@@ -98,17 +97,16 @@ def get_user_db():
     except: return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템 - 완벽한 보안 처리] 
+# ✉️ [이메일 발송 시스템 - Secrets 적용 완벽 보안] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
     
-    # ✅ 보안 강화: 코드에 비밀번호가 1도 없습니다.
-    # 클라우드의 Secrets 설정이나 로컬의 .streamlit/secrets.toml 에서만 불러옵니다.
+    # ✅ 코드 내 하드코딩 제거! Streamlit 환경변수(Secrets)에서 앱 비밀번호를 안전하게 호출합니다.
     try:
         app_password = st.secrets["EMAIL_PASSWORD"]
     except KeyError:
-        st.error("보안 설정 오류: 앱 비밀번호가 설정되지 않았습니다. 관리자에게 문의하세요.")
+        st.error("서버 설정 오류: EMAIL_PASSWORD가 Secrets에 등록되지 않았습니다.")
         return False
         
     alias_email = "synocore@synotech.co.kr"  
@@ -134,6 +132,7 @@ SynoCore Pro 서비스 이용을 위한 회원가입 인증번호를 안내해 �
         
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
+        # 대표 계정 아이디와 서버에서 가져온 비밀번호로 로그인
         server.login(primary_email, app_password)
         server.send_message(msg)
         server.quit()
@@ -157,6 +156,7 @@ def get_dqdv(cat_sel, v_tc):
                 p2 = float(mat_row.iloc[0].get('Peak2_V', 0.0))
             except: pass
     
+    # 엑셀에 데이터가 없을 경우를 위한 우회 장치
     if 'Peak1_V' not in mat_df.columns:
         if "Prussian" in str(cat_sel) or "Altris" in str(cat_sel): p1, p2 = 3.05, 3.45
         elif "Polyanion" in str(cat_sel) or "NVPF" in str(cat_sel): p1, p2 = 3.75, 0.0
@@ -228,12 +228,11 @@ h_l, h_r = st.columns([1, 1])
 with h_l: st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
 with h_r:
     if not st.session_state.logged_in:
-        r1_c1, r1_c2 = st.columns(2)
-        u_id = r1_c1.text_input("ID", placeholder="company email", label_visibility="collapsed")
-        u_pw = r1_c2.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
-        
-        r2_c1, r2_c2 = st.columns(2)
-        if r2_c1.button("Login", use_container_width=True):
+        c1, c2 = st.columns(2)
+        u_id = c1.text_input("ID", placeholder="email", label_visibility="collapsed")
+        u_pw = c2.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
+        b1, b2 = st.columns(2)
+        if b1.button("Login"):
             df_u = get_user_db()
             u_id_clean = u_id.strip().lower()
             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hash_password(u_pw))]
@@ -242,9 +241,7 @@ with h_r:
             elif not valid.empty:
                 st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': u_id_clean, 'history': load_user_history(u_id_clean)}); st.rerun()
             else: st.error("계정 정보를 확인해주세요.")
-            
-        if r2_c2.button("계정신청 ㅣ Pro Mode", use_container_width=True): 
-            st.session_state.show_reg = True; st.rerun()
+        if b2.button("계정신청"): st.session_state.show_reg = True; st.rerun()
     else:
         r1, r2 = st.columns([3, 1])
         r1.markdown(f'<div class="user-greeting">{st.session_state.get("user_name")}님 (Pro)</div>', unsafe_allow_html=True)
@@ -258,7 +255,7 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [계정 신청]
+# [계정 신청 (실제 이메일 연동)]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -273,7 +270,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     with st.spinner("📧 SynoCore에서 인증 메일을 발송 중입니다... (최대 10초 소요)"):
                         if send_verification_email(e_in, v_code):
                             st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
-                        else: st.error("메일 발송에 실패했습니다. 관리자 설정을 확인해주세요.")
+                        else: st.error("메일 발송에 실패했습니다. 이메일 주소나 서버 설정을 확인해주세요.")
         elif st.session_state.reg_stage == 1:
             st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다. 메일함을 확인해주세요.")
             v_in = st.text_input("인증번호 6자리 입력")
@@ -300,7 +297,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     st.error("비밀번호가 일치하지 않거나 이름을 입력하지 않으셨습니다.")
 
 # -----------------------------------------------------------------------------
-# [본문 시뮬레이터]
+# [본문 시뮬레이터 - 동적 데이터 연동 & 물리 구간 고정형]
 # -----------------------------------------------------------------------------
 is_pro = st.session_state.logged_in
 
@@ -380,7 +377,6 @@ with st.container(border=True):
     with t2:
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
         v_tc = st.slider("C-rate", min_value=get_p('target_crate', 'Min', 0.1), max_value=get_p('target_crate', 'Max', 10.0), value=get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
-    st.markdown("<br>", unsafe_allow_html=True)
 
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
@@ -390,8 +386,6 @@ with st.container(border=True):
     with col_msg:
         if not st.session_state.history:
             st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
-            
-    st.markdown("<br>", unsafe_allow_html=True)
             
     if run_clicked:
         ir_drop = 0.1 + (v_tc * 0.02)
