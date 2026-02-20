@@ -96,18 +96,18 @@ def get_p(pid, prop, fallback): return float(sys_params[pid][prop]) if pid in sy
 def get_user_db():
     return load_cloud_data(URL_USERS, "Sheet1")
 
-# ✅ VIP 리스트 실시간 불러오기 (캐시 무시 ttl=0 적용!)
-def get_vip_list():
+# ✅ 탭 이름 대소문자 방어를 위한 '원본 이름' 그대로 반환 로직 적용
+def get_vip_list_exact():
     if GSheetsConnection is None: return []
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=URL_USERS, worksheet="VIPs", ttl=0) # 즉각적인 반영을 위해 ttl=0 설정
+        df = conn.read(spreadsheet=URL_USERS, worksheet="VIPs", ttl=0)
         if df is not None and not df.empty:
             df.columns = [str(c).strip() for c in df.columns]
             if 'Company' in df.columns:
-                return [str(x).strip().lower() for x in df['Company'].dropna().tolist() if str(x).strip()]
-    except Exception:
-        pass
+                # 엑셀에 적힌 원본 대소문자(예: 'Altris')를 그대로 가져옴
+                return [str(x).strip() for x in df['Company'].dropna().tolist() if str(x).strip()]
+    except Exception: pass
     return []
 
 # -----------------------------------------------------------------------------
@@ -205,8 +205,11 @@ with h_r:
                 valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                 if not valid.empty:
                     domain = u_id_clean.split('@')[1].split('.')[0].lower() if '@' in u_id_clean else ""
-                    vip_list = get_vip_list()
-                    user_vip = domain if domain in vip_list else None
+                    
+                    # ✅ 스마트 매핑: 이메일 도메인(소문자)과 원본 VIP 리스트(대소문자 섞임)를 대조하여 원본 이름 추출
+                    vip_exact_list = get_vip_list_exact() 
+                    vip_map = {v.lower(): v for v in vip_exact_list} # {'altris': 'Altris'}
+                    user_vip = vip_map.get(domain) # 도메인이 altris면 'Altris' 반환!
                     
                     st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': u_id_clean, 'is_admin': False, 'user_vip_name': user_vip, 'workspace': 'material_list'})
                     st.session_state.history = load_user_history(u_id_clean, 'material_list'); st.rerun()
@@ -223,7 +226,7 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드 및 VIP 리스트 로딩 에러 체크]
+# 👑 [최고 관리자 전용 대시보드]
 # -----------------------------------------------------------------------------
 if st.session_state.logged_in and st.session_state.is_admin:
     with st.container(border=True):
@@ -237,12 +240,10 @@ if st.session_state.logged_in and st.session_state.is_admin:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔒 워크스페이스 전환 (관리자 권한)</p>', unsafe_allow_html=True)
         
-        vip_list_fetched = get_vip_list()
+        vip_list_fetched = get_vip_list_exact()
         vip_opts = ["material_list"] + vip_list_fetched
         
-        # ✅ VIP 리스트를 못 불러왔을 경우 원인 파악을 위한 안내창
-        if len(vip_opts) == 1:
-            st.warning("⚠️ 현재 등록된 VIP 회사가 없습니다. '통합 회원 DB(Users)' 파일에 `VIPs` 탭을 만들고 A1 셀에 `Company`, A2 이하에 `altris`, `icloud` 등을 기입해주세요.")
+        st.info("💡 엑셀의 'VIPs' 탭에 기입된 회사 이름과, Materials 엑셀의 '탭(Worksheet) 이름'은 대소문자가 일치해야 합니다.")
             
         sel_ws = st.selectbox("접속할 워크스페이스(탭) 선택", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
         
@@ -272,7 +273,7 @@ ws_tab = st.session_state.workspace
 mat_df = load_cloud_data(URL_MATS, ws_tab)
 
 if mat_df.empty and st.session_state.workspace != "material_list":
-    st.error(f"🚨 관리자 알림: Materials 스프레드시트 내에 '{ws_tab}' 이라는 이름의 탭(Worksheet)이 존재하지 않아 데이터를 불러올 수 없습니다. 탭을 생성해주세요!")
+    st.error(f"🚨 알림: 구글 스프레드시트 내에 '{ws_tab}' 이라는 이름의 탭이 존재하지 않아 전용 데이터를 불러올 수 없습니다. 관리자에게 문의하세요.")
 
 # -----------------------------------------------------------------------------
 # [계정 신청 및 개인정보 수정]
@@ -343,7 +344,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 UI
+# 5. 시뮬레이터 본문 UI (✅ 섹션 3 슬라이더 복원 완료)
 # -----------------------------------------------------------------------------
 
 with st.container(border=True):
@@ -386,6 +387,7 @@ with st.container(border=True):
         v_life = s4.slider("Base Life (Cycles)", def_lif_min, def_lif_max, def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
         st.markdown("<br>", unsafe_allow_html=True)
 
+# ✅ 섹션 3: 누락되었던 상세 파라미터 슬라이더 100% 복원 완료
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     sp3, c_3 = st.columns([0.01, 0.99])
@@ -394,20 +396,23 @@ with st.container(border=True):
         p1, p2, p3 = st.columns(3)
         with p1:
             st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-            v_load = st.slider("Loading (mg/cm2)", def_lod_min, def_lod_max, def_lod_val, key=f"load_{cat_sel}")
-            st.slider("Cathode Press Density", 1.5, 3.5, 2.5, disabled=not show_adv)
-            st.slider("Conductive Agent %", get_p('cat_conductive', 'Min', 0.5), get_p('cat_conductive', 'Max', 10.0), get_p('cat_conductive', 'Default', 2.0), disabled=not show_adv)
+            v_load = st.slider("Loading (mg/cm2)", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
+            st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m", disabled=not show_adv)
+            st.slider("Conductive Agent %", min_value=get_p('cat_conductive', 'Min', 0.5), max_value=get_p('cat_conductive', 'Max', 10.0), value=get_p('cat_conductive', 'Default', 2.0), step=get_p('cat_conductive', 'Step', 0.1), key="ad_c_con_m", disabled=not show_adv)
+            st.slider("Binder %", min_value=get_p('cat_binder', 'Min', 0.5), max_value=get_p('cat_binder', 'Max', 10.0), value=get_p('cat_binder', 'Default', 3.0), step=get_p('cat_binder', 'Step', 0.1), key="ad_c_bin_m", disabled=not show_adv)
         with p2:
             st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
-            v_np = st.slider("N/P Ratio", 1.0, 1.5, 1.15, step=0.01)
-            st.slider("Anode Active %", 80.0, 98.0, 95.0, disabled=not show_adv)
+            v_np = st.slider("N/P Ratio", 1.0, 1.5, 1.15, step=0.01, key="sl_np_m")
+            st.slider("Anode Press Density", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
+            st.slider("Anode Active %", 80.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
         with p3:
             st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
-            v_act = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0)
-            st.slider("E/C Ratio (g/Ah)", get_p('ec_ratio', 'Min', 1.0), get_p('ec_ratio', 'Max', 8.0), get_p('ec_ratio', 'Default', 3.5), disabled=not show_adv)
+            v_act = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sl_act_m")
+            st.slider("E/C Ratio (g/Ah)", min_value=get_p('ec_ratio', 'Min', 1.0), max_value=get_p('ec_ratio', 'Max', 8.0), value=get_p('ec_ratio', 'Default', 3.5), step=get_p('ec_ratio', 'Step', 0.1), key="ad_ec_m", disabled=not show_adv)
+            st.slider("Separator Thick (μm)", min_value=int(get_p('sep_thick', 'Min', 5)), max_value=int(get_p('sep_thick', 'Max', 50)), value=int(get_p('sep_thick', 'Default', 16)), key="ad_sep_m", disabled=not show_adv)
         st.markdown("<br>", unsafe_allow_html=True)
 
-# ✅ 4번 항목명 복구 및 가시성 확보
+# ✅ 섹션 4: 타이틀 복원
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Settings</p>', unsafe_allow_html=True)
     sp4, c_4 = st.columns([0.01, 0.99])
@@ -465,7 +470,7 @@ with st.container(border=True):
             st.dataframe(pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore'), use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 6. 내 데이터 관리 (저장, 삭제, 다운로드)
+# 6. 내 데이터 관리
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.history:
     with st.container(border=True):
