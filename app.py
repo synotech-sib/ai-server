@@ -150,7 +150,11 @@ with st.container(border=True):
         m1, m2, m3, m4 = st.columns(4)
         cat_sel = m1.selectbox("Cathode", mat_df[mat_df['Category']=='Cathode']['Name'].tolist(), key="sel_cat_m")
         row = mat_df[mat_df['Name']==cat_sel].iloc[0]
-        c_cap_i, c_volt_i, c_dens_i, c_life_i, c_load_i = float(row.get('Capacity', 160)), float(row.get('Voltage', 3.05)), float(row.get('Density', 2.2)), int(row.get('Life', 4000)), float(row.get('Rec_Loading', 14.0))
+        c_cap_i = float(row.get('Capacity', 160))
+        c_volt_i = float(row.get('Voltage', 3.05))
+        c_dens_i = float(row.get('Density', 2.2))
+        c_life_i = int(row.get('Life', 4000))
+        c_load_i = float(row.get('Rec_Loading', 14.0))
         
         ano_sel = m2.selectbox("Anode", ["Hard Carbon (A)", "Hard Carbon (B)"], key="sel_ano_m")
         m3.selectbox("Electrolyte", ["Standard NaPF6", "High-Stability"], key="sel_ele_m")
@@ -161,60 +165,65 @@ with st.container(border=True):
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (Capacity/Voltage 부분 개방 & Density/Life 흐림처리 잠금)
+# [2] Material Specs (Capacity/Voltage 노출 및 조작, 나머지는 노출되나 흐림처리 잠금)
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    # [요청 반영] 문구를 일부 개방형에 맞게 변경
-    exp_label = "🔓 밀도 및 수명 등 세부 물성 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 세부 물성 수정 활성화"
+    exp_label = "🔓 물성 직접 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 물성 직접 수정 활성화"
     expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
     
     s1, s2, s3, s4 = st.columns(4)
-    # 1. Capacity와 Voltage는 로그인 여부와 무관하게 항상 활성화 (disabled=False)
+    # Cap과 Volt는 무조건 열어둠 (흐림 X, 조작 O)
     v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
     v_volt_in = s2.slider("Voltage (V)", 2.5, 4.5, float(c_volt_i), key=f"volt_{cat_sel}")
     
-    # 2. Density와 Life는 Pro 권한(expert)이 없으면 흐림처리(비활성화)
+    # Dens와 Life는 상시 노출하되, Pro/Expert 아니면 비활성화 (흐림 O, 조작 X)
     v_dens_in = s3.slider("Density (g/cc)", 1.5, 4.0, float(c_dens_i), key=f"dens_{cat_sel}", disabled=not expert)
     v_life_in = s4.slider("Base Life (Cycles)", 500, 10000, int(c_life_i), key=f"life_{cat_sel}", disabled=not expert)
     
-    # 실제 계산 반영 로직: Cap/Volt는 무조건 유저 입력값 반영, 나머지는 권한에 따라 분기
     v_cap = v_cap_in 
     v_volt = v_volt_in 
     v_dens = v_dens_in if expert else c_dens_i
     v_life = v_life_in if expert else c_life_i
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters (흐림 없음, 체크박스만 비활성화)
+# [3] Process Parameters (모두 노출하되, 윗줄 3개만 조작 가능. 나머지는 흐림처리 잠금)
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
-    adv_label = "🔍 더 자세히 보기 (Advanced Settings) :red[(Pro Mode 전용)]" if not is_pro else "🔍 더 자세히 보기 (Advanced Settings)"
+    # [요청 반영] 문구 변경
+    adv_label = "🔍 세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔍 세부 파라미터 수정 활성화"
     show_adv = st.checkbox(adv_label, key="chk_adv_m", disabled=not is_pro)
     
     p1, p2, p3 = st.columns(3)
     with p1:
         st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
+        # 윗줄: 항상 열어둠
         v_load_in = st.slider("Loading (mg/cm2)", 5.0, 45.0, float(c_load_i), key=f"load_{cat_sel}")
-        v_load = v_load_in if is_pro else c_load_i
-        if show_adv:
-            st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m")
-            st.slider("Conductive Agent %", 0.5, 5.0, 2.0, key="ad_c_con_m")
-            st.slider("Binder %", 0.5, 5.0, 3.0, key="ad_c_bin_m")
+        # 아랫줄들: 노출은 하되 활성화 체크 여부(show_adv)에 따라 흐림처리
+        st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m", disabled=not show_adv)
+        st.slider("Conductive Agent %", 0.5, 5.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
+        st.slider("Binder %", 0.5, 5.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
+        v_load = v_load_in # 계산용 (현재 로직상 항상 입력값 반영)
+
     with p2:
         st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
+        # 윗줄: 항상 열어둠
         v_np_in = st.slider("N/P Ratio", 1.0, 1.5, 1.15, key="sl_np_m")
-        v_np = v_np_in if is_pro else 1.15
-        if show_adv:
-            st.slider("Anode Press Density", 0.8, 2.0, 1.1, key="ad_a_den_m")
-            st.slider("Anode Active %", 90.0, 98.0, 95.0, key="ad_a_act_m")
+        # 아랫줄들: 흐림처리
+        st.slider("Anode Press Density", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
+        st.slider("Anode Active %", 90.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
+        v_np = v_np_in
+
     with p3:
         st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
+        # 윗줄: 항상 열어둠
         v_act_in = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sl_act_m")
-        v_act = v_act_in if is_pro else 92.0
-        if show_adv:
-            st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="ad_ec_m")
-            st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m")
+        # 아랫줄들: 흐림처리
+        st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
+        st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m", disabled=not show_adv)
+        v_act = v_act_in
+
     st.markdown("<br>", unsafe_allow_html=True)
 
 # [4] Target Settings
