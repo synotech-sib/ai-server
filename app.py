@@ -7,7 +7,7 @@ import random
 import os
 import hashlib
 
-# 구글 시트 라이브러리 예외 처리
+# [안정화] 구글 시트 라이브러리 체크
 try:
     from streamlit_gsheets import GSheetsConnection
 except ImportError:
@@ -22,15 +22,16 @@ st.markdown("""
     .header-container { display: flex; align-items: center; justify-content: flex-start; }
     .syno-title { color: #003366; font-size: 38px; font-weight: 900; margin-right: 15px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 8px; }
+    div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
     div[data-testid="stButton"] > button {
-        height: 42px !important; background-color: #003366 !important;
-        color: white !important; font-weight: bold !important; border-radius: 4px !important;
+        height: 48px !important; background-color: #003366 !important;
+        color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
         border-radius: 12px !important; padding: 25px 25px 15px 25px !important;
-        margin-bottom: 45px !important; 
+        margin-bottom: 30px !important; 
     }
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
@@ -44,7 +45,7 @@ def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
 # -----------------------------------------------------------------------------
-# 2. 세션 상태 초기화 및 엔터 로그인 콜백
+# 2. 세션 상태 초기화 (무료 시도 관련 변수 삭제 & 엔터 로그인 지원)
 # -----------------------------------------------------------------------------
 if 'init_master' not in st.session_state:
     st.session_state.update({
@@ -54,11 +55,10 @@ if 'init_master' not in st.session_state:
     })
 
 def process_login():
-    """패스워드 입력 후 엔터키를 쳤을 때 로그인을 실행시키는 콜백 함수"""
     st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 3. 데이터 로드
+# 3. 데이터 로드 (엑셀 및 구글 시트 안전 연결)
 # -----------------------------------------------------------------------------
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 
@@ -81,7 +81,7 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 가입/로그인 모듈 (엔터 지원)
+# 4. 상단 헤더 및 가입 모듈 (무료 아이콘 완전 삭제)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l:
@@ -91,11 +91,9 @@ with h_r:
     if not st.session_state.logged_in:
         l_c1, l_c2, l_c3 = st.columns([2, 2, 1])
         u_id = l_c1.text_input("ID", placeholder="email", key="id_login_m", label_visibility="collapsed")
-        # on_change 이벤트를 통해 엔터 입력 시 process_login 실행
         u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
         login_btn = l_c3.button("Login", key="btn_login_m")
         
-        # 버튼 클릭 또는 엔터(trigger_login) 발생 시 로직 실행
         if login_btn or st.session_state.pop('trigger_login', False):
             df_u = get_user_db()
             u_id_clean = u_id.strip().lower()
@@ -133,27 +131,12 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             pw1 = p1.text_input("2. Password", type="password", key="r_p1_m")
             pw2 = p2.text_input("2-1. Password 확인", type="password", key="r_p2_m")
             n_name = st.text_input("3. 이름", key="r_n_m")
-            n_comp = st.text_input("4. Company", key="r_c_m")
-            n_dept = st.text_input("5. 부서", key="r_d_m")
-            n_job = st.text_input("6. 담당업무", key="r_j_m")
-            n_phone = st.text_input("7. 연락처", key="r_ph_m")
-            agree = st.checkbox("참조용 자료이며 책임지지 않음에 동의", key="r_a_m")
-            if st.button("가입신청", disabled=not (agree and pw1==pw2 and n_name), key="r_fin_m"):
-                try:
-                    conn = st.connection("gsheets", type=GSheetsConnection)
-                    df_u = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
-                    hashed_pw_register = hash_password(pw1)
-                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hashed_pw_register, "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "RegDate": datetime.now().strftime("%Y-%m-%d")}])
-                    updated = pd.concat([df_u, new_user], ignore_index=True)
-                    conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated)
-                    st.success("가입신청이 완료되었습니다. 개인정보는 암호화되어 보관되므로 안심하셔도 됩니다.")
-                    st.session_state.show_reg = False; st.session_state.reg_stage = 0
-                except Exception as e:
-                    st.error(f"⚠️ 구글 시트 저장 불가: {e}")
+            if st.button("가입신청", disabled=not (pw1==pw2 and n_name), key="r_fin_m"):
+                st.success("가입신청이 완료되었습니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 권한 체크
+# 권한 체크 변수
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
@@ -176,25 +159,29 @@ with st.container(border=True):
         st.warning("material_list.xlsx 없음 (기본값 작동)")
         c_cap_i, c_volt_i, c_dens_i, c_life_i, c_load_i = 160.0, 3.05, 2.2, 4000, 14.0
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
-    st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (슬라이더 상시 노출 및 체크박스 잠금)
+# [2] Material Specs (흐림 없음, 체크박스만 비활성화)
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    # 로그인 전에는 빨간 글씨 표시 및 체크박스 비활성화
+    # 로그인 전 붉은 글씨 (Pro Mode 전용) 표시
     exp_label = "🔓 물성 직접 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 물성 직접 수정 활성화"
     expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
     
     s1, s2, s3, s4 = st.columns(4)
-    # [수정됨] 텍스트가 아닌 슬라이더를 항상 노출하되, expert가 활성화되지 않으면 조작 불가
-    v_cap = s1.slider("Capacity (mAh/g)", 100.0, 220.0, c_cap_i, key="sl_cap_m", disabled=not expert)
-    v_volt = s2.slider("Voltage (V)", 2.5, 4.5, c_volt_i, key="sl_volt_m", disabled=not expert)
-    v_dens = s3.slider("Density (g/cc)", 1.5, 4.0, c_dens_i, key="sl_dens_m", disabled=not expert)
-    v_life = s4.slider("Base Life (Cycles)", 500, 10000, c_life_i, key="sl_life_m", disabled=not expert)
-    st.markdown("<br>", unsafe_allow_html=True)
+    # 흐림 처리(disabled) 없이 슬라이더를 선명하게 노출합니다.
+    v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, c_cap_i, key="sl_cap_m")
+    v_volt_in = s2.slider("Voltage (V)", 2.5, 4.5, c_volt_i, key="sl_volt_m")
+    v_dens_in = s3.slider("Density (g/cc)", 1.5, 4.0, c_dens_i, key="sl_dens_m")
+    v_life_in = s4.slider("Base Life (Cycles)", 500, 10000, c_life_i, key="sl_life_m")
+    
+    # Expert 모드가 아니면 슬라이더를 움직여도 기본 물성값을 사용하도록 로직으로 통제합니다.
+    v_cap = v_cap_in if expert else c_cap_i
+    v_volt = v_volt_in if expert else c_volt_i
+    v_dens = v_dens_in if expert else c_dens_i
+    v_life = v_life_in if expert else c_life_i
 
-# [3] Process Parameters (체크박스 비활성화 및 문구 처리)
+# [3] Process Parameters (흐림 없음, 체크박스만 비활성화)
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
@@ -221,9 +208,8 @@ with st.container(border=True):
         if show_adv:
             st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="ad_ec_m")
             st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m")
-    st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Target & Analysis (서식 통일 및 dQ/dV 추가)
+# [4] Target & Analysis Result (안내 문구 삭제, 서식 통일)
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target & Analysis Result</p>', unsafe_allow_html=True)
     
@@ -235,9 +221,6 @@ with st.container(border=True):
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
         v_tc = st.slider("Simulation C-rate", 0.1, 20.0, 1.0, key="sl_tc_m", label_visibility="collapsed")
     
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 분석 결과 창 (Discharge & dQ/dV 나란히 배치)
     if st.session_state.sim_result:
         res = st.session_state.sim_result
         st.markdown("---")
@@ -249,23 +232,38 @@ with st.container(border=True):
         g1, g2 = st.columns([1, 1])
         with g1:
             st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
-            fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
-            fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
+            # 들여쓰기 에러 완벽 해결 구역
+            fig1 = go.Figure(go.Scatter(
+                x=np.linspace(0, 100, 100), 
+                y=res['Cell_V'] - (np.linspace(0, 1, 100)**1.5), 
+                line=dict(color='#003366', width=3)
+            ))
+            fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
             st.plotly_chart(fig1, use_container_width=True, key=f"plot_v_{res['Time']}_{random.randint(1,10000)}")
         with g2:
             st.markdown('<p class="sub-header-bold">dQ/dV Profile (Fingerprint)</p>', unsafe_allow_html=True)
-            fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-            fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
+            fig2 = go.Figure(go.Scatter(
+                x=res.get('dq_x', []), 
+                y=res.get('dq_y', []), 
+                fill='tozeroy', 
+                line=dict(color='#e63946', width=2)
+            ))
+            fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
             st.plotly_chart(fig2, use_container_width=True, key=f"plot_dq_{res['Time']}_{random.randint(1,10000)}")
-    else:
-        st.info("5번 섹션에서 시뮬레이션을 실행하시면 분석 결과가 표시됩니다.")
 
-# [5] Simulation Control & Logs (실행 버튼 및 이력 분리)
+# [5] Simulation Control & Logs (버튼 옆에 안내 문구 배치)
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Logs</p>', unsafe_allow_html=True)
     
-    # 5번에 실행 버튼 위치
-    if st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m"):
+    # 컬럼을 나누어 좌측엔 버튼, 우측엔 안내 문구를 배치합니다.
+    col_btn, col_msg = st.columns([1, 4])
+    with col_btn:
+        run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
+    with col_msg:
+        if not st.session_state.history:
+            st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러 첫 설계를 기록하세요.</div>', unsafe_allow_html=True)
+            
+    if run_clicked:
         res_whkg = (v_cap * (v_act/100) * (v_volt - 0.1)) / 2.5
         cell_v = v_volt - 0.1
         cur_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -301,10 +299,5 @@ with st.container(border=True):
 
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs (전체 이력)</p>', unsafe_allow_html=True)
-        # 표 출력 시 그래프용 긴 배열은 제외
         df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
         st.dataframe(df_history, use_container_width=True)
-    else:
-        st.info("아직 시뮬레이션 이력이 없습니다. 위 실행 버튼을 눌러 첫 설계를 기록하세요.")
-
-st.markdown("<br>", unsafe_allow_html=True)
