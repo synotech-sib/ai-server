@@ -116,7 +116,7 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 
+# ✉️ [이메일 발송 시스템 - 스마트 Secrets 파싱 로직 적용] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
@@ -296,7 +296,7 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [계정 신청 (이메일 인증 및 폼 복원)]
+# [계정 신청 및 법적 고지(Disclaimer)]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -317,8 +317,8 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             if st.button("인증 확인"):
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
                 else: st.error("인증번호가 일치하지 않습니다.")
-        
-        # ✅ 부서, 업무, 전화번호 입력칸 복원 영역
+                
+        # ✅ 가입 상세 정보 및 법적 고지 사항
         elif st.session_state.reg_stage == 2:
             st.markdown('<p class="sub-header-bold">세부 정보 입력</p>', unsafe_allow_html=True)
             
@@ -335,35 +335,52 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             n_job = c4.text_input("담당업무")
             n_phone = c5.text_input("전화번호")
             
-            if st.button("최종 가입신청", use_container_width=True):
-                if pw1 == pw2 and n_name:
-                    try:
-                        conn = st.connection("gsheets", type=GSheetsConnection)
-                        df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
-                        
-                        # 새로운 유저 정보 DataFrame 생성
-                        new_user = pd.DataFrame([{
-                            "Email": st.session_state.temp_email, 
-                            "Password": hash_password(pw1), 
-                            "Name": n_name, 
-                            "Company": n_comp, 
-                            "Dept": n_dept,
-                            "Job": n_job,
-                            "Phone": n_phone,
-                            "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
-                        }])
-                        
-                        conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
-                        st.success("가입이 완료되었습니다! 위 로그인 창에서 접속해 주세요.")
-                        st.session_state.show_reg = False
-                        st.session_state.reg_stage = 0
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"회원 가입 처리 중 오류가 발생했습니다: {e}")
-                elif pw1 != pw2:
-                    st.error("비밀번호가 일치하지 않습니다.")
-                else:
-                    st.error("이름을 반드시 입력하셔야 합니다.")
+            # ✅ 사용 목적 추가
+            n_purpose = st.text_input("이 프로그램 사용목적 (간략히)")
+            
+            # ✅ 법적 고지 (Disclaimer) 펼침 메뉴
+            st.markdown("<br>", unsafe_allow_html=True)
+            with st.expander("⚖️ 보안 및 법적효력 관련 내용 보기"):
+                st.markdown("""
+                <div style='background-color: #f1f3f5; padding: 15px; border-radius: 5px; font-size: 14px;'>
+                <b>[면책 조항 및 법적 고지]</b><br><br>
+                1. 본 SynoCore 플랫폼에서 제공되는 모든 배터리 소재 시뮬레이션 결과 및 데이터는 사전적 검토 및 학술적/기술적 <b>참조용(Reference Only)</b>으로만 제공됩니다.<br>
+                2. 본 시뮬레이션 결과는 실제 양산 적용, 투자 결정, 혹은 상업적 계약 등의 <b>절대적인 기준으로 사용될 수 없으며</b>, 본 결과물의 활용으로 인해 발생하는 직간접적인 손해나 결과에 대하여 (주)시노텍(SynoTech)은 어떠한 법적 책임도 지지 않습니다.<br>
+                3. 정확한 배터리 설계, 공정 최적화 및 실제 양산 적용과 관련된 구체적이고 상세한 논의가 필요하신 경우, 당사 전문가와의 <b>공식 미팅 및 별도 기술 교류</b>를 통해 진행하시기 바랍니다.<br>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            # ✅ 동의 체크박스
+            agree_terms = st.checkbox("위 보안 및 법적효력 관련 내용에 동의합니다.")
+            
+            # ✅ 조건 충족 시에만 버튼 활성화
+            is_form_valid = bool(pw1 and (pw1 == pw2) and n_name and agree_terms)
+            
+            if st.button("최종 가입신청", use_container_width=True, disabled=not is_form_valid):
+                try:
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
+                    
+                    # 새로운 유저 정보 DataFrame 생성 (Purpose 항목 추가)
+                    new_user = pd.DataFrame([{
+                        "Email": st.session_state.temp_email, 
+                        "Password": hash_password(pw1), 
+                        "Name": n_name, 
+                        "Company": n_comp, 
+                        "Dept": n_dept,
+                        "Job": n_job,
+                        "Phone": n_phone,
+                        "Purpose": n_purpose,  # 구글 시트에 저장됨
+                        "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
+                    }])
+                    
+                    conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
+                    st.success("가입이 완료되었습니다! 위 로그인 창에서 접속해 주세요.")
+                    st.session_state.show_reg = False
+                    st.session_state.reg_stage = 0
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"회원 가입 처리 중 오류가 발생했습니다: {e}")
 
 if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
