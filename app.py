@@ -38,7 +38,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [보안] 비밀번호 단방향 암호화 (SHA-256)
+# [보안] 비밀번호 단방향 암호화
 # -----------------------------------------------------------------------------
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
@@ -161,22 +161,26 @@ with st.container(border=True):
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (흐림 없음, 체크박스만 비활성화)
+# [2] Material Specs (Capacity/Voltage 부분 개방 & Density/Life 흐림처리 잠금)
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    exp_label = "🔓 물성 직접 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 물성 직접 수정 활성화"
+    # [요청 반영] 문구를 일부 개방형에 맞게 변경
+    exp_label = "🔓 밀도 및 수명 등 세부 물성 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 세부 물성 수정 활성화"
     expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
     
     s1, s2, s3, s4 = st.columns(4)
-    # 흐림 처리 방지: 슬라이더 자체는 항상 활성화하여 보여주되, 내부 계산은 expert 값에 따름
-    v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, c_cap_i, key="sl_cap_m")
-    v_volt_in = s2.slider("Voltage (V)", 2.5, 4.5, c_volt_i, key="sl_volt_m")
-    v_dens_in = s3.slider("Density (g/cc)", 1.5, 4.0, c_dens_i, key="sl_dens_m")
-    v_life_in = s4.slider("Base Life (Cycles)", 500, 10000, c_life_i, key="sl_life_m")
+    # 1. Capacity와 Voltage는 로그인 여부와 무관하게 항상 활성화 (disabled=False)
+    v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
+    v_volt_in = s2.slider("Voltage (V)", 2.5, 4.5, float(c_volt_i), key=f"volt_{cat_sel}")
     
-    v_cap = v_cap_in if expert else c_cap_i
-    v_volt = v_volt_in if expert else c_volt_i
+    # 2. Density와 Life는 Pro 권한(expert)이 없으면 흐림처리(비활성화)
+    v_dens_in = s3.slider("Density (g/cc)", 1.5, 4.0, float(c_dens_i), key=f"dens_{cat_sel}", disabled=not expert)
+    v_life_in = s4.slider("Base Life (Cycles)", 500, 10000, int(c_life_i), key=f"life_{cat_sel}", disabled=not expert)
+    
+    # 실제 계산 반영 로직: Cap/Volt는 무조건 유저 입력값 반영, 나머지는 권한에 따라 분기
+    v_cap = v_cap_in 
+    v_volt = v_volt_in 
     v_dens = v_dens_in if expert else c_dens_i
     v_life = v_life_in if expert else c_life_i
     st.markdown("<br>", unsafe_allow_html=True)
@@ -191,7 +195,7 @@ with st.container(border=True):
     p1, p2, p3 = st.columns(3)
     with p1:
         st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-        v_load_in = st.slider("Loading (mg/cm2)", 5.0, 45.0, c_load_i, key="sl_load_m")
+        v_load_in = st.slider("Loading (mg/cm2)", 5.0, 45.0, float(c_load_i), key=f"load_{cat_sel}")
         v_load = v_load_in if is_pro else c_load_i
         if show_adv:
             st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m")
@@ -213,7 +217,7 @@ with st.container(border=True):
             st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Target Settings (순수 목표 설정, 서식 통일)
+# [4] Target Settings
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Settings</p>', unsafe_allow_html=True)
     
@@ -225,11 +229,10 @@ with st.container(border=True):
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
         v_tc = st.slider("C-rate", 0.1, 20.0, 1.0, key="sl_tc_m", label_visibility="collapsed")
 
-# [5] Simulation Control & Analysis (실행, 드롭다운 연동, 결과, 로그 통합)
+# [5] Simulation Control & Analysis 
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
     
-    # 5번 섹션 상단: 버튼과 안내 문구
     col_btn, col_msg = st.columns([1, 3])
     with col_btn:
         run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
@@ -242,7 +245,7 @@ with st.container(border=True):
         cell_v = v_volt - 0.1
         cur_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # dQ/dV 데이터 생성
+        # dQ/dV 가상 데이터 계산 로직
         v_axis = np.linspace(2.0, 4.2, 150)
         dqdv = np.zeros_like(v_axis)
         peaks = [3.05, 3.45] if "Prussian" in cat_sel or "Altris" in cat_sel else ([3.75] if "Polyanion" in cat_sel or "NVPF" in cat_sel else [3.15])
@@ -266,28 +269,25 @@ with st.container(border=True):
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
         log_opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg" for h in st.session_state.history]
         
-        # 버튼 없이 드롭다운 선택만으로 데이터 변경
         sel_idx = st.selectbox("기록 선택", range(len(log_opts)), format_func=lambda x: log_opts[x], key="sel_hist_m", label_visibility="collapsed")
         res = st.session_state.history[sel_idx]
         
         st.markdown("---")
-        # 메트릭 출력
         r1, r2, r3 = st.columns(3)
         r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=round(res['Wh/kg'] - v_te, 1))
         r2.metric("Cell Voltage", f"{res['Cell_V']} V")
         r3.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc")
         
-        # 그래프 출력 (하단 배치)
         g1, g2 = st.columns([1, 1])
         with g1:
             st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
             fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
-            fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
+            fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
             st.plotly_chart(fig1, use_container_width=True, key=f"plot_v_{res['Time']}")
         with g2:
             st.markdown('<p class="sub-header-bold">dQ/dV Profile (Fingerprint)</p>', unsafe_allow_html=True)
             fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-            fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
+            fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
             st.plotly_chart(fig2, use_container_width=True, key=f"plot_dq_{res['Time']}")
 
         st.markdown("---")
