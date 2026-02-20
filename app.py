@@ -21,7 +21,7 @@ st.markdown("""
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
     
-    /* [요청 반영] SynoCore 타이틀 시노텍 로고컬러(#1A729A) 적용 */
+    /* SynoCore 타이틀 시노텍 로고컬러(#1A729A) 적용 */
     .syno-title { color: #1A729A; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 14px; }
     
@@ -30,7 +30,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 28px !important; color: #1A729A !important; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; }
     
-    /* [요청 반영] 입력창과 버튼의 높이를 10% 축소 (44px -> 40px) 및 디자인 완벽 통일 */
+    /* 입력창과 버튼의 높이를 40px로 통일 */
     div[data-testid="stTextInput"] input {
         height: 40px !important;
         font-size: 16px !important;
@@ -273,8 +273,12 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    exp_label = "🔓 밀도 및 수명 등 세부 물성 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 세부 물성 수정 활성화"
-    expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
+    # [요청 반영] 텍스트 좌측, 체크박스 우측 배치 레이아웃
+    c2_1, c2_2 = st.columns([3, 7])
+    with c2_1:
+        st.markdown('<div style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #333;">🔓 밀도 및 수명 등 세부 물성 수정 활성화</div>', unsafe_allow_html=True)
+    with c2_2:
+        expert = st.checkbox(" :red[(Pro Mode 전용)]" if not is_pro else " ", key="chk_exp_m", disabled=not is_pro)
     
     s1, s2, s3, s4 = st.columns(4)
     v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
@@ -293,8 +297,12 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
-    adv_label = "🔍 세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔍 세부 파라미터 수정 활성화"
-    show_adv = st.checkbox(adv_label, key="chk_adv_m", disabled=not is_pro)
+    # [요청 반영] 자물통 이모티콘 변경(🔓) 및 텍스트 좌측, 체크박스 우측 배치 레이아웃
+    c3_1, c3_2 = st.columns([3, 7])
+    with c3_1:
+        st.markdown('<div style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #333;">🔓 세부 파라미터 수정 활성화</div>', unsafe_allow_html=True)
+    with c3_2:
+        show_adv = st.checkbox(" :red[(Pro Mode 전용)]" if not is_pro else " ", key="chk_adv_m", disabled=not is_pro)
     
     p1, p2, p3 = st.columns(3)
     with p1:
@@ -372,7 +380,7 @@ with st.container(border=True):
         st.session_state.sim_result = log_data
         st.rerun()
 
-    # 과거 기록 복원 및 결과/그래프 연동
+    # 과거 기록 복원
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
