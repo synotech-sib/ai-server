@@ -78,7 +78,6 @@ def get_user_db():
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
-# dQ/dV 그래프 데이터 복원 헬퍼
 def get_dqdv(cat_sel, v_tc):
     v_axis = np.linspace(2.0, 4.2, 150)
     dqdv = np.zeros_like(v_axis)
@@ -88,7 +87,6 @@ def get_dqdv(cat_sel, v_tc):
         dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
     return v_axis, dqdv
 
-# [요청 반영] 로그인 시 기존 저장 데이터 불러오기 헬퍼
 def load_user_history(email):
     if GSheetsConnection is None: return []
     try:
@@ -102,7 +100,6 @@ def load_user_history(email):
             row_dict = row.to_dict()
             row_dict.pop('Email', None)
             try:
-                # 숫자형 데이터 형변환 (그래프 렌더링 오류 방지)
                 row_dict['Cap(mAh/g)'] = float(row_dict.get('Cap(mAh/g)', 0))
                 row_dict['Volt(V)'] = float(row_dict.get('Volt(V)', 0))
                 row_dict['Load(mg)'] = float(row_dict.get('Load(mg)', 0))
@@ -114,16 +111,14 @@ def load_user_history(email):
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
             except: pass
             
-            # 그래프 데이터(dq_x, dq_y) 복원
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0))
             row_dict['dq_x'] = v_x
             row_dict['dq_y'] = v_y
             hist.append(row_dict)
-        return hist[::-1] # 최신 데이터가 위로 오도록 뒤집기
+        return hist[::-1]
     except Exception:
         return []
 
-# PDF 생성 함수
 def create_pdf(data_list, title="Simulation Report"):
     if FPDF is None: return b""
     pdf = FPDF(orientation="L", unit="mm", format="A4")
@@ -212,13 +207,13 @@ with h_r:
             
             if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
                 st.session_state.logged_in = True; st.session_state.user_name = "최우석 대표"; st.session_state.user_email = u_id_clean
-                st.session_state.history = load_user_history(u_id_clean) # 자동 로드
+                st.session_state.history = load_user_history(u_id_clean)
                 st.rerun()
             elif not valid.empty:
                 st.session_state.logged_in = True
                 st.session_state.user_name = str(valid['Name'].values[0]) if 'Name' in valid.columns else "회원"
                 st.session_state.user_email = str(valid['Email'].values[0]) if 'Email' in valid.columns else u_id_clean
-                st.session_state.history = load_user_history(st.session_state.user_email) # 자동 로드
+                st.session_state.history = load_user_history(st.session_state.user_email)
                 st.rerun()
             else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         
@@ -234,7 +229,7 @@ with h_r:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 가입 및 계정 관리 (코드 생략 방지를 위해 축약 유지)
+# 가입 및 계정 관리
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
@@ -297,7 +292,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (들여쓰기 및 UI 심플화)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 
 # [1] Material Selection
@@ -324,9 +319,11 @@ with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     sp2, c_2 = st.columns([0.03, 0.97])
     with c_2:
-        # [요청 반영] 기본 체크박스 활용으로 완벽한 인라인(밀착) 정렬 구현
-        exp_label = "밀도 및 수명 등 세부 물성 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "밀도 및 수명 등 세부 물성 수정 활성화"
-        expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
+        # [요청 반영] 로그아웃 시에만 체크박스+문구 노출, 로그인 시 자동 활성화(숨김)
+        if not is_pro:
+            expert = st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
+        else:
+            expert = True
         
         s1, s2, s3, s4 = st.columns(4)
         v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
@@ -344,9 +341,11 @@ with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     sp3, c_3 = st.columns([0.03, 0.97])
     with c_3:
-        # [요청 반영] 기본 체크박스 활용으로 완벽한 인라인(밀착) 정렬 구현
-        adv_label = "세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "세부 파라미터 수정 활성화"
-        show_adv = st.checkbox(adv_label, key="chk_adv_m", disabled=not is_pro)
+        # [요청 반영] 로그아웃 시에만 체크박스+문구 노출, 로그인 시 자동 활성화(숨김)
+        if not is_pro:
+            show_adv = st.checkbox("세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]", key="chk_adv_m", disabled=True)
+        else:
+            show_adv = True
         
         p1, p2, p3 = st.columns(3)
         with p1:
@@ -458,13 +457,11 @@ if is_pro and st.session_state.history:
         with c_6:
             btn1, btn2, btn3, btn4 = st.columns(4)
             
-            # [요청 반영] 중복 검사 로직 추가된 저장 기능
             if btn1.button("💾 내 계정에 저장하기", key="btn_save_my"):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     db_df = conn.read(spreadsheet=SHEET_URL, worksheet="myData", ttl=0)
                     
-                    # 중복 검사: 동일 이메일 & 동일 Time인 기록이 있는지 확인
                     is_duplicate = False
                     if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
                         dupes = db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])]
@@ -486,7 +483,6 @@ if is_pro and st.session_state.history:
                 except Exception as e:
                     st.error(f"저장 중 오류 발생: {e} (구글 시트에 'myData' 탭이 있는지 확인하세요!)")
 
-            # 구글 시트에서 내 데이터 불러오기 (로그인 시에도 자동 호출됨)
             if btn2.button("📂 저장된 기록 동기화", key="btn_load_my"):
                 try:
                     loaded_hist = load_user_history(st.session_state.user_email)
@@ -499,7 +495,6 @@ if is_pro and st.session_state.history:
                 except Exception as e:
                     st.error(f"동기화 실패: {e}")
 
-            # PDF 출력 (오렌지색 다운로드 버튼)
             if FPDF is not None:
                 pdf_single = create_pdf([res], title=f"Simulation Result - {res['Cathode']}")
                 btn3.download_button(label="📄 선택 항목 PDF 출력", data=pdf_single, file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf")
