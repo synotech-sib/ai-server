@@ -7,9 +7,6 @@ import random
 import os
 import hashlib
 import io
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # [PDF 라이브러리 예외 처리]
 try:
@@ -47,19 +44,21 @@ st.markdown("""
     
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
+    /* 일반 실행/저장 버튼 (파란색) */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 및 다운로드 오렌지 색상 */
+    /* ✅ PDF 및 파일 다운로드 버튼 (윈도우 폴더 색상 적용) */
     div[data-testid="stDownloadButton"] > button {
-        height: 40px !important; background-color: #FFCA28 !important; 
-        color: #222 !important; 
+        height: 40px !important; background-color: #FFCA28 !important; /* 윈도우 폴더 노란색 */
+        color: #222 !important; /* 가독성을 위한 진한 회색 텍스트 */
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: 1px solid #E4B526 !important; margin-top: 0px !important;
     }
+    /* 마우스 호버 효과 (살짝 진해짐) */
     div[data-testid="stDownloadButton"] > button:hover {
         background-color: #FFB300 !important;
         border: 1px solid #DDA010 !important;
@@ -117,42 +116,6 @@ def get_user_db():
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
-# -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 
-# -----------------------------------------------------------------------------
-def send_verification_email(to_email, code):
-    # ⚠️ 대표님의 이메일과 발급받은 '앱 비밀번호(16자리)'를 아래에 입력해주세요!
-    sender_email = "wschoi@synotech.co.kr"  # 발신자 이메일 주소
-    sender_password = "여기에_16자리_앱비밀번호를_입력하세요" # 예: "abcd efgh ijkl mnop"
-    
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = f"SynoCore Admin <{sender_email}>"
-        msg['To'] = to_email
-        msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
-
-        body = f"""안녕하세요.
-SynoCore Pro 시뮬레이터 플랫폼 회원가입을 위한 인증번호 안내입니다.
-
-▶ 인증번호 : {code}
-
-위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.
-감사합니다.
-"""
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
-        # SMTP 서버 설정 (Gmail 기준) - 회사 이메일이 다른 서버면 변경 필요
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password.replace(" ", "")) # 공백 제거 후 로그인
-        server.send_message(msg)
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"이메일 발송 에러: {e}")
-        return False
-
-# -----------------------------------------------------------------------------
 def get_dqdv(cat_sel, v_tc):
     v_axis = np.linspace(2.0, 4.2, 150)
     dqdv = np.zeros_like(v_axis)
@@ -230,7 +193,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 2. 세션 상태 초기화
+# 2. 세션 상태 초기화 및 데이터 로드
 # -----------------------------------------------------------------------------
 default_session_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0,
@@ -241,6 +204,7 @@ for key, value in default_session_vars.items():
     if key not in st.session_state: st.session_state[key] = value
 
 def process_login(): st.session_state.trigger_login = True
+
 
 # -----------------------------------------------------------------------------
 # 4. 상단 헤더 및 로그인 모듈
@@ -283,38 +247,18 @@ with h_r:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 가입 및 계정 관리 (✅ 실 이메일 발송 적용)
+# 가입 및 계정 관리
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
         if st.session_state.reg_stage == 0:
             e_in = st.text_input("1. 회사 이메일 주소", key="r_email_m")
             if st.button("인증번호 발송", key="r_v_send_m"):
-                if not e_in or "@" not in e_in:
-                    st.error("올바른 이메일 주소를 입력해주세요.")
-                else:
-                    v_code = str(random.randint(100000, 999999))
-                    with st.spinner("📧 이메일을 발송 중입니다... (최대 10초 소요)"):
-                        is_sent = send_verification_email(e_in, v_code)
-                        
-                    if is_sent:
-                        st.session_state.v_code = v_code
-                        st.session_state.temp_email = e_in
-                        st.session_state.reg_stage = 1
-                        st.rerun()
-                    else:
-                        st.error("이메일 발송에 실패했습니다. 관리자에게 문의하거나 발신 서버 설정을 확인해주세요.")
-                        
+                st.session_state.v_code = str(random.randint(100000, 999999)); st.session_state.temp_email = e_in; st.session_state.reg_stage = 1; st.rerun()
         elif st.session_state.reg_stage == 1:
-            st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다. 메일함을 확인해주세요.")
-            v_in = st.text_input("인증번호 6자리 입력", key="r_v_in_m")
-            if st.button("인증 확인", key="r_v_chk_m"):
-                if v_in == st.session_state.v_code: 
-                    st.session_state.reg_stage = 2
-                    st.rerun()
-                else:
-                    st.error("인증번호가 일치하지 않습니다.")
-                    
+            st.info(f"🔑 [{st.session_state.temp_email}] 인증번호: {st.session_state.v_code}")
+            v_in = st.text_input("인증번호 입력", key="r_v_in_m")
+            if st.button("인증 확인", key="r_v_chk_m") and v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
         elif st.session_state.reg_stage == 2:
             p1, p2 = st.columns(2); pw1 = p1.text_input("2. Password", type="password"); pw2 = p2.text_input("2-1. Password 확인", type="password")
             n_name = st.text_input("3. 이름"); n_comp = st.text_input("4. Company")
@@ -323,7 +267,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
                 new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
                 conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
-                st.success("가입신청 완료! 승인 후 이용 가능합니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
+                st.success("가입신청 완료!"); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
 
 if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
