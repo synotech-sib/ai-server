@@ -30,7 +30,7 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* 화면 폭 제어 (데스크탑은 뉴스 기사처럼 좁게, 모바일은 꽉 차게 자동 반응) */
+    /* ✅ 화면 폭 제어 (데스크탑은 뉴스 기사처럼 좁게, 모바일은 꽉 차게 자동 반응) */
     .main .block-container {
         max-width: 950px; 
         padding-top: 2rem;
@@ -55,7 +55,7 @@ st.markdown("""
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* 파일 다운로드/출력 버튼 (윈도우 폴더 색상) */
+    /* ✅ 파일 다운로드/출력 버튼 (윈도우 폴더 색상) */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; 
@@ -118,12 +118,13 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 
+# ✉️ [이메일 발송 시스템 - 스마트 Secrets 파싱 로직 적용] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
     alias_email = "synocore@synotech.co.kr"
     
+    # ✅ 스마트 로직: Secrets의 어떤 곳에 있든 에러 없이 찾아냅니다.
     app_password = None
     try:
         if "EMAIL_PASSWORD" in st.secrets:
@@ -141,8 +142,7 @@ def send_verification_email(to_email, code):
     
     try:
         msg = MIMEMultipart()
-        # ✅ 발신자명을 'SynoCore'로 간결하게 변경하여 글로벌 대응
-        msg['From'] = f"SynoCore <{alias_email}>"
+        msg['From'] = f"SynoCore 공식 센터 <{alias_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입을 위한 인증번호가 발급되었습니다."
 
@@ -260,7 +260,7 @@ for key, value in default_session_vars.items():
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈
+# 4. 상단 헤더 및 로그인 모듈 (비율/워터마크 완벽 수정)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
@@ -301,10 +301,11 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [계정 신청 및 법적 고지(Disclaimer)]
+# [가입 및 계정 관리 (이메일 인증 & 법적 고지 복원)]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
+        # ✅ 제목 변경
         st.markdown('<p class="main-header">📝 계정 신청 (Pro Mode)</p>', unsafe_allow_html=True)
         
         if st.session_state.reg_stage == 0:
@@ -328,6 +329,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
         elif st.session_state.reg_stage == 2:
             st.markdown('<p class="sub-header-bold">세부 정보 입력</p>', unsafe_allow_html=True)
             
+            # ✅ 한 줄에 2개씩 깔끔하게 정렬
             p1, p2 = st.columns(2)
             pw1 = p1.text_input("Password", type="password")
             pw2 = p2.text_input("Password 확인", type="password")
@@ -346,6 +348,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
+            # ✅ 법적 고지 및 동의
             with st.expander("⚖️ 보안 및 법적효력 관련 내용 보기"):
                 st.markdown("""
                 <div style='background-color: #f1f3f5; padding: 15px; border-radius: 5px; font-size: 14px;'>
@@ -360,6 +363,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             
             is_form_valid = bool(pw1 and (pw1 == pw2) and n_name and agree_terms)
             
+            # ✅ 버튼 이름 '가입신청'으로 변경 및 조건부 활성화
             if st.button("가입신청", use_container_width=True, disabled=not is_form_valid):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -377,9 +381,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                         "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
                     }])
                     
-                    # ✅ 수정: 출력 방지를 위해 변수에 할당 (_ 사용)
-                    _ = conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
-                    
+                    conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
                     st.success("가입이 완료되었습니다! 위 로그인 창에서 접속해 주세요.")
                     st.session_state.show_reg = False
                     st.session_state.reg_stage = 0
@@ -404,10 +406,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
                 df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
                 df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone
-                
-                # ✅ 수정: 출력 방지를 위해 변수에 할당 (_ 사용)
-                _ = conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=df_update)
-                st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=df_update); st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 is_pro = st.session_state.logged_in
 
@@ -505,6 +504,7 @@ with st.container(border=True):
             st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
             v_tc = st.slider("C-rate", min_value=get_p('target_crate', 'Min', 0.1), max_value=get_p('target_crate', 'Max', 10.0), value=get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
         
+        # ✅ 4번 박스 하단 한 줄 여유 추가
         st.markdown("<br>", unsafe_allow_html=True)
 
 with st.container(border=True):
@@ -514,6 +514,7 @@ with st.container(border=True):
         col_btn, col_msg = st.columns([1, 3])
         with col_btn:
             run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
+            # ✅ 5번 박스 RUN 버튼 아래 한 줄 여유 추가
             st.markdown("<br>", unsafe_allow_html=True)
         with col_msg:
             if not st.session_state.history:
@@ -595,9 +596,7 @@ if is_pro and st.session_state.history:
                         save_record = res.copy()
                         save_record['Email'] = st.session_state.user_email
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
-                        
-                        # ✅ 수정: 출력 방지를 위해 변수에 할당 (_ 사용)
-                        _ = conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
+                        conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
                     if is_duplicate:
                         st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하고 저장하였습니다.")
