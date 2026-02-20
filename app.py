@@ -108,7 +108,6 @@ with h_r:
                 st.session_state.logged_in = True; st.rerun()
             else: st.error("정보 확인 필요")
         
-        # 무료 시도 텍스트 삭제됨
         if st.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m"): 
             st.session_state.show_reg = not st.session_state.show_reg
     else:
@@ -179,16 +178,16 @@ with st.container(border=True):
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (체크박스 비활성화 및 문구 처리)
+# [2] Material Specs (슬라이더 상시 노출 및 체크박스 잠금)
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    # 로그인 전에는 빨간 글씨 표시, 로그인 후에는 깔끔하게 사라짐
+    # 로그인 전에는 빨간 글씨 표시 및 체크박스 비활성화
     exp_label = "🔓 물성 직접 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 물성 직접 수정 활성화"
     expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
     
     s1, s2, s3, s4 = st.columns(4)
-    # 슬라이더는 항상 노출하되, expert가 해제되어 있으면(로그인 전 포함) 잠금 처리
+    # [수정됨] 텍스트가 아닌 슬라이더를 항상 노출하되, expert가 활성화되지 않으면 조작 불가
     v_cap = s1.slider("Capacity (mAh/g)", 100.0, 220.0, c_cap_i, key="sl_cap_m", disabled=not expert)
     v_volt = s2.slider("Voltage (V)", 2.5, 4.5, c_volt_i, key="sl_volt_m", disabled=not expert)
     v_dens = s3.slider("Density (g/cc)", 1.5, 4.0, c_dens_i, key="sl_dens_m", disabled=not expert)
@@ -199,7 +198,6 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
-    # 로그인 전 빨간 글씨, 로그인 후 해제
     adv_label = "🔍 더 자세히 보기 (Advanced Settings) :red[(Pro Mode 전용)]" if not is_pro else "🔍 더 자세히 보기 (Advanced Settings)"
     show_adv = st.checkbox(adv_label, key="chk_adv_m", disabled=not is_pro)
     
@@ -225,17 +223,15 @@ with st.container(border=True):
             st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Analysis Result (4번 서식 통일)
+# [4] Target & Analysis (서식 통일 및 dQ/dV 추가)
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target & Analysis Result</p>', unsafe_allow_html=True)
     
     t1, t2 = st.columns(2)
     with t1:
-        # [요청 반영] 2,3번과 동일한 20px 굵은 텍스트 서식 적용
         st.markdown('<p class="sub-header-bold">Energy Density Goal (Wh/kg)</p>', unsafe_allow_html=True)
         v_te = st.slider("Energy Goal (Wh/kg)", 100, 250, 160, key="sl_te_m", label_visibility="collapsed")
     with t2:
-        # [요청 반영] 2,3번과 동일한 20px 굵은 텍스트 서식 적용
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
         v_tc = st.slider("Simulation C-rate", 0.1, 20.0, 1.0, key="sl_tc_m", label_visibility="collapsed")
     
@@ -254,12 +250,12 @@ with st.container(border=True):
         with g1:
             st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
             fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
-            fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
+            fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
             st.plotly_chart(fig1, use_container_width=True, key=f"plot_v_{res['Time']}_{random.randint(1,10000)}")
         with g2:
             st.markdown('<p class="sub-header-bold">dQ/dV Profile (Fingerprint)</p>', unsafe_allow_html=True)
             fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-            fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
+            fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
             st.plotly_chart(fig2, use_container_width=True, key=f"plot_dq_{res['Time']}_{random.randint(1,10000)}")
     else:
         st.info("5번 섹션에서 시뮬레이션을 실행하시면 분석 결과가 표시됩니다.")
@@ -268,7 +264,7 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Logs</p>', unsafe_allow_html=True)
     
-    # [요청 반영] 5번에 실행 버튼 위치
+    # 5번에 실행 버튼 위치
     if st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m"):
         res_whkg = (v_cap * (v_act/100) * (v_volt - 0.1)) / 2.5
         cell_v = v_volt - 0.1
@@ -292,7 +288,7 @@ with st.container(border=True):
         st.session_state.sim_result = log_data
         st.rerun()
 
-    # 과거 기록 복원 선택기
+    # 과거 기록 복원 선택기 및 전체 로그
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 4번 결과창에 복원됩니다)</p>', unsafe_allow_html=True)
@@ -309,6 +305,6 @@ with st.container(border=True):
         df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
         st.dataframe(df_history, use_container_width=True)
     else:
-        st.write("아직 시뮬레이션 이력이 없습니다. 위 실행 버튼을 눌러 첫 설계를 기록하세요.")
+        st.info("아직 시뮬레이션 이력이 없습니다. 위 실행 버튼을 눌러 첫 설계를 기록하세요.")
 
 st.markdown("<br>", unsafe_allow_html=True)
