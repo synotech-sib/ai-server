@@ -14,7 +14,7 @@ except ImportError:
     GSheetsConnection = None
 
 # 1. 페이지 설정 및 디자인
-st.set_page_config(page_title="SynoCore V1.4 Pro Max", layout="wide")
+st.set_page_config(page_title="SynoCore V1.45 Demo", layout="wide")
 
 st.markdown("""
     <style>
