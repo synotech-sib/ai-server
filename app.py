@@ -116,19 +116,15 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템 - 스마트 Secrets 파싱 로직 적용] 
+# ✉️ [이메일 발송 시스템] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
     alias_email = "synocore@synotech.co.kr"
     
-    # ✅ 스마트 로직: Secrets 파일의 위치(섹션 유무)에 상관없이 비밀번호를 찾아냅니다.
     app_password = None
     try:
-        # 1순위: 최상단에 적힌 경우 확인
         app_password = st.secrets.get("EMAIL_PASSWORD")
-        
-        # 2순위: 구글 시트 연결([connections.gsheets]) 블록 아래에 적힌 경우 확인
         if not app_password:
             app_password = st.secrets.get("connections", {}).get("gsheets", {}).get("EMAIL_PASSWORD")
             
@@ -300,7 +296,7 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [계정 신청 (이메일 인증)]
+# [계정 신청 (이메일 인증 및 폼 복원)]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -315,33 +311,59 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     with st.spinner("📧 SynoCore에서 인증 메일을 발송 중입니다... (최대 10초 소요)"):
                         if send_verification_email(e_in, v_code):
                             st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
-                        else: 
-                            # 사용자 편의를 위한 에러 처리 (스피너 내부의 에러는 이미 출력됨)
-                            pass
         elif st.session_state.reg_stage == 1:
             st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다. 메일함을 확인해주세요.")
             v_in = st.text_input("인증번호 6자리 입력")
             if st.button("인증 확인"):
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
                 else: st.error("인증번호가 일치하지 않습니다.")
+        
+        # ✅ 부서, 업무, 전화번호 입력칸 복원 영역
         elif st.session_state.reg_stage == 2:
+            st.markdown('<p class="sub-header-bold">세부 정보 입력</p>', unsafe_allow_html=True)
+            
             p1, p2 = st.columns(2)
             pw1 = p1.text_input("Password", type="password")
             pw2 = p2.text_input("Password 확인", type="password")
-            n_name = st.text_input("이름")
-            n_comp = st.text_input("회사명")
-            if st.button("최종 가입신청"):
+            
+            c1, c2 = st.columns(2)
+            n_name = c1.text_input("이름")
+            n_comp = c2.text_input("회사명")
+            
+            c3, c4, c5 = st.columns(3)
+            n_dept = c3.text_input("부서")
+            n_job = c4.text_input("담당업무")
+            n_phone = c5.text_input("전화번호")
+            
+            if st.button("최종 가입신청", use_container_width=True):
                 if pw1 == pw2 and n_name:
-                    conn = st.connection("gsheets", type=GSheetsConnection)
-                    df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
-                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
-                    conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
-                    st.success("가입이 완료되었습니다! 로그인 창에서 접속해 주세요.")
-                    st.session_state.show_reg = False
-                    st.session_state.reg_stage = 0
-                    st.rerun()
+                    try:
+                        conn = st.connection("gsheets", type=GSheetsConnection)
+                        df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
+                        
+                        # 새로운 유저 정보 DataFrame 생성
+                        new_user = pd.DataFrame([{
+                            "Email": st.session_state.temp_email, 
+                            "Password": hash_password(pw1), 
+                            "Name": n_name, 
+                            "Company": n_comp, 
+                            "Dept": n_dept,
+                            "Job": n_job,
+                            "Phone": n_phone,
+                            "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
+                        }])
+                        
+                        conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
+                        st.success("가입이 완료되었습니다! 위 로그인 창에서 접속해 주세요.")
+                        st.session_state.show_reg = False
+                        st.session_state.reg_stage = 0
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"회원 가입 처리 중 오류가 발생했습니다: {e}")
+                elif pw1 != pw2:
+                    st.error("비밀번호가 일치하지 않습니다.")
                 else:
-                    st.error("비밀번호가 일치하지 않거나 이름을 입력하지 않으셨습니다.")
+                    st.error("이름을 반드시 입력하셔야 합니다.")
 
 if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
@@ -552,7 +574,6 @@ if is_pro and st.session_state.history:
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                         conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
-                    # ✅ 버그 픽스: if문을 풀어써서 DeltaGenerator 텍스트 출력 오류 완벽 방지, 요청 문구 적용 완료
                     if is_duplicate:
                         st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하고 저장하였습니다.")
                     else:
