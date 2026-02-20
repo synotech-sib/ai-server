@@ -73,8 +73,6 @@ st.markdown("""
 # https://www.247connect.cloud/ko/%EA%B8%B0%EA%B3%84%EC%A0%81-%EC%9D%B8%EC%A1%B0-%EC%9D%B8%EA%B0%84/
 # -----------------------------------------------------------------------------
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
-
-# 대표님께서 새로 주신 구글 시트 링크로 업데이트 완료!
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 
@@ -228,7 +226,7 @@ with h_r:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 가입 및 계정 관리 (기존과 동일하게 유지)
+# 가입 및 계정 관리
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
@@ -317,7 +315,6 @@ with st.container(border=True):
         expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
         
         s1, s2, s3, s4 = st.columns(4)
-        # 구글 시트에서 가져온 Min/Max/Def 적용
         v_cap_in = s1.slider("Capacity (mAh/g)", def_cap_min, def_cap_max, def_cap_val, key=f"cap_{cat_sel}")
         v_volt_in = s2.slider("Voltage (V)", def_vlt_min, def_vlt_max, def_vlt_val, key=f"volt_{cat_sel}")
         v_dens_in = s3.slider("Density (g/cc)", def_den_min, def_den_max, def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
@@ -453,7 +450,8 @@ if is_pro and st.session_state.history:
                         if not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])].empty:
                             is_duplicate = True
                             
-                    if is_duplicate: st.warning("⚠️ 이미 동일한 시뮬레이션 결과가 저장되어 있습니다.")
+                    # ✅ 중복 저장 시 친절한 안내 메시지로 변경 완료
+                    if is_duplicate: st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하였습니다. 저장된 기록 동기화를 실행해 주세요.")
                     else:
                         save_record = res.copy(); save_record['Email'] = st.session_state.user_email
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
