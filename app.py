@@ -79,6 +79,7 @@ URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
+# 3개의 시트를 공통으로 불러오는 스마트 캐싱 함수
 @st.cache_data(ttl=60)
 def load_cloud_data(url):
     if GSheetsConnection is None: return pd.DataFrame()
@@ -90,6 +91,18 @@ def load_cloud_data(url):
     except Exception as e:
         return pd.DataFrame()
 
+# ✅ 함수들이 클라우드 데이터를 즉시 활용할 수 있도록 최상단에서 로드
+mat_df = load_cloud_data(URL_MATS)
+param_df = load_cloud_data(URL_PARAM)
+
+sys_params = {}
+if not param_df.empty and 'Parameter_ID' in param_df.columns:
+    sys_params = param_df.set_index('Parameter_ID').to_dict('index')
+
+def get_p(pid, prop, fallback):
+    try: return float(sys_params[pid][prop])
+    except: return fallback
+
 def get_user_db():
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -98,13 +111,38 @@ def get_user_db():
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
+# ✅ 하드코딩 완전 제거: 구글 시트 데이터 기반의 동적 dQ/dV 그래프 엔진
 def get_dqdv(cat_sel, v_tc):
     v_axis = np.linspace(2.0, 4.2, 150)
     dqdv = np.zeros_like(v_axis)
-    peaks = [3.05, 3.45] if "Prussian" in str(cat_sel) or "Altris" in str(cat_sel) else ([3.75] if "Polyanion" in str(cat_sel) or "NVPF" in str(cat_sel) else [3.15])
+    
+    # 기본값
+    p1, p2 = 3.15, 0.0 
+    
+    # 엑셀 데이터 파싱
+    if not mat_df.empty and 'Name' in mat_df.columns:
+        mat_row = mat_df[mat_df['Name'] == cat_sel]
+        if not mat_row.empty:
+            # Peak1_V, Peak2_V 컬럼이 엑셀에 존재할 경우 가져오기
+            try:
+                if 'Peak1_V' in mat_df.columns: p1 = float(mat_row.iloc[0].get('Peak1_V', 3.15))
+                if 'Peak2_V' in mat_df.columns: p2 = float(mat_row.iloc[0].get('Peak2_V', 0.0))
+            except: pass
+            
+    # [안전장치] 만약 대표님이 엑셀에 Peak 컬럼을 아직 안 만드셨다면 기존 룰대로 작동!
+    if 'Peak1_V' not in mat_df.columns:
+        if "Prussian" in str(cat_sel) or "Altris" in str(cat_sel): p1, p2 = 3.05, 3.45
+        elif "Polyanion" in str(cat_sel) or "NVPF" in str(cat_sel): p1, p2 = 3.75, 0.0
+        else: p1, p2 = 3.15, 0.0
+
+    # 0보다 큰 정상적인 Peak 전압만 필터링
+    peaks = [p for p in [p1, p2] if pd.notna(p) and float(p) > 0]
+    if not peaks: peaks = [3.15]
+    
     for p in peaks:
-        shifted_p = p - (float(v_tc) * 0.015) 
+        shifted_p = float(p) - (float(v_tc) * 0.015) 
         dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
+        
     return v_axis, dqdv
 
 def load_user_history(email):
@@ -168,16 +206,6 @@ for key, value in default_session_vars.items():
 
 def process_login(): st.session_state.trigger_login = True
 
-mat_df = load_cloud_data(URL_MATS)
-param_df = load_cloud_data(URL_PARAM)
-
-sys_params = {}
-if not param_df.empty and 'Parameter_ID' in param_df.columns:
-    sys_params = param_df.set_index('Parameter_ID').to_dict('index')
-
-def get_p(pid, prop, fallback):
-    try: return float(sys_params[pid][prop])
-    except: return fallback
 
 # -----------------------------------------------------------------------------
 # 4. 상단 헤더 및 로그인 모듈
@@ -308,8 +336,6 @@ with st.container(border=True):
         expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
         
         s1, s2, s3, s4 = st.columns(4)
-        
-        # [대안 1 적용] min_value와 max_value를 엑셀의 Min/Max 구간으로 원천 고정
         v_cap_in = s1.slider("Capacity (mAh/g)", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
         v_volt_in = s2.slider("Voltage (V)", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
         v_dens_in = s3.slider("Density (g/cc)", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
@@ -329,7 +355,6 @@ with st.container(border=True):
         p1, p2, p3 = st.columns(3)
         with p1:
             st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-            # [대안 1 적용] Loading 항목도 엑셀의 Min/Max로 원천 고정
             v_load_in = st.slider("Loading (mg/cm2)", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
             st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m", disabled=not show_adv)
             st.slider("Conductive Agent %", min_value=get_p('cat_conductive', 'Min', 0.5), max_value=get_p('cat_conductive', 'Max', 10.0), value=get_p('cat_conductive', 'Default', 2.0), step=get_p('cat_conductive', 'Step', 0.1), key="ad_c_con_m", disabled=not show_adv)
