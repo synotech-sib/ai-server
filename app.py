@@ -8,13 +8,13 @@ import os
 import hashlib
 import io
 
-# [PDF 라이브러리]
+# [PDF 라이브러리 예외 처리]
 try:
     from fpdf import FPDF
 except ImportError:
     FPDF = None
 
-# [구글 시트 연결 라이브러리]
+# [구글 시트 라이브러리 예외 처리]
 try:
     from streamlit_gsheets import GSheetsConnection
 except ImportError:
@@ -27,24 +27,23 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
+    
     .syno-title { color: #1A729A; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 14px; }
     
-    /* 결과 카드 디자인 */
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
     div[data-testid="stMetricValue"] { font-size: 28px !important; color: #1A729A !important; } 
+    div[data-testid="stMetricDelta"] { font-size: 14px !important; }
     
-    /* 입력창 및 버튼 높이 40px 통일 */
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
-    /* 기본 블루 버튼 */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 오렌지 버튼 */
+    /* PDF 다운로드 버튼용 오렌지 색상 적용 */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FF8C00 !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
@@ -58,263 +57,453 @@ st.markdown("""
     }
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
+    
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# https://play.google.com/store/apps/details?id=com.ironguard.vpn&hl=ko
+# [보안 및 유틸리티]
 # -----------------------------------------------------------------------------
-URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
-URL_MATS  = "https://docs.google.com/spreadsheets/d/1_0PL3lJU5SvZYZXeF4sd5EYvAOormgDw/edit?usp=sharing"
-URL_PARAM = "https://docs.google.com/spreadsheets/d/1mUGyFRHq-JIMcfl0NFeWknfu7hZYVzWU/edit?usp=sharing"
-
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=60)
-def load_cloud_data(url):
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
+
+def get_user_db():
+    if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=url) 
-        df.columns = [str(c).split('(')[0].strip() for c in df.columns]
-        return df
-    except: return pd.DataFrame()
+        return conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5).astype(str)
+    except Exception:
+        return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 def get_dqdv(cat_sel, v_tc):
     v_axis = np.linspace(2.0, 4.2, 150)
     dqdv = np.zeros_like(v_axis)
-    pks = [3.05, 3.45] if "Prussian" in str(cat_sel) or "Altris" in str(cat_sel) else ([3.75] if "Polyanion" in str(cat_sel) or "NVPF" in str(cat_sel) else [3.15])
-    for p in pks:
-        dqdv += np.exp(-(v_axis - (p - float(v_tc)*0.015))**2 / (2 * 0.05**2)) * 15
+    peaks = [3.05, 3.45] if "Prussian" in str(cat_sel) or "Altris" in str(cat_sel) else ([3.75] if "Polyanion" in str(cat_sel) or "NVPF" in str(cat_sel) else [3.15])
+    for p in peaks:
+        shifted_p = p - (float(v_tc) * 0.015) 
+        dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
     return v_axis, dqdv
 
 def load_user_history(email):
+    if GSheetsConnection is None: return []
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
+        db_df = conn.read(spreadsheet=SHEET_URL, worksheet="myData", ttl=0)
+        if db_df.empty or 'Email' not in db_df.columns: return []
+        
         my_logs = db_df[db_df['Email'] == email]
         hist = []
         for _, row in my_logs.iterrows():
-            d = row.to_dict()
-            vx, vy = get_dqdv(d.get('Cathode',''), d.get('C-rate',1.0))
-            d.update({'dq_x': vx, 'dq_y': vy})
-            hist.append(d)
+            row_dict = row.to_dict()
+            row_dict.pop('Email', None)
+            try:
+                row_dict['Cap(mAh/g)'] = float(row_dict.get('Cap(mAh/g)', 0))
+                row_dict['Volt(V)'] = float(row_dict.get('Volt(V)', 0))
+                row_dict['Load(mg)'] = float(row_dict.get('Load(mg)', 0))
+                row_dict['N/P Ratio'] = float(row_dict.get('N/P Ratio', 0))
+                row_dict['Active(%)'] = float(row_dict.get('Active(%)', 0))
+                row_dict['C-rate'] = float(row_dict.get('C-rate', 1.0))
+                row_dict['Wh/kg'] = float(row_dict.get('Wh/kg', 0))
+                row_dict['Cell_V'] = float(row_dict.get('Cell_V', 0))
+                row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
+            except: pass
+            
+            v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0))
+            row_dict['dq_x'] = v_x
+            row_dict['dq_y'] = v_y
+            hist.append(row_dict)
         return hist[::-1]
-    except: return []
+    except Exception:
+        return []
 
 def create_pdf(data_list, title="Simulation Report"):
-    if not FPDF: return b""
+    if FPDF is None: return b""
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, title, ln=True, align="C")
     pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 10, f"Generated: {(datetime.utcnow() + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align="R")
+    pdf.cell(0, 10, f"Generated: {(datetime.utcnow() + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)", ln=True, align="R")
     pdf.ln(5)
+
+    if not data_list:
+        pdf.cell(0, 10, "No data available.", ln=True)
+        return pdf.output(dest="S").encode("latin-1")
+
     headers = ["Time", "Cathode", "Cap(mAh)", "Volt(V)", "Active(%)", "C-rate", "Wh/kg", "Cell_V", "Life"]
-    col_widths = [25, 55, 25, 20, 25, 20, 25, 25, 25]
+    col_widths = [25, 60, 25, 20, 25, 20, 25, 25, 25]
+    
     pdf.set_font("Arial", "B", 10)
-    for i, h in enumerate(headers): pdf.cell(col_widths[i], 10, h, border=1, align="C")
+    for i, head in enumerate(headers):
+        pdf.cell(col_widths[i], 10, head, border=1, align="C")
     pdf.ln()
+
     pdf.set_font("Arial", "", 10)
     for item in data_list:
         pdf.cell(col_widths[0], 10, str(item.get("Time", "")), border=1, align="C")
-        pdf.cell(col_widths[1], 10, str(item.get("Cathode", ""))[:25], border=1, align="L")
-        for i, k in enumerate(["Cap(mAh/g)", "Volt(V)", "Active(%)", "C-rate", "Wh/kg", "Cell_V", "Life(Cyc)"]):
-            pdf.cell(col_widths[i+2], 10, str(item.get(k, "")), border=1, align="C")
+        cat_name = str(item.get("Cathode", ""))[:30]
+        pdf.cell(col_widths[1], 10, cat_name, border=1, align="L")
+        pdf.cell(col_widths[2], 10, str(item.get("Cap(mAh/g)", "")), border=1, align="C")
+        pdf.cell(col_widths[3], 10, str(item.get("Volt(V)", "")), border=1, align="C")
+        pdf.cell(col_widths[4], 10, str(item.get("Active(%)", "")), border=1, align="C")
+        pdf.cell(col_widths[5], 10, str(item.get("C-rate", "")), border=1, align="C")
+        pdf.cell(col_widths[6], 10, str(item.get("Wh/kg", "")), border=1, align="C")
+        pdf.cell(col_widths[7], 10, str(item.get("Cell_V", "")), border=1, align="C")
+        pdf.cell(col_widths[8], 10, str(item.get("Life(Cyc)", "")), border=1, align="C")
         pdf.ln()
+
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
 # 2. 세션 상태 초기화
 # -----------------------------------------------------------------------------
-default_vars = {'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "", 'history': [], 'user_name': "", 'user_email': "", 'show_profile': False}
-for k, v in default_vars.items():
-    if k not in st.session_state: st.session_state[k] = v
+default_session_vars = {
+    'logged_in': False, 'show_reg': False, 'reg_stage': 0,
+    'v_code': "", 'temp_email': "", 'history': [], 'sim_result': None,
+    'trigger_login': False, 'user_name': "", 'user_email': "", 'show_profile': False
+}
+for key, value in default_session_vars.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-# 클라우드 데이터 사전 로드
-mat_df = load_cloud_data(URL_MATS)
-param_df = load_cloud_data(URL_PARAM)
+def process_login():
+    st.session_state.trigger_login = True
+
+@st.cache_data
+def load_materials():
+    if not os.path.exists("material_list.xlsx"): return pd.DataFrame()
+    df = pd.read_excel("material_list.xlsx")
+    df.columns = [str(c).split('(')[0].strip() for c in df.columns]
+    return df
+
+mat_df = load_materials()
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈 (2x2 그리드)
+# 4. 상단 헤더 및 로그인 모듈
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
+
 with h_l:
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
 
 with h_r:
     if not st.session_state.logged_in:
         r1_c1, r1_c2 = st.columns(2)
-        u_id = r1_c1.text_input("ID", placeholder="company email", key="l_id", label_visibility="collapsed")
-        u_pw = r1_c2.text_input("PW", type="password", placeholder="password", key="l_pw", label_visibility="collapsed")
+        u_id = r1_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
+        u_pw = r1_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
+        
         r2_c1, r2_c2 = st.columns(2)
-        if r2_c1.button("Login", use_container_width=True):
-            conn = st.connection("gsheets", type=GSheetsConnection)
-            df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5).astype(str)
-            u_id_c = u_id.strip().lower()
-            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_c) & (df_u['Password'] == hash_password(u_pw))]
-            if u_id_c == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                st.session_state.update({'logged_in': True, 'user_name': "최우석 대표", 'user_email': u_id_c, 'history': load_user_history(u_id_c)}); st.rerun()
+        login_btn = r2_c1.button("Login", key="btn_login_m", use_container_width=True)
+        reg_btn = r2_c2.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m", use_container_width=True)
+        
+        if login_btn or st.session_state.pop('trigger_login', False):
+            df_u = get_user_db()
+            u_id_clean = u_id.strip().lower()
+            hashed_pw = hash_password(u_pw) if u_pw else ""
+            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
+            
+            if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
+                st.session_state.logged_in = True; st.session_state.user_name = "최우석 대표"; st.session_state.user_email = u_id_clean
+                st.session_state.history = load_user_history(u_id_clean)
+                st.rerun()
             elif not valid.empty:
-                st.session_state.update({'logged_in': True, 'user_name': valid.iloc[0]['Name'], 'user_email': u_id_c, 'history': load_user_history(u_id_c)}); st.rerun()
-            else: st.error("정보 확인 필요")
-        if r2_c2.button("계정생성 ㅣ Pro 회원가입", use_container_width=True):
-            st.session_state.show_reg = not st.session_state.show_reg; st.rerun()
+                st.session_state.logged_in = True
+                st.session_state.user_name = str(valid['Name'].values[0]) if 'Name' in valid.columns else "회원"
+                st.session_state.user_email = str(valid['Email'].values[0]) if 'Email' in valid.columns else u_id_clean
+                st.session_state.history = load_user_history(st.session_state.user_email)
+                st.rerun()
+            else: st.error("아이디 또는 비밀번호를 확인해주세요.")
+        
+        if reg_btn:
+            st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
-        rn, rm, ro = st.columns([2, 1, 1])
-        rn.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
-        if rm.button("My 계정"): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
-        if ro.button("Logout"): 
-            for k in default_vars: st.session_state[k] = default_vars[k]
+        r_name, r_my, r_out = st.columns([2, 1, 1])
+        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+        if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
+        if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
+            st.session_state.logged_in = False; st.session_state.user_name = ""; st.session_state.user_email = ""; st.session_state.show_profile = False; st.session_state.history = []
             st.rerun()
 
-# [계정 신청/수정 패널]
+st.markdown("<br>", unsafe_allow_html=True)
+
+# 가입 및 계정 관리
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">📝 계정 신청 (Pro)</p>', unsafe_allow_html=True)
         if st.session_state.reg_stage == 0:
-            e_in = st.text_input("회사 이메일")
-            if st.button("인증번호 발송"): 
-                st.session_state.update({'v_code': str(random.randint(100000, 999999)), 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
+            e_in = st.text_input("1. 회사 이메일 주소", key="r_email_m")
+            if st.button("인증번호 발송", key="r_v_send_m"):
+                st.session_state.v_code = str(random.randint(100000, 999999)); st.session_state.temp_email = e_in; st.session_state.reg_stage = 1; st.rerun()
         elif st.session_state.reg_stage == 1:
             st.info(f"🔑 [{st.session_state.temp_email}] 인증번호: {st.session_state.v_code}")
-            if st.button("인증 확인"): st.session_state.reg_stage = 2; st.rerun()
+            v_in = st.text_input("인증번호 입력", key="r_v_in_m")
+            if st.button("인증 확인", key="r_v_chk_m"):
+                if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
         elif st.session_state.reg_stage == 2:
-            c1, c2 = st.columns(2)
-            p1 = c1.text_input("PW", type="password"); nm = c2.text_input("이름"); cp = c1.text_input("Company")
-            if st.button("가입신청 완료"):
-                conn = st.connection("gsheets", type=GSheetsConnection)
-                df = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1")
-                new_u = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(p1), "Name": nm, "Company": cp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
-                conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df, new_u], ignore_index=True))
-                st.success("회원가입 완료!"); st.session_state.update({'show_reg': False, 'reg_stage': 0}); st.rerun()
+            p1, p2 = st.columns(2)
+            pw1 = p1.text_input("2. Password", type="password", key="r_p1_m")
+            pw2 = p2.text_input("2-1. Password 확인", type="password", key="r_p2_m")
+            n_name = st.text_input("3. 이름", key="r_n_m")
+            n_comp = st.text_input("4. Company", key="r_c_m")
+            if st.button("가입신청", disabled=not (pw1==pw2 and n_name), key="r_fin_m"):
+                try:
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    df_u = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
+                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
+                    conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
+                    st.success("가입신청이 완료되었습니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0
+                except: st.error("가입 처리 중 오류가 발생했습니다.")
 
-if st.session_state.show_profile and st.session_state.logged_in:
+if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
-        if st.session_state.user_email == "wschoi@synotech.co.kr": st.info("마스터 계정은 수정 대상이 아닙니다.")
+        if st.session_state.user_email == "wschoi@synotech.co.kr":
+            st.info("관리자(Admin) 마스터 계정은 시트 수정 대상이 아닙니다.")
         else:
-            new_n = st.text_input("이름 수정", value=st.session_state.user_name)
-            if st.button("수정사항 저장"): st.session_state.user_name = new_n; st.session_state.show_profile = False; st.rerun()
+            df_u = get_user_db()
+            user_data = df_u[df_u['Email'] == st.session_state.user_email]
+            if not user_data.empty:
+                u_row = user_data.iloc[0]
+                st.markdown(f"**이메일(ID):** {st.session_state.user_email} (변경 불가)")
+                p1, p2 = st.columns(2)
+                m_pw = p1.text_input("새 Password (변경 시에만 입력)", type="password", key="m_pw")
+                m_name = p2.text_input("이름", value=u_row.get('Name', ''), key="m_name")
+                m_comp = p1.text_input("Company", value=u_row.get('Company', ''), key="m_comp")
+                m_dept = p2.text_input("부서", value=u_row.get('Dept', ''), key="m_dept")
+                m_job = p1.text_input("담당업무", value=u_row.get('Job', ''), key="m_job")
+                m_phone = p2.text_input("연락처", value=u_row.get('Phone', ''), key="m_phone")
+                
+                if st.button("개인정보 수정 완료", key="m_save"):
+                    try:
+                        conn = st.connection("gsheets", type=GSheetsConnection)
+                        df_update = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
+                        idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+                        if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
+                        df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
+                        df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone
+                        conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=df_update)
+                        st.session_state.user_name = m_name; st.session_state.show_profile = False
+                        st.success("개인정보가 성공적으로 수정되었습니다."); st.rerun()
+                    except Exception as e: st.error(f"정보 수정 중 오류 발생: {e}")
 
-st.markdown("<br>", unsafe_allow_html=True)
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (1~5번 들여쓰기 적용)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 
 # [1] Material Selection
 with st.container(border=True):
     st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
-    sp1, c1 = st.columns([0.03, 0.97])
-    with c1:
+    sp1, c_1 = st.columns([0.03, 0.97])
+    with c_1:
         if not mat_df.empty:
             m1, m2, m3, m4 = st.columns(4)
-            cat_sel = m1.selectbox("Cathode", mat_df[mat_df['Category']=='Cathode']['Name'].tolist())
+            cat_sel = m1.selectbox("Cathode", mat_df[mat_df['Category']=='Cathode']['Name'].tolist(), key="sel_cat_m")
             row = mat_df[mat_df['Name']==cat_sel].iloc[0]
-            c_cap, c_vlt, c_den, c_lif, c_lod = float(row.get('Capacity',160)), float(row.get('Voltage',3.05)), float(row.get('Density',2.2)), int(row.get('Life',4000)), float(row.get('Rec_Loading',14.0))
-            m2.selectbox("Anode", ["Hard Carbon (A)", "Hard Carbon (B)"])
-            m3.selectbox("Electrolyte", ["NaPF6 Standard", "High-Stability"])
-            m4.selectbox("Separator", ["PE 16um", "Ceramic 18um"])
+            c_cap_i, c_volt_i, c_dens_i, c_life_i, c_load_i = float(row.get('Capacity', 160)), float(row.get('Voltage', 3.05)), float(row.get('Density', 2.2)), int(row.get('Life', 4000)), float(row.get('Rec_Loading', 14.0))
+            ano_sel = m2.selectbox("Anode", ["Hard Carbon (A)", "Hard Carbon (B)"], key="sel_ano_m")
+            m3.selectbox("Electrolyte", ["Standard NaPF6", "High-Stability"], key="sel_ele_m")
+            m4.selectbox("Separator", ["PE 16um", "Ceramic Coated"], key="sel_sep_m")
         else:
-            c_cap, c_vlt, c_den, c_lif, c_lod = 160, 3.05, 2.2, 4000, 14; cat_sel = "Sample"
+            st.warning("material_list.xlsx 없음 (기본값 작동)")
+            c_cap_i, c_volt_i, c_dens_i, c_life_i, c_load_i = 160.0, 3.05, 2.2, 4000, 14.0
+            cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
+        st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (로그인 시 자동 활성화)
+# [2] Material Specs
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
-    sp2, c2 = st.columns([0.03, 0.97])
-    with c2:
-        expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", disabled=True)
+    sp2, c_2 = st.columns([0.03, 0.97])
+    with c_2:
+        # [요청 반영] 로그아웃 시에만 체크박스+문구 노출, 로그인 시 자동 활성화(숨김)
+        if not is_pro:
+            expert = st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
+        else:
+            expert = True
+        
         s1, s2, s3, s4 = st.columns(4)
-        v_cap = s1.slider("Capacity (mAh/g)", 100.0, 250.0, c_cap, key=f"c_{cat_sel}")
-        v_vlt = s2.slider("Voltage (V)", 2.0, 4.5, c_vlt, key=f"v_{cat_sel}")
-        v_den = s3.slider("Density (g/cc)", 1.0, 4.5, c_den, disabled=not expert)
-        v_lif = s4.slider("Base Life (Cycles)", 500, 10000, c_lif, disabled=not expert)
+        v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
+        v_volt_in = s2.slider("Voltage (V)", 2.5, 4.5, float(c_volt_i), key=f"volt_{cat_sel}")
+        v_dens_in = s3.slider("Density (g/cc)", 1.5, 4.0, float(c_dens_i), key=f"dens_{cat_sel}", disabled=not expert)
+        v_life_in = s4.slider("Base Life (Cycles)", 500, 10000, int(c_life_i), key=f"life_{cat_sel}", disabled=not expert)
+        
+        v_cap, v_volt = v_cap_in, v_volt_in
+        v_dens = v_dens_in if expert else c_dens_i
+        v_life = v_life_in if expert else c_life_i
+        st.markdown("<br>", unsafe_allow_html=True)
 
 # [3] Process Parameters
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
-    sp3, c3 = st.columns([0.03, 0.97])
-    with c3:
-        adv = True if is_pro else st.checkbox("세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]", disabled=True)
+    sp3, c_3 = st.columns([0.03, 0.97])
+    with c_3:
+        # [요청 반영] 로그아웃 시에만 체크박스+문구 노출, 로그인 시 자동 활성화(숨김)
+        if not is_pro:
+            show_adv = st.checkbox("세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]", key="chk_adv_m", disabled=True)
+        else:
+            show_adv = True
+        
         p1, p2, p3 = st.columns(3)
-        v_lod = p1.slider("Loading (mg/cm2)", 5.0, 45.0, c_lod, key=f"l_{cat_sel}")
-        p1.slider("Press Density", 1.5, 3.5, 2.5, disabled=not adv)
-        v_np = p2.slider("N/P Ratio", 1.0, 1.5, 1.15)
-        p2.slider("Anode Press", 0.8, 2.0, 1.1, disabled=not adv)
-        v_act = p3.slider("Active Ratio (%)", 80.0, 99.0, 92.0)
-        p3.slider("E/C Ratio", 1.0, 8.0, 3.5, disabled=not adv)
+        with p1:
+            st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
+            v_load_in = st.slider("Loading (mg/cm2)", 5.0, 45.0, float(c_load_i), key=f"load_{cat_sel}")
+            st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m", disabled=not show_adv)
+            st.slider("Conductive Agent %", 0.5, 5.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
+            st.slider("Binder %", 0.5, 5.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
+            v_load = v_load_in
+        with p2:
+            st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
+            v_np_in = st.slider("N/P Ratio", 1.0, 1.5, 1.15, key="sl_np_m")
+            st.slider("Anode Press Density", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
+            st.slider("Anode Active %", 90.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
+            v_np = v_np_in
+        with p3:
+            st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
+            v_act_in = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sl_act_m")
+            st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
+            st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m", disabled=not show_adv)
+            v_act = v_act_in
+        st.markdown("<br>", unsafe_allow_html=True)
 
 # [4] Target Settings
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Settings</p>', unsafe_allow_html=True)
-    sp4, c4 = st.columns([0.03, 0.97])
-    with c4:
+    sp4, c_4 = st.columns([0.03, 0.97])
+    with c_4:
         t1, t2 = st.columns(2)
-        v_te = t1.slider("Energy Goal (Wh/kg)", 100, 250, 160)
-        v_tc = t2.slider("Simulation C-rate", 0.1, 10.0, 1.0, 0.1)
+        with t1:
+            st.markdown('<p class="sub-header-bold">Energy Density Goal (Wh/kg)</p>', unsafe_allow_html=True)
+            v_te = st.slider("Energy Goal", 100, 250, 160, key="sl_te_m", label_visibility="collapsed")
+        with t2:
+            st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
+            v_tc = st.slider("C-rate", 0.1, 10.0, 1.0, step=0.1, key="sl_tc_m", label_visibility="collapsed")
 
-# [5] Simulation & Analysis
+# [5] Simulation Control & Analysis
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
-    sp5, c5 = st.columns([0.03, 0.97])
-    with c5:
-        if st.button("🚀 RUN DESIGN SIMULATION", use_container_width=True):
-            cv = max(0.1, v_vlt - (0.1 + v_tc*0.02)); wh = round(((v_cap*(v_act/100)*cv)/2.5)*max(0.5, 1.0-(v_tc*0.015)), 1)
-            ct = (datetime.utcnow() + timedelta(hours=9)).strftime("%H:%M:%S")
-            vx, vy = get_dqdv(cat_sel, v_tc)
-            st.session_state.history.insert(0, {"Time": ct, "Cathode": cat_sel, "Cap(mAh/g)": v_cap, "Volt(V)": v_vlt, "Load(mg)": v_lod, "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc, "Wh/kg": wh, "Cell_V": round(cv, 2), "Life(Cyc)": int(v_lif*(0.95**v_tc)), "dq_x": vx, "dq_y": vy})
+    sp5, c_5 = st.columns([0.03, 0.97])
+    with c_5:
+        col_btn, col_msg = st.columns([1, 3])
+        with col_btn:
+            run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
+        with col_msg:
+            if not st.session_state.history:
+                st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
+                
+        if run_clicked:
+            ir_drop = 0.1 + (v_tc * 0.02)
+            cell_v = max(0.1, v_volt - ir_drop)
+            efficiency = max(0.5, 1.0 - (v_tc * 0.015))
+            res_whkg = ((v_cap * (v_act/100) * cell_v) / 2.5) * efficiency
+            life_cyc = int(v_life * (0.95 ** v_tc))
+            
+            cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%H:%M:%S")
+            v_axis, dqdv = get_dqdv(cat_sel, v_tc)
+            
+            log_data = {
+                "Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel,
+                "Cap(mAh/g)": round(v_cap, 1), "Volt(V)": round(v_volt, 2), "Load(mg)": round(v_load, 1),
+                "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc,
+                "Wh/kg": round(res_whkg, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": life_cyc,
+                "dq_x": v_axis, "dq_y": dqdv
+            }
+            st.session_state.history.insert(0, log_data)
+            st.session_state.sim_result = log_data
             st.rerun()
 
+        # 과거 기록 복원
         if st.session_state.history:
             st.markdown("---")
-            opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg" for h in st.session_state.history]
-            sel = st.selectbox("과거 기록 선택", range(len(opts)), format_func=lambda x: opts[x])
-            res = st.session_state.history[sel]
+            st.markdown('<p class="sub-header-bold">🔍 현재 세션 기록 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
+            
+            log_opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg | {h['Cell_V']} V | {h['Life(Cyc)']} Cyc" for h in st.session_state.history]
+            sel_idx = st.selectbox("기록 선택", range(len(log_opts)), format_func=lambda x: log_opts[x], key="sel_hist_m", label_visibility="collapsed")
+            res = st.session_state.history[sel_idx]
+            
+            st.markdown("---")
             r1, r2, r3 = st.columns(3)
-            r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=round(res['Wh/kg']-v_te, 1))
-            r2.metric("Cell Voltage", f"{res['Cell_V']} V"); r3.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc")
-            g1, g2 = st.columns(2)
+            r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=round(res['Wh/kg'] - v_te, 1))
+            r2.metric("Cell Voltage", f"{res['Cell_V']} V")
+            r3.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc")
+            
+            g1, g2 = st.columns([1, 1])
             with g1:
+                st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
                 fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
-                fig1.update_layout(height=280, margin=dict(l=10,r=10,t=10,b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
-                st.plotly_chart(fig1, use_container_width=True)
+                fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
+                st.plotly_chart(fig1, use_container_width=True, key=f"plot_v_{res['Time']}")
             with g2:
+                st.markdown('<p class="sub-header-bold">dQ/dV Profile (Fingerprint)</p>', unsafe_allow_html=True)
                 fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-                fig2.update_layout(height=280, margin=dict(l=10,r=10,t=10,b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
-                st.plotly_chart(fig2, use_container_width=True)
-            st.dataframe(pd.DataFrame(st.session_state.history).drop(columns=['dq_x','dq_y'], errors='ignore'), use_container_width=True)
+                fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
+                st.plotly_chart(fig2, use_container_width=True, key=f"plot_dq_{res['Time']}")
+
+            st.markdown("---")
+            st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
+            df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
+            st.dataframe(df_history, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 6. Data Management & Export (들여쓰기 적용)
+# 6. 내 데이터 관리 (저장, 불러오기, PDF 출력) - 로그인 유저 전용
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.history:
     with st.container(border=True):
         st.markdown('<p class="main-header">6. Data Management & Export (Pro)</p>', unsafe_allow_html=True)
-        sp6, c6 = st.columns([0.03, 0.97])
-        with c6:
-            b1, b2, b3, b4 = st.columns(4)
-            if b1.button("💾 내 계정에 저장하기"):
+        sp6, c_6 = st.columns([0.03, 0.97])
+        with c_6:
+            btn1, btn2, btn3, btn4 = st.columns(4)
+            
+            if btn1.button("💾 내 계정에 저장하기", key="btn_save_my"):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
-                    db = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
-                    if not db.empty and not db[(db['Email']==st.session_state.user_email) & (db['Time']==res['Time'])].empty:
-                        st.warning("⚠️ 이미 동일한 데이터가 저장되어 있습니다.")
+                    db_df = conn.read(spreadsheet=SHEET_URL, worksheet="myData", ttl=0)
+                    
+                    is_duplicate = False
+                    if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
+                        dupes = db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])]
+                        if not dupes.empty:
+                            is_duplicate = True
+                            
+                    if is_duplicate:
+                        st.warning("⚠️ 이미 동일한 시뮬레이션 결과가 저장되어 있습니다.")
                     else:
-                        s_rec = res.copy(); s_rec['Email'] = st.session_state.user_email
-                        s_rec.pop('dq_x', None); s_rec.pop('dq_y', None)
-                        conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db, pd.DataFrame([s_rec])], ignore_index=True))
+                        save_record = res.copy()
+                        save_record['Email'] = st.session_state.user_email
+                        save_record.pop('dq_x', None); save_record.pop('dq_y', None)
+                        
+                        new_row = pd.DataFrame([save_record])
+                        updated_df = pd.concat([db_df, new_row], ignore_index=True)
+                        conn.update(spreadsheet=SHEET_URL, worksheet="myData", data=updated_df)
+                        
                         st.success("✅ myData에 안전하게 저장 되었습니다.")
-                except: st.error("저장 실패")
-            
-            if b2.button("📂 저장된 기록 동기화"):
-                st.session_state.history = load_user_history(st.session_state.user_email); st.rerun()
+                except Exception as e:
+                    st.error(f"저장 중 오류 발생: {e} (구글 시트에 'myData' 탭이 있는지 확인하세요!)")
 
-            if FPDF:
-                b3.download_button("📄 선택 항목 PDF 출력", create_pdf([res]), f"Result_{res['Time']}.pdf")
-                b4.download_button("📑 전체 이력 PDF 출력", create_pdf(st.session_state.history), "All_Logs.pdf")
+            if btn2.button("📂 저장된 기록 동기화", key="btn_load_my"):
+                try:
+                    loaded_hist = load_user_history(st.session_state.user_email)
+                    if loaded_hist:
+                        st.session_state.history = loaded_hist
+                        st.success(f"✅ 총 {len(loaded_hist)}건의 저장된 데이터를 성공적으로 동기화했습니다.")
+                        st.rerun()
+                    else:
+                        st.warning("저장된 과거 데이터가 없습니다.")
+                except Exception as e:
+                    st.error(f"동기화 실패: {e}")
 
-st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
+            if FPDF is not None:
+                pdf_single = create_pdf([res], title=f"Simulation Result - {res['Cathode']}")
+                btn3.download_button(label="📄 선택 항목 PDF 출력", data=pdf_single, file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf")
+                
+                pdf_all = create_pdf(st.session_state.history, title="SynoCore - All Session Logs")
+                btn4.download_button(label="📑 전체 이력 PDF 출력", data=pdf_all, file_name="SynoCore_All_Logs.pdf", mime="application/pdf")
+            else:
+                btn3.warning("PDF 모듈(fpdf) 설치 필요")
+                btn4.warning("PDF 모듈(fpdf) 설치 필요")
+
+# 7. 푸터 (저작권 표시)
+st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
