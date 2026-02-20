@@ -23,25 +23,21 @@ try:
 except ImportError:
     GSheetsConnection = None
 
-# 1. 페이지 설정 및 디자인
+# 1. 페이지 설정 및 디자인 (wide로 두되 CSS로 최대 폭을 강제 제어합니다)
 st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* ✅ 기본 여백 설정 (모바일 등 작은 화면에서는 기본적으로 꽉 차게 작동) */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        margin: auto; 
-    }
-    
-    /* 💻 노트북 및 데스크탑 (화면 폭 1024px 이상)에서는 화면 중앙의 70%만 차지하게 반응형 설정 */
-    @media screen and (min-width: 1024px) {
-        .main .block-container {
-            max-width: 70% !important;
-        }
+    /* ✅ 완벽한 중앙 정렬 및 최대 폭 강제 제어 (시선 집중 효과) */
+    [data-testid="stAppViewBlockContainer"] {
+        max-width: 1050px !important; /* 대형 모니터에서도 절대 이 폭을 넘지 않음 */
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        margin: 0 auto !important; /* 좌우 여백을 동일하게 주어 중앙에 배치 */
     }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
