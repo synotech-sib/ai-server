@@ -48,10 +48,10 @@ st.markdown("""
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
-    /* 사용자 환영 메시지 박스 커스텀 디자인 */
+    /* [요청 반영] 사용자 환영 메시지 텍스트 디자인 (박스 제거, 우측 정렬 및 높이 동기화) */
     .user-greeting {
-        background-color: #e8f4f8; color: #003366; font-weight: bold; border-radius: 4px; 
-        height: 44px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid #b8daff;
+        color: #003366; font-weight: bold; height: 44px; 
+        display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -65,7 +65,6 @@ def hash_password(password):
 # -----------------------------------------------------------------------------
 # 2. 세션 상태 초기화 (AttributeError 완벽 차단)
 # -----------------------------------------------------------------------------
-# 각 변수를 개별적으로 검사하여, 기존 세션이 남아있더라도 누락된 변수만 안전하게 추가합니다.
 default_session_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0,
     'v_code': "", 'temp_email': "", 'history': [], 'sim_result': None,
@@ -103,7 +102,7 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인/마이페이지 모듈 (우측 2x2 정렬 유지)
+# 4. 상단 헤더 및 로그인/마이페이지 모듈
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
@@ -143,9 +142,9 @@ with h_r:
             st.session_state.show_profile = False
             st.rerun()
     else:
-        # 로그인 후 My 계정 및 로그아웃 버튼 배열
+        # [요청 반영] 박스와 아이콘 제거하고 "이름 (Pro)" 형태로 심플하게 표시
         r_name, r_my, r_out = st.columns([2, 1, 1])
-        r_name.markdown(f'<div class="user-greeting">✅ {st.session_state.user_name} 님 (Pro)</div>', unsafe_allow_html=True)
+        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
         
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True):
             st.session_state.show_profile = not st.session_state.show_profile
