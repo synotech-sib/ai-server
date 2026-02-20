@@ -13,17 +13,18 @@ try:
 except ImportError:
     GSheetsConnection = None
 
-# 1. 페이지 설정 및 디자인
+# 1. 페이지 설정 및 전문가용 디자인
 st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .syno-title { color: #003366; font-size: 38px; font-weight: 900; margin-right: 15px; }
-    .syno-subtitle { color: #666; font-size: 22px; font-weight: normal; padding-top: 8px; }
+    .syno-subtitle { color: #666; font-size: 20px; font-weight: normal; padding-top: 8px; }
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
+    /* 버튼 스타일 최적화 */
     div[data-testid="stButton"] > button {
         height: 52px !important; background-color: #003366 !important;
         color: white !important; font-size: 18px !important; font-weight: bold !important; border-radius: 8px !important;
@@ -41,11 +42,11 @@ def get_user_db(url):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         df = conn.read(spreadsheet=url, worksheet="Sheet1", ttl=5)
-        return df.astype(str)
+        return df.astype(str) # 데이터 타입 충돌 방지
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name"])
 
-# 3. 세션 상태 초기화 (무료 시도 횟수 변수 제거)
+# 3. 세션 상태 초기화 (무료 시도 횟수 관련 변수 완전 삭제)
 if 'init_v145_final' not in st.session_state:
     st.session_state.update({
         'logged_in': False, 'show_reg': False, 'reg_stage': 0,
@@ -81,11 +82,11 @@ with h_r:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 권한 체크 변수
+# 권한 체크
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
-# [1] Material Selection (전체 공개)
+# [1] Material Selection
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
@@ -96,11 +97,12 @@ with st.container(border=True):
     m4.selectbox("Separator", ["PE 16um", "Ceramic Coated 20um"])
 
 # -----------------------------------------------------------------------------
-# [2] Material Specs (흐림 처리 없음, 조작만 제어)
+# [2] Material Specs (흐림 없음, 조작만 제어)
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
+    # [요청 반영] 로그인 전 체크박스 비활성화 및 라벨 표시
     lock_text = " :red[(Pro Mode 전용)]" if not is_pro else ""
     expert = st.checkbox(f"🔓 물성 직접 수정 활성화{lock_text}", key="chk_exp_m", disabled=not is_pro)
     
@@ -111,11 +113,12 @@ with st.container(border=True):
     v_life = s4.slider("Base Life (Cycles)", 500, 10000, 4000, disabled=not (is_pro and expert))
 
 # -----------------------------------------------------------------------------
-# [3] Process Parameters (흐림 처리 없음, 조작만 제어)
+# [3] Process Parameters (흐림 없음, 조작만 제어)
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
+    # [요청 반영] 로그인 전 체크박스 비활성화 및 라벨 표시
     adv_lock_text = " :red[(Pro Mode 전용)]" if not is_pro else ""
     show_adv = st.checkbox(f"🔍 더 자세히 보기 (Advanced Settings){adv_lock_text}", key="chk_adv_m", disabled=not is_pro)
     
@@ -131,7 +134,7 @@ with st.container(border=True):
         if show_adv and is_pro: st.slider("Separator Thick (μm)", 12, 30, 16)
 
 # -----------------------------------------------------------------------------
-# [4] Target Analysis (목표값 설정 및 분석 결과)
+# [4] Target Analysis (결과 및 분석 대시보드)
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Analysis</p>', unsafe_allow_html=True)
@@ -146,7 +149,7 @@ with st.container(border=True):
         r2.metric("Cell Voltage", f"{res['Volt']} V")
         r3.metric("Expected Life", f"{res['Life']:,} Cyc")
         
-        # 그래프 생성 (들여쓰기 교정 완료)
+        # 그래프 생성 (들여쓰기 완전 교정)
         fig = go.Figure(go.Scatter(
             x=np.linspace(0, 100, 100), 
             y=res['Volt'] - (np.linspace(0, 1, 100)**2.2), 
@@ -163,7 +166,7 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & History</p>', unsafe_allow_html=True)
     
-    # 실행 버튼
+    # 실행 버튼을 5번 최상단 배치
     if st.button("🚀 RUN DESIGN SIMULATION", use_container_width=True):
         res_whkg = (v_cap * (v_act/100) * (v_volt - 0.1)) / 2.5
         cur_time = datetime.now().strftime("%H:%M:%S")
@@ -175,7 +178,7 @@ with st.container(border=True):
         st.session_state.history.insert(0, st.session_state.sim_result)
         st.rerun()
 
-    # 기록 관리 및 복원 기능 (이전 로직 유지)
+    # 기록 관리 및 복원 기능
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기</p>', unsafe_allow_html=True)
