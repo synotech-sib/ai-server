@@ -29,9 +29,10 @@ st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    /* 가로폭 컴팩트 제어 */
+    
+    /* ✅ 화면 폭 제어 (데스크탑은 뉴스 기사처럼 좁게, 모바일은 꽉 차게 자동 반응) */
     .main .block-container {
-        max-width: 1150px; 
+        max-width: 950px; 
         padding-top: 2rem;
         padding-bottom: 2rem;
         margin: auto; 
@@ -47,13 +48,14 @@ st.markdown("""
     
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
+    /* 일반 실행/저장 버튼 (시노블루) */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 및 다운로드 오렌지 색상 */
+    /* ✅ 파일 다운로드/출력 버튼 (윈도우 폴더 색상) */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; 
@@ -122,11 +124,14 @@ def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
     alias_email = "synocore@synotech.co.kr"
     
+    # ✅ 스마트 로직: Secrets의 어떤 곳에 있든 에러 없이 찾아냅니다.
     app_password = None
     try:
-        app_password = st.secrets.get("EMAIL_PASSWORD")
-        if not app_password:
-            app_password = st.secrets.get("connections", {}).get("gsheets", {}).get("EMAIL_PASSWORD")
+        if "EMAIL_PASSWORD" in st.secrets:
+            app_password = st.secrets["EMAIL_PASSWORD"]
+        elif "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+            if "EMAIL_PASSWORD" in st.secrets["connections"]["gsheets"]:
+                app_password = st.secrets["connections"]["gsheets"]["EMAIL_PASSWORD"]
             
         if not app_password:
             st.error("서버 설정 오류: EMAIL_PASSWORD가 Secrets에 등록되지 않았습니다.")
@@ -255,7 +260,7 @@ for key, value in default_session_vars.items():
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈
+# 4. 상단 헤더 및 로그인 모듈 (비율/워터마크 완벽 수정)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
@@ -296,11 +301,13 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [계정 신청 및 법적 고지(Disclaimer)]
+# [가입 및 계정 관리 (이메일 인증 & 법적 고지 복원)]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
-        st.markdown('<p class="main-header">📝 계정 신청 (이메일 인증)</p>', unsafe_allow_html=True)
+        # ✅ 제목 변경
+        st.markdown('<p class="main-header">📝 계정 신청 (Pro Mode)</p>', unsafe_allow_html=True)
+        
         if st.session_state.reg_stage == 0:
             e_in = st.text_input("가입용 회사 이메일 입력")
             if st.button("인증번호 발송"):
@@ -311,6 +318,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     with st.spinner("📧 SynoCore에서 인증 메일을 발송 중입니다... (최대 10초 소요)"):
                         if send_verification_email(e_in, v_code):
                             st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
+                            
         elif st.session_state.reg_stage == 1:
             st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다. 메일함을 확인해주세요.")
             v_in = st.text_input("인증번호 6자리 입력")
@@ -318,10 +326,10 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
                 else: st.error("인증번호가 일치하지 않습니다.")
                 
-        # ✅ 가입 상세 정보 및 법적 고지 사항
         elif st.session_state.reg_stage == 2:
             st.markdown('<p class="sub-header-bold">세부 정보 입력</p>', unsafe_allow_html=True)
             
+            # ✅ 한 줄에 2개씩 깔끔하게 정렬
             p1, p2 = st.columns(2)
             pw1 = p1.text_input("Password", type="password")
             pw2 = p2.text_input("Password 확인", type="password")
@@ -330,16 +338,17 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             n_name = c1.text_input("이름")
             n_comp = c2.text_input("회사명")
             
-            c3, c4, c5 = st.columns(3)
+            c3, c4 = st.columns(2)
             n_dept = c3.text_input("부서")
             n_job = c4.text_input("담당업무")
+            
+            c5, c6 = st.columns(2)
             n_phone = c5.text_input("전화번호")
+            n_purpose = c6.text_input("이 프로그램 사용목적 (간략히)")
             
-            # ✅ 사용 목적 추가
-            n_purpose = st.text_input("이 프로그램 사용목적 (간략히)")
-            
-            # ✅ 법적 고지 (Disclaimer) 펼침 메뉴
             st.markdown("<br>", unsafe_allow_html=True)
+            
+            # ✅ 법적 고지 및 동의
             with st.expander("⚖️ 보안 및 법적효력 관련 내용 보기"):
                 st.markdown("""
                 <div style='background-color: #f1f3f5; padding: 15px; border-radius: 5px; font-size: 14px;'>
@@ -350,18 +359,16 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 </div>
                 """, unsafe_allow_html=True)
                 
-            # ✅ 동의 체크박스
             agree_terms = st.checkbox("위 보안 및 법적효력 관련 내용에 동의합니다.")
             
-            # ✅ 조건 충족 시에만 버튼 활성화
             is_form_valid = bool(pw1 and (pw1 == pw2) and n_name and agree_terms)
             
-            if st.button("최종 가입신청", use_container_width=True, disabled=not is_form_valid):
+            # ✅ 버튼 이름 '가입신청'으로 변경 및 조건부 활성화
+            if st.button("가입신청", use_container_width=True, disabled=not is_form_valid):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     df_u = conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5)
                     
-                    # 새로운 유저 정보 DataFrame 생성 (Purpose 항목 추가)
                     new_user = pd.DataFrame([{
                         "Email": st.session_state.temp_email, 
                         "Password": hash_password(pw1), 
@@ -370,7 +377,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                         "Dept": n_dept,
                         "Job": n_job,
                         "Phone": n_phone,
-                        "Purpose": n_purpose,  # 구글 시트에 저장됨
+                        "Purpose": n_purpose,
                         "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
                     }])
                     
