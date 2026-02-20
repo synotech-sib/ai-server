@@ -30,12 +30,18 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* 화면 폭 제어 (데스크탑은 뉴스 기사처럼 좁게, 모바일은 꽉 차게 자동 반응) */
+    /* ✅ 기본 여백 설정 (모바일 등 작은 화면에서는 기본적으로 꽉 차게 작동) */
     .main .block-container {
-        max-width: 950px; 
         padding-top: 2rem;
         padding-bottom: 2rem;
         margin: auto; 
+    }
+    
+    /* 💻 노트북 및 데스크탑 (화면 폭 1024px 이상)에서는 화면 중앙의 70%만 차지하게 반응형 설정 */
+    @media screen and (min-width: 1024px) {
+        .main .block-container {
+            max-width: 70% !important;
+        }
     }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
@@ -141,7 +147,6 @@ def send_verification_email(to_email, code):
     
     try:
         msg = MIMEMultipart()
-        # ✅ 발신자명을 'SynoCore'로 간결하게 변경하여 글로벌 대응
         msg['From'] = f"SynoCore <{alias_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입을 위한 인증번호가 발급되었습니다."
@@ -301,7 +306,7 @@ with h_r:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# [계정 신청 및 법적 고지(Disclaimer)]
+# [계정 신청 및 법적 고지]
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -377,7 +382,6 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                         "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
                     }])
                     
-                    # ✅ 수정: 출력 방지를 위해 변수에 할당 (_ 사용)
                     _ = conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=pd.concat([df_u, new_user], ignore_index=True))
                     
                     st.success("가입이 완료되었습니다! 위 로그인 창에서 접속해 주세요.")
@@ -405,7 +409,6 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
                 df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone
                 
-                # ✅ 수정: 출력 방지를 위해 변수에 할당 (_ 사용)
                 _ = conn.update(spreadsheet=URL_USERS, worksheet="Sheet1", data=df_update)
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
@@ -596,7 +599,6 @@ if is_pro and st.session_state.history:
                         save_record['Email'] = st.session_state.user_email
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                         
-                        # ✅ 수정: 출력 방지를 위해 변수에 할당 (_ 사용)
                         _ = conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
                     if is_duplicate:
