@@ -24,9 +24,8 @@ st.markdown("""
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 8px; }
-    .pro-lock-text { color: #d9534f; font-weight: bold; font-size: 14px; }
     div[data-testid="stButton"] > button {
-        height: 48px !important; background-color: #003366 !important;
+        height: 52px !important; background-color: #003366 !important;
         color: white !important; font-size: 18px !important; font-weight: bold !important; border-radius: 8px !important;
         width: 100%; border: none !important;
     }
@@ -82,22 +81,22 @@ with h_r:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 권한 체크 변수
+# 권한 체크
 is_pro = st.session_state.logged_in
 
 # -----------------------------------------------------------------------------
-# [1] Material Selection (전체 공개)
+# [1] Material Selection
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
     m1, m2, m3, m4 = st.columns(4)
-    cat_sel = m1.selectbox("Cathode", ["HiNa (Layered)", "Altris (Prussian White)", "Tiamat (Polyanion)"])
-    m2.selectbox("Anode", ["Hard Carbon (A)", "Hard Carbon (B)"])
-    m3.selectbox("Electrolyte", ["Standard NaPF6", "High-Stability Additive"])
-    m4.selectbox("Separator", ["PE 16um", "Ceramic Coated"])
+    cat_sel = m1.selectbox("Cathode", ["HiNa (Layered Oxide)", "Altris (Prussian White)", "Tiamat (Polyanion NVPF)"])
+    m2.selectbox("Anode", ["Hard Carbon (Standard)", "Hard Carbon (High-Power)"])
+    m3.selectbox("Electrolyte", ["Standard NaPF6", "Low-Temp Optimized"])
+    m4.selectbox("Separator", ["PE 16um", "Ceramic Coated 20um"])
 
 # -----------------------------------------------------------------------------
-# [2] Material Specs (자물쇠 문구 동적 제어)
+# [2] Material Specs (흐림 없음, 조작만 제어)
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
@@ -112,7 +111,7 @@ with st.container(border=True):
     v_life = s4.slider("Base Life (Cycles)", 500, 10000, 4000, disabled=not (is_pro and expert))
 
 # -----------------------------------------------------------------------------
-# [3] Process Parameters (자물쇠 문구 동적 제어)
+# [3] Process Parameters (흐림 없음, 조작만 제어)
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
@@ -132,33 +131,36 @@ with st.container(border=True):
         if show_adv and is_pro: st.slider("Separator Thick (μm)", 12, 30, 16)
 
 # -----------------------------------------------------------------------------
-# [4] Analysis Result (순수 결과창)
+# [4] Target Analysis (목표치 설정 복구)
 # -----------------------------------------------------------------------------
 with st.container(border=True):
-    st.markdown('<p class="main-header">4. Analysis Result</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">4. Target Analysis</p>', unsafe_allow_html=True)
+    t1, t2 = st.columns(2)
+    v_te = t1.slider("Energy Density Goal (Wh/kg)", 100, 250, 160)
+    v_tc = t2.slider("Simulation C-rate", 0.1, 10.0, 1.0)
+    
     if st.session_state.sim_result:
         res = st.session_state.sim_result
         r1, r2, r3 = st.columns(3)
-        r1.metric("Energy Density", f"{res['Whkg']} Wh/kg")
+        r1.metric("Energy Density", f"{res['Whkg']} Wh/kg", delta=round(res['Whkg'] - v_te, 1))
         r2.metric("Cell Voltage", f"{res['Volt']} V")
         r3.metric("Expected Life", f"{res['Life']:,} Cyc")
         
-        # 방전 곡선 그래프
-        fig = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Volt']-(np.linspace(0,1,100)**2), line=dict(color='#003366', width=4)))
+        # 그래프 시각화
+        fig = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Volt']-(np.linspace(0,1,100)**2.2), line=dict(color='#003366', width=4)))
         fig.update_layout(height=350, template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("5번 섹션에서 설계를 실행하면 분석 결과가 여기에 표시됩니다.")
 
 # -----------------------------------------------------------------------------
-# [5] Simulation Control & History (버튼 및 이력 관리)
+# [5] Simulation Control & History
 # -----------------------------------------------------------------------------
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & History</p>', unsafe_allow_html=True)
     
-    # 실행 버튼을 5번의 최상단에 배치
+    # 실행 버튼
     if st.button("🚀 RUN DESIGN SIMULATION", use_container_width=True):
-        # 에너지 밀도 계산 수식: $Energy Density = \frac{Capacity \times Voltage \times ActiveRatio}{2.5}$
         res_whkg = (v_cap * (v_act/100) * (v_volt - 0.1)) / 2.5
         cur_time = datetime.now().strftime("%H:%M:%S")
         
@@ -173,9 +175,9 @@ with st.container(border=True):
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기</p>', unsafe_allow_html=True)
         log_opts = [f"[{h['Time']}] {h['Material']} | {h['Whkg']} Wh/kg" for h in st.session_state.history]
-        sel_idx = st.selectbox("선택한 기록이 4번 결과창에 복원됩니다.", range(len(log_opts)), format_func=lambda x: log_opts[x])
+        sel_idx = st.selectbox("기록을 선택하면 4번 분석 결과창에 즉시 복원됩니다.", range(len(log_opts)), format_func=lambda x: log_opts[x])
         
-        if st.button("⏪ 선택 기록 복원"):
+        if st.button("⏪ 선택 기록 복원", use_container_width=True):
             st.session_state.sim_result = st.session_state.history[sel_idx]
             st.rerun()
 
