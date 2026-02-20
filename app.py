@@ -19,9 +19,11 @@ st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .header-container { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 20px; }
-    .syno-title { color: #003366; font-size: 38px; font-weight: 900; margin-right: 15px; }
-    .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 8px; }
+    .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
+    
+    /* [요청 반영] SynoCore 타이틀 폰트 사이즈 확대 (38px -> 46px) */
+    .syno-title { color: #003366; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
+    .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 14px; }
     
     /* 메트릭(결과값) 카드 및 폰트 사이즈 조정 */
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
@@ -91,39 +93,47 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈 (아래로 이동 & 4등분 정렬)
+# 4. 상단 헤더 및 로그인 모듈 (우측 2x2 정렬)
 # -----------------------------------------------------------------------------
-st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
+# 화면을 1:1 비율로 나누어 좌측엔 타이틀, 우측엔 로그인 블록을 배치합니다.
+h_l, h_r = st.columns([1, 1])
 
-if not st.session_state.logged_in:
-    # 4개의 열을 동일한 비율로 생성하여 사이즈를 완벽히 통일합니다.
-    l_c1, l_c2, l_c3, l_c4 = st.columns(4)
-    u_id = l_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
-    u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
-    login_btn = l_c3.button("Login", key="btn_login_m", use_container_width=True)
-    reg_btn = l_c4.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m", use_container_width=True)
-    
-    if login_btn or st.session_state.pop('trigger_login', False):
-        df_u = get_user_db()
-        u_id_clean = u_id.strip().lower()
-        hashed_pw = hash_password(u_pw) if u_pw else ""
-        valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
+with h_l:
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
+
+with h_r:
+    if not st.session_state.logged_in:
+        # [요청 반영] 윗줄: ID / PW
+        r1_c1, r1_c2 = st.columns(2)
+        u_id = r1_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
+        u_pw = r1_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
         
-        if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-            st.session_state.logged_in = True; st.rerun()
-        elif not valid.empty:
-            st.session_state.logged_in = True; st.rerun()
-        else: st.error("정보 확인 필요")
-    
-    if reg_btn:
-        st.session_state.show_reg = not st.session_state.show_reg
-        st.rerun()
-else:
-    # 로그인 후 상태도 깔끔하게 4등분 그리드에 맞춰 배치합니다.
-    l_c1, l_c2, l_c3, l_c4 = st.columns(4)
-    l_c1.info("✅ Authorized Pro Member")
-    if l_c2.button("Logout", key="btn_logout_m", use_container_width=True): 
-        st.session_state.logged_in = False; st.rerun()
+        # [요청 반영] 아랫줄: 로그인 / 회원가입
+        r2_c1, r2_c2 = st.columns(2)
+        login_btn = r2_c1.button("Login", key="btn_login_m", use_container_width=True)
+        reg_btn = r2_c2.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m", use_container_width=True)
+        
+        if login_btn or st.session_state.pop('trigger_login', False):
+            df_u = get_user_db()
+            u_id_clean = u_id.strip().lower()
+            hashed_pw = hash_password(u_pw) if u_pw else ""
+            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
+            
+            if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
+                st.session_state.logged_in = True; st.rerun()
+            elif not valid.empty:
+                st.session_state.logged_in = True; st.rerun()
+            else: st.error("정보 확인 필요")
+        
+        if reg_btn:
+            st.session_state.show_reg = not st.session_state.show_reg
+            st.rerun()
+    else:
+        # 로그인 후에도 우측에 정돈된 레이아웃 유지
+        r1_c1, r1_c2 = st.columns(2)
+        r1_c1.info("✅ Authorized Pro Member")
+        if r1_c2.button("Logout", key="btn_logout_m", use_container_width=True): 
+            st.session_state.logged_in = False; st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -173,11 +183,7 @@ with st.container(border=True):
         m1, m2, m3, m4 = st.columns(4)
         cat_sel = m1.selectbox("Cathode", mat_df[mat_df['Category']=='Cathode']['Name'].tolist(), key="sel_cat_m")
         row = mat_df[mat_df['Name']==cat_sel].iloc[0]
-        c_cap_i = float(row.get('Capacity', 160))
-        c_volt_i = float(row.get('Voltage', 3.05))
-        c_dens_i = float(row.get('Density', 2.2))
-        c_life_i = int(row.get('Life', 4000))
-        c_load_i = float(row.get('Rec_Loading', 14.0))
+        c_cap_i, c_volt_i, c_dens_i, c_life_i, c_load_i = float(row.get('Capacity', 160)), float(row.get('Voltage', 3.05)), float(row.get('Density', 2.2)), int(row.get('Life', 4000)), float(row.get('Rec_Loading', 14.0))
         
         ano_sel = m2.selectbox("Anode", ["Hard Carbon (A)", "Hard Carbon (B)"], key="sel_ano_m")
         m3.selectbox("Electrolyte", ["Standard NaPF6", "High-Stability"], key="sel_ele_m")
