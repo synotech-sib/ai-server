@@ -44,17 +44,24 @@ st.markdown("""
     
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
+    /* 일반 실행/저장 버튼 (파란색) */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 및 다운로드 오렌지 색상 */
+    /* ✅ PDF 및 파일 다운로드 버튼 (윈도우 폴더 색상 적용) */
     div[data-testid="stDownloadButton"] > button {
-        height: 40px !important; background-color: #FF8C00 !important; 
-        color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
-        width: 100%; border: none !important; margin-top: 0px !important;
+        height: 40px !important; background-color: #FFCA28 !important; /* 윈도우 폴더 노란색 */
+        color: #222 !important; /* 가독성을 위한 진한 회색 텍스트 */
+        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
+        width: 100%; border: 1px solid #E4B526 !important; margin-top: 0px !important;
+    }
+    /* 마우스 호버 효과 (살짝 진해짐) */
+    div[data-testid="stDownloadButton"] > button:hover {
+        background-color: #FFB300 !important;
+        border: 1px solid #DDA010 !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -79,7 +86,6 @@ URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# 3개의 시트를 공통으로 불러오는 스마트 캐싱 함수
 @st.cache_data(ttl=60)
 def load_cloud_data(url):
     if GSheetsConnection is None: return pd.DataFrame()
@@ -91,7 +97,6 @@ def load_cloud_data(url):
     except Exception as e:
         return pd.DataFrame()
 
-# ✅ 함수들이 클라우드 데이터를 즉시 활용할 수 있도록 최상단에서 로드
 mat_df = load_cloud_data(URL_MATS)
 param_df = load_cloud_data(URL_PARAM)
 
@@ -111,31 +116,25 @@ def get_user_db():
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
-# ✅ 하드코딩 완전 제거: 구글 시트 데이터 기반의 동적 dQ/dV 그래프 엔진
 def get_dqdv(cat_sel, v_tc):
     v_axis = np.linspace(2.0, 4.2, 150)
     dqdv = np.zeros_like(v_axis)
     
-    # 기본값
     p1, p2 = 3.15, 0.0 
     
-    # 엑셀 데이터 파싱
     if not mat_df.empty and 'Name' in mat_df.columns:
         mat_row = mat_df[mat_df['Name'] == cat_sel]
         if not mat_row.empty:
-            # Peak1_V, Peak2_V 컬럼이 엑셀에 존재할 경우 가져오기
             try:
                 if 'Peak1_V' in mat_df.columns: p1 = float(mat_row.iloc[0].get('Peak1_V', 3.15))
                 if 'Peak2_V' in mat_df.columns: p2 = float(mat_row.iloc[0].get('Peak2_V', 0.0))
             except: pass
             
-    # [안전장치] 만약 대표님이 엑셀에 Peak 컬럼을 아직 안 만드셨다면 기존 룰대로 작동!
     if 'Peak1_V' not in mat_df.columns:
         if "Prussian" in str(cat_sel) or "Altris" in str(cat_sel): p1, p2 = 3.05, 3.45
         elif "Polyanion" in str(cat_sel) or "NVPF" in str(cat_sel): p1, p2 = 3.75, 0.0
         else: p1, p2 = 3.15, 0.0
 
-    # 0보다 큰 정상적인 Peak 전압만 필터링
     peaks = [p for p in [p1, p2] if pd.notna(p) and float(p) > 0]
     if not peaks: peaks = [3.15]
     
@@ -313,7 +312,6 @@ with st.container(border=True):
             
             row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
             
-            # 엑셀 데이터 파싱 (안전장치 포함)
             def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
             def_vlt_min, def_vlt_max, def_vlt_val = float(row.get('Volt_Min', 2.0)), float(row.get('Volt_Max', 4.5)), float(row.get('Volt_Def', 3.05))
             def_den_min, def_den_max, def_den_val = float(row.get('Den_Min', 1.0)), float(row.get('Den_Max', 4.5)), float(row.get('Den_Def', 2.2))
