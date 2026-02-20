@@ -26,6 +26,14 @@ st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    /* 여기서부터 아래 6줄을 추가/조정하시면 가로폭이 컴팩트하게 잡힙니다 */
+    .main .block-container {
+        max-width: 1300px;     /* 숫자가 작을수록 더 좁고 컴팩트해집니다 (1100~1300 추천) */
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        margin: auto;          /* 화면 중앙 정렬 */
+    }
+            
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
     
     .syno-title { color: #1A729A; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
