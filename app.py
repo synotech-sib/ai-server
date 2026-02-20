@@ -50,7 +50,7 @@ st.markdown("""
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 오렌지 색상 */
+    /* PDF 및 다운로드 오렌지 색상 */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FF8C00 !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
@@ -86,11 +86,9 @@ def load_cloud_data(url):
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         df = conn.read(spreadsheet=url)
-        # 괄호 포함된 헤더명 정리 (예: "Capacity (mAh)" -> "Capacity")
         df.columns = [str(c).split('(')[0].strip() for c in df.columns]
         return df
     except Exception as e:
-        st.error(f"Cloud Load Error: {e}")
         return pd.DataFrame()
 
 def get_user_db():
@@ -175,12 +173,10 @@ def process_login(): st.session_state.trigger_login = True
 mat_df = load_cloud_data(URL_MATS)
 param_df = load_cloud_data(URL_PARAM)
 
-# 안전한 파라미터 호출을 위한 유틸리티 딕셔너리 변환 (param_config)
 sys_params = {}
 if not param_df.empty and 'Parameter_ID' in param_df.columns:
     sys_params = param_df.set_index('Parameter_ID').to_dict('index')
 
-# 파라미터 가져오기 도우미 (없을 경우 기본값 반환)
 def get_p(pid, prop, fallback):
     try: return float(sys_params[pid][prop])
     except: return fallback
@@ -273,7 +269,6 @@ is_pro = st.session_state.logged_in
 # 5. 시뮬레이터 본문 (클라우드 데이터 지능형 연동)
 # -----------------------------------------------------------------------------
 
-# [1] Material Selection
 with st.container(border=True):
     st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
     sp1, c_1 = st.columns([0.03, 0.97])
@@ -290,7 +285,6 @@ with st.container(border=True):
             m3.selectbox("Electrolyte", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
             m4.selectbox("Separator", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
             
-            # 선택한 양극재의 속성 가져오기 (기본 안전값 설정 포함)
             row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
             def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
             def_vlt_min, def_vlt_max, def_vlt_val = float(row.get('Volt_Min', 2.0)), float(row.get('Volt_Max', 4.5)), float(row.get('Volt_Def', 3.05))
@@ -307,7 +301,6 @@ with st.container(border=True):
             def_lod_val = 14.0
         st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     sp2, c_2 = st.columns([0.03, 0.97])
@@ -325,7 +318,6 @@ with st.container(border=True):
         v_life = v_life_in if expert else def_lif_val
         st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     sp3, c_3 = st.columns([0.03, 0.97])
@@ -354,7 +346,6 @@ with st.container(border=True):
             v_act = v_act_in
         st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Target Settings
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Settings</p>', unsafe_allow_html=True)
     sp4, c_4 = st.columns([0.03, 0.97])
@@ -367,7 +358,6 @@ with st.container(border=True):
             st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
             v_tc = st.slider("C-rate", get_p('target_crate', 'Min', 0.1), get_p('target_crate', 'Max', 10.0), get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
 
-# [5] Simulation Control & Analysis
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
     sp5, c_5 = st.columns([0.03, 0.97])
@@ -432,7 +422,7 @@ with st.container(border=True):
             st.dataframe(df_history, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 6. 내 데이터 관리 (저장, 불러오기, PDF 출력) - 로그인 유저 전용
+# 6. 내 데이터 관리 (저장, 엑셀 다운로드, PDF 출력) - 로그인 유저 전용
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.history:
     with st.container(border=True):
@@ -441,32 +431,55 @@ if is_pro and st.session_state.history:
         with c_6:
             btn1, btn2, btn3, btn4 = st.columns(4)
             
+            # (1) 클라우드 저장 로직 개선
             if btn1.button("💾 내 계정에 저장하기", key="btn_save_my"):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
                     is_duplicate = False
+                    
                     if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
                         if not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])].empty:
                             is_duplicate = True
                             
-                    # ✅ 중복 저장 시 친절한 안내 메시지로 변경 완료
-                    if is_duplicate: st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하였습니다. 저장된 기록 동기화를 실행해 주세요.")
-                    else:
-                        save_record = res.copy(); save_record['Email'] = st.session_state.user_email
+                    # 중복이 아닐 경우에만 DB 업데이트 실행 (중복 회피)
+                    if not is_duplicate:
+                        save_record = res.copy()
+                        save_record['Email'] = st.session_state.user_email
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                         conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
-                        st.success("✅ myData에 안전하게 저장 되었습니다.")
-                except Exception as e: st.error(f"저장 오류: {e}")
+                    
+                    # 중복 여부와 관계없이 저장버튼 클릭 시 단일 메시지 표출
+                    st.success("내 계정에 저장하기가 완료되었습니다.")
+                except Exception as e: 
+                    st.error(f"저장 오류: {e}")
 
-            if btn2.button("📂 저장된 기록 동기화", key="btn_load_my"):
-                try:
-                    loaded_hist = load_user_history(st.session_state.user_email)
-                    if loaded_hist:
-                        st.session_state.history = loaded_hist; st.success(f"✅ 총 {len(loaded_hist)}건 동기화 성공!"); st.rerun()
-                    else: st.warning("저장된 과거 데이터가 없습니다.")
-                except Exception as e: st.error(f"동기화 실패: {e}")
+            # (2) 엑셀 다운로드 기능 탑재
+            df_export = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
+            buffer = io.BytesIO()
+            try:
+                # openpyxl 라이브러리를 통해 진짜 .xlsx 엑셀 파일 생성
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_export.to_excel(writer, index=False, sheet_name='Simulation_Logs')
+                file_data = buffer.getvalue()
+                file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
+                mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            except ImportError:
+                # 서버에 openpyxl 모듈이 없을 경우, 엑셀에서 열리는 CSV 파일로 자동 우회 생성
+                file_data = df_export.to_csv(index=False).encode('utf-8-sig')
+                file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+                mime_type = "text/csv"
 
+            # 다운로드 버튼 (클릭 시 file_data 내보내기)
+            btn2.download_button(
+                label="📥 내 기록 다운로드",
+                data=file_data,
+                file_name=file_name,
+                mime=mime_type,
+                key="btn_download_excel"
+            )
+
+            # (3) PDF 출력
             if FPDF is not None:
                 btn3.download_button(label="📄 선택 항목 PDF 출력", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf")
                 btn4.download_button(label="📑 전체 이력 PDF 출력", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf")
