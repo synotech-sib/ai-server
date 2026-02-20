@@ -23,21 +23,26 @@ try:
 except ImportError:
     GSheetsConnection = None
 
-# 1. 페이지 설정 및 디자인 (wide로 두되 CSS로 최대 폭을 강제 제어합니다)
+# 1. 페이지 설정 및 디자인
 st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* ✅ 완벽한 중앙 정렬 및 최대 폭 강제 제어 (시선 집중 효과) */
-    [data-testid="stAppViewBlockContainer"] {
-        max-width: 1050px !important; /* 대형 모니터에서도 절대 이 폭을 넘지 않음 */
+    /* ✅ 1. 기본 여백 설정 (모바일/작은 화면에서는 100% 꽉 차게 동작) */
+    .main .block-container {
+        max-width: 100% !important;
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        margin: 0 auto !important; /* 좌우 여백을 동일하게 주어 중앙에 배치 */
+        margin: 0 auto !important; 
+    }
+    
+    /* ✅ 2. 노트북 및 대형 모니터 (화면 폭 1024px 이상)에서는 정확히 70% 폭으로 중앙 집중! */
+    @media screen and (min-width: 1024px) {
+        .main .block-container {
+            max-width: 70% !important;
+        }
     }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
@@ -50,7 +55,7 @@ st.markdown("""
     
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
-    /* 일반 실행/저장 버튼 (시노블루) */
+    /* 일반 버튼 (시노블루) */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
@@ -261,7 +266,7 @@ for key, value in default_session_vars.items():
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈
+# 4. 상단 헤더 및 로그인 모듈 (비율/워터마크 완벽 유지)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
