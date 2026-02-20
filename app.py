@@ -37,7 +37,7 @@ st.markdown("""
     }
     div[data-testid="stButton"] > button {
         height: 40px !important; 
-        background-color: #1A729A !important; /* 시노텍 로고컬러 적용 */
+        background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
@@ -49,10 +49,29 @@ st.markdown("""
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
-    /* 사용자 환영 메시지 텍스트 디자인 (높이 40px 동기화 및 컬러 매칭) */
+    /* 사용자 환영 메시지 텍스트 디자인 */
     .user-greeting {
         color: #1A729A; font-weight: bold; height: 40px; 
         display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px;
+    }
+    
+    /* [요청 반영] 텍스트와 체크박스의 초밀착(한 칸 띄어쓰기)을 위한 CSS 엔진 */
+    div[data-testid="column"]:has(.tight-text) {
+        width: fit-content !important;
+        flex: 0 0 auto !important;
+        min-width: auto !important;
+        padding-right: 5px !important;
+    }
+    div[data-testid="column"]:has(.tight-chk) {
+        width: fit-content !important;
+        flex: 0 0 auto !important;
+        min-width: auto !important;
+        padding-right: 8px !important;
+    }
+    div[data-testid="column"]:has(.tight-pro) {
+        width: fit-content !important;
+        flex: 1 1 auto !important;
+        min-width: auto !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -269,16 +288,22 @@ with st.container(border=True):
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs
+# [2] Material Specs (체크박스 초밀착 레이아웃)
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    # [요청 반영] 텍스트 좌측, 체크박스 우측 배치 레이아웃
-    c2_1, c2_2 = st.columns([3, 7])
+    c2_1, c2_2, c2_3 = st.columns([3.2, 0.5, 6.3]) # 폴백 비율
     with c2_1:
-        st.markdown('<div style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #333;">🔓 밀도 및 수명 등 세부 물성 수정 활성화</div>', unsafe_allow_html=True)
+        st.markdown('<div class="tight-text" style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #333;">🔓 밀도 및 수명 등 세부 물성 수정 활성화</div>', unsafe_allow_html=True)
     with c2_2:
-        expert = st.checkbox(" :red[(Pro Mode 전용)]" if not is_pro else " ", key="chk_exp_m", disabled=not is_pro)
+        st.markdown('<div class="tight-chk"></div>', unsafe_allow_html=True)
+        # 체크박스 자체의 라벨을 감추어 간격을 최소화합니다
+        expert = st.checkbox("expert_m", key="chk_exp_m", disabled=not is_pro, label_visibility="collapsed")
+    with c2_3:
+        if not is_pro:
+            st.markdown('<div class="tight-pro" style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #ff4b4b;">(Pro Mode 전용)</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="tight-pro"></div>', unsafe_allow_html=True)
     
     s1, s2, s3, s4 = st.columns(4)
     v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
@@ -293,16 +318,22 @@ with st.container(border=True):
     v_life = v_life_in if expert else c_life_i
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters
+# [3] Process Parameters (체크박스 초밀착 레이아웃 및 돋보기 -> 자물통 변경)
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
-    # [요청 반영] 자물통 이모티콘 변경(🔓) 및 텍스트 좌측, 체크박스 우측 배치 레이아웃
-    c3_1, c3_2 = st.columns([3, 7])
+    c3_1, c3_2, c3_3 = st.columns([2.5, 0.5, 7.0]) # 폴백 비율
     with c3_1:
-        st.markdown('<div style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #333;">🔓 세부 파라미터 수정 활성화</div>', unsafe_allow_html=True)
+        # [요청 반영] 돋보기 대신 자물통 이모티콘(🔓) 적용
+        st.markdown('<div class="tight-text" style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #333;">🔓 세부 파라미터 수정 활성화</div>', unsafe_allow_html=True)
     with c3_2:
-        show_adv = st.checkbox(" :red[(Pro Mode 전용)]" if not is_pro else " ", key="chk_adv_m", disabled=not is_pro)
+        st.markdown('<div class="tight-chk"></div>', unsafe_allow_html=True)
+        show_adv = st.checkbox("adv_m", key="chk_adv_m", disabled=not is_pro, label_visibility="collapsed")
+    with c3_3:
+        if not is_pro:
+            st.markdown('<div class="tight-pro" style="margin-top: 6px; font-size: 16px; font-weight: bold; color: #ff4b4b;">(Pro Mode 전용)</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="tight-pro"></div>', unsafe_allow_html=True)
     
     p1, p2, p3 = st.columns(3)
     with p1:
