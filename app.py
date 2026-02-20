@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import random
 import os
-import hashlib  # [추가] 비밀번호 암호화를 위한 내장 라이브러리
+import hashlib
 
 # 구글 시트 라이브러리 예외 처리
 try:
@@ -13,8 +13,8 @@ try:
 except ImportError:
     GSheetsConnection = None
 
-# 1. 페이지 설정 및 디자인
-st.set_page_config(page_title="SynoCore V1.4 Pro Max", layout="wide")
+# 1. 페이지 설정 및 디자인 (V1.45 정식 명명)
+st.set_page_config(page_title="SynoCore V1.45 Pro Max", layout="wide")
 
 st.markdown("""
     <style>
@@ -44,7 +44,7 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 # -----------------------------------------------------------------------------
-# 2. 세션 상태 초기화 (AttributeError 원천 차단)
+# 2. 세션 상태 초기화
 # -----------------------------------------------------------------------------
 if 'init_master' not in st.session_state:
     st.session_state.update({
@@ -76,11 +76,11 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 가입 모듈
+# 4. 상단 헤더 및 가입 모듈 (V1.45 적용)
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.4 Pro</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
 
 with h_r:
     if not st.session_state.logged_in:
@@ -89,11 +89,9 @@ with h_r:
         u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed")
         if l_c3.button("Login", key="btn_login_m"):
             df_u = get_user_db()
-            # [보안] 로그인 시 입력한 비밀번호도 암호화하여 DB의 암호화된 값과 비교
             hashed_pw = hash_password(u_pw) if u_pw else ""
             valid = df_u[(df_u['Email'] == u_id) & (df_u['Password'].astype(str) == hashed_pw)] if not df_u.empty else pd.DataFrame()
             
-            # 관리자(대표님) 마스터 계정은 예외 처리로 즉시 통과
             if u_id == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
                 st.session_state.logged_in = True; st.rerun()
             elif not valid.empty:
@@ -137,10 +135,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     df_u = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
-                    
-                    # [보안] 가입 시 비밀번호를 해싱(암호화)하여 저장
                     hashed_pw_register = hash_password(pw1)
-                    
                     new_user = pd.DataFrame([{
                         "Email": st.session_state.temp_email, 
                         "Password": hashed_pw_register, 
@@ -153,12 +148,10 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     }])
                     updated = pd.concat([df_u, new_user], ignore_index=True)
                     conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated)
-                    
-                    # [요청 반영] 성공 메시지 문구 수정
                     st.success("가입신청이 완료되었습니다. 개인정보는 암호화되어 보관되므로 안심하셔도 됩니다.")
                     st.session_state.show_reg = False; st.session_state.reg_stage = 0
                 except Exception as e:
-                    st.error(f"⚠️ 구글 시트 저장 불가: Secrets 설정을 다시 확인해주세요. ({e})")
+                    st.error(f"⚠️ 구글 시트 저장 불가: {e}")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -188,7 +181,7 @@ with st.container(border=True):
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (4개 활성화)
+# [2] Material Specs
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     expert = st.checkbox("🔓 물성 직접 수정 활성화", key="chk_exp_m")
@@ -206,7 +199,7 @@ with st.container(border=True):
         s4.markdown(f'<p class="sub-header-bold">Base Life</p>{v_life:,} Cyc', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters (7개 펼침 전체 노출)
+# [3] Process Parameters
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     show_adv = st.checkbox("🔍 더 자세히 보기 (Advanced Settings)", key="chk_adv_m")
@@ -232,9 +225,9 @@ with st.container(border=True):
             st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [4] Target & [5] Simulation History (상세 로그 대폭 추가)
+# [4] Target & Simulation
 with st.container(border=True):
-    st.markdown('<p class="main-header">4. Target & 5. Simulation Log</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">4. Target & Simulation</p>', unsafe_allow_html=True)
     t1, t2 = st.columns(2)
     v_te = t1.slider("Energy Goal (Wh/kg)", 100, 250, 160, key="sl_te_m")
     v_tc = t2.slider("Simulation C-rate", 0.1, 20.0, 1.0, key="sl_tc_m")
@@ -246,34 +239,16 @@ with st.container(border=True):
             cell_v = v_volt - 0.1
             cur_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-            # 로그에 12가지 상세 데이터 저장
             log_data = {
-                "Time": cur_time,
-                "Cathode": cat_sel,
-                "Anode": ano_sel,
-                "Cap(mAh/g)": v_cap,
-                "Volt(V)": v_volt,
-                "Load(mg)": v_load,
-                "N/P Ratio": v_np,
-                "Active(%)": v_act,
-                "C-rate": v_tc,
-                "Wh/kg": round(res_whkg, 1),
-                "Cell_V": round(cell_v, 2),
-                "Life(Cyc)": v_life
+                "Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel,
+                "Cap(mAh/g)": v_cap, "Volt(V)": v_volt, "Load(mg)": v_load,
+                "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc,
+                "Wh/kg": round(res_whkg, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": v_life
             }
             st.session_state.history.insert(0, log_data)
             st.session_state.sim_result = log_data
         else: st.error("무료 횟수 초과!")
 
-    # 과거 기록 복원 선택기
-    if st.session_state.history:
-        st.markdown("---")
-        st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 복원됩니다)</p>', unsafe_allow_html=True)
-        log_opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg" for h in st.session_state.history]
-        sel_idx = st.selectbox("기록 선택", range(len(log_opts)), format_func=lambda x: log_opts[x], key="sel_hist_m")
-        st.session_state.sim_result = st.session_state.history[sel_idx]
-
-    # 분석 결과 창 (현재 또는 과거 복원 데이터)
     if st.session_state.sim_result:
         res = st.session_state.sim_result
         st.markdown("---")
@@ -286,10 +261,13 @@ with st.container(border=True):
         g1, g2 = st.columns([4, 6])
         with g1:
             st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
+            
+
+[Image of lithium-ion battery discharge curve]
+
             fig = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#003366', width=3)))
             fig.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white")
-            # DuplicateElementId 방지용 랜덤 키
-            st.plotly_chart(fig, use_container_width=True, key=f"plot_m_{res['Time']}_{random.randint(1,10000)}")
+            st.plotly_chart(fig, use_container_width=True, key=f"plot_m_{res['Time']}")
         with g2:
             st.markdown('<p class="sub-header-bold">Applied Parameters</p>', unsafe_allow_html=True)
             st.table(pd.DataFrame({
@@ -297,10 +275,8 @@ with st.container(border=True):
                 "Value": [res['Cathode'], res['Anode'], f"{res['Load(mg)']} mg/cm2", res['N/P Ratio'], f"{res['C-rate']} C"]
             }))
 
-    # 12가지 상세 데이터가 담긴 로그 전체 테이블 출력
-    if st.session_state.history:
-        st.markdown("---")
-        st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs (전체 이력)</p>', unsafe_allow_html=True)
-        st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+# [5] Simulation History
+if st.session_state.history:
+    st.markdown("---")
+    st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs (전체 이력)</p>', unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
