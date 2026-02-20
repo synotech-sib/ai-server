@@ -19,19 +19,24 @@ st.set_page_config(page_title="SynoCore V1.45 Pro", layout="wide")
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .header-container { display: flex; align-items: center; justify-content: flex-start; }
+    .header-container { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 20px; }
     .syno-title { color: #003366; font-size: 38px; font-weight: 900; margin-right: 15px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 8px; }
     
     /* 메트릭(결과값) 카드 및 폰트 사이즈 조정 */
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
-    div[data-testid="stMetricValue"] { font-size: 28px !important; color: #003366 !important; } /* 기본보다 한 단계 축소 및 색상 적용 */
+    div[data-testid="stMetricValue"] { font-size: 28px !important; color: #003366 !important; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; }
     
+    /* 입력창과 버튼의 높이/디자인 완벽 통일 */
+    div[data-testid="stTextInput"] input {
+        height: 44px !important;
+        font-size: 16px !important;
+    }
     div[data-testid="stButton"] > button {
-        height: 48px !important; background-color: #003366 !important;
+        height: 44px !important; background-color: #003366 !important;
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
-        width: 100%; border: none !important;
+        width: 100%; border: none !important; margin-top: 0px !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
@@ -86,36 +91,41 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 가입 모듈
+# 4. 상단 헤더 및 로그인 모듈 (아래로 이동 & 4등분 정렬)
 # -----------------------------------------------------------------------------
-h_l, h_r = st.columns([1, 1])
-with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
+st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.45 Pro</span></div>', unsafe_allow_html=True)
 
-with h_r:
-    if not st.session_state.logged_in:
-        l_c1, l_c2, l_c3 = st.columns([2, 2, 1])
-        u_id = l_c1.text_input("ID", placeholder="email", key="id_login_m", label_visibility="collapsed")
-        u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
-        login_btn = l_c3.button("Login", key="btn_login_m")
+if not st.session_state.logged_in:
+    # 4개의 열을 동일한 비율로 생성하여 사이즈를 완벽히 통일합니다.
+    l_c1, l_c2, l_c3, l_c4 = st.columns(4)
+    u_id = l_c1.text_input("ID", placeholder="company email", key="id_login_m", label_visibility="collapsed")
+    u_pw = l_c2.text_input("PW", type="password", placeholder="password", key="pw_login_m", label_visibility="collapsed", on_change=process_login)
+    login_btn = l_c3.button("Login", key="btn_login_m", use_container_width=True)
+    reg_btn = l_c4.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m", use_container_width=True)
+    
+    if login_btn or st.session_state.pop('trigger_login', False):
+        df_u = get_user_db()
+        u_id_clean = u_id.strip().lower()
+        hashed_pw = hash_password(u_pw) if u_pw else ""
+        valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
         
-        if login_btn or st.session_state.pop('trigger_login', False):
-            df_u = get_user_db()
-            u_id_clean = u_id.strip().lower()
-            hashed_pw = hash_password(u_pw) if u_pw else ""
-            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
-            
-            if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                st.session_state.logged_in = True; st.rerun()
-            elif not valid.empty:
-                st.session_state.logged_in = True; st.rerun()
-            else: st.error("정보 확인 필요")
-        
-        if st.button("계정생성 ㅣ Pro 회원가입", key="btn_go_reg_m"): 
-            st.session_state.show_reg = not st.session_state.show_reg
-    else:
-        st.info("✅ 접속 중: Authorized Pro Member")
-        if st.button("Logout", key="btn_logout_m"): st.session_state.logged_in = False; st.rerun()
+        if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
+            st.session_state.logged_in = True; st.rerun()
+        elif not valid.empty:
+            st.session_state.logged_in = True; st.rerun()
+        else: st.error("정보 확인 필요")
+    
+    if reg_btn:
+        st.session_state.show_reg = not st.session_state.show_reg
+        st.rerun()
+else:
+    # 로그인 후 상태도 깔끔하게 4등분 그리드에 맞춰 배치합니다.
+    l_c1, l_c2, l_c3, l_c4 = st.columns(4)
+    l_c1.info("✅ Authorized Pro Member")
+    if l_c2.button("Logout", key="btn_logout_m", use_container_width=True): 
+        st.session_state.logged_in = False; st.rerun()
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # 가입신청 섹션
 if st.session_state.show_reg and not st.session_state.logged_in:
@@ -138,9 +148,16 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             n_name = st.text_input("3. 이름", key="r_n_m")
             n_comp = st.text_input("4. Company", key="r_c_m")
             if st.button("가입신청", disabled=not (pw1==pw2 and n_name), key="r_fin_m"):
-                st.success("가입신청이 완료되었습니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0
-
-st.markdown("<br>", unsafe_allow_html=True)
+                try:
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    df_u = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=5)
+                    hashed_pw_register = hash_password(pw1)
+                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hashed_pw_register, "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
+                    updated = pd.concat([df_u, new_user], ignore_index=True)
+                    conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated)
+                    st.success("가입신청이 완료되었습니다."); st.session_state.show_reg = False; st.session_state.reg_stage = 0
+                except:
+                    st.error("가입 처리 중 오류가 발생했습니다.")
 
 # 권한 체크
 is_pro = st.session_state.logged_in
@@ -233,7 +250,6 @@ with st.container(border=True):
         v_te = st.slider("Energy Goal", 100, 250, 160, key="sl_te_m", label_visibility="collapsed")
     with t2:
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
-        # [요청 반영] C-rate 범위 0.1~10.0, 단위 0.1로 수정
         v_tc = st.slider("C-rate", 0.1, 10.0, 1.0, step=0.1, key="sl_tc_m", label_visibility="collapsed")
 
 # [5] Simulation Control & Analysis
@@ -248,18 +264,17 @@ with st.container(border=True):
             st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
             
     if run_clicked:
-        # C-rate에 따른 물리 현상 연산 엔진
+        # C-rate 연동 물리 현상
         ir_drop = 0.1 + (v_tc * 0.02)
         cell_v = max(0.1, v_volt - ir_drop)
         efficiency = max(0.5, 1.0 - (v_tc * 0.015))
         res_whkg = ((v_cap * (v_act/100) * cell_v) / 2.5) * efficiency
         life_cyc = int(v_life * (0.95 ** v_tc))
         
-        # [요청 반영] KST (한국 표준시) 적용
         kst_time = datetime.utcnow() + timedelta(hours=9)
         cur_time = kst_time.strftime("%H:%M:%S")
         
-        # dQ/dV 데이터 계산
+        # dQ/dV 가상 데이터 계산
         v_axis = np.linspace(2.0, 4.2, 150)
         dqdv = np.zeros_like(v_axis)
         peaks = [3.05, 3.45] if "Prussian" in cat_sel or "Altris" in cat_sel else ([3.75] if "Polyanion" in cat_sel or "NVPF" in cat_sel else [3.15])
@@ -278,12 +293,11 @@ with st.container(border=True):
         st.session_state.sim_result = log_data
         st.rerun()
 
-    # 과거 기록 복원 (드롭다운 자동 연동)
+    # 과거 기록 복원 및 결과/그래프 연동
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
         
-        # [요청 반영] 드롭다운에 핵심 수치 4가지 직관적 표시
         log_opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg | {h['Cell_V']} V | {h['Life(Cyc)']} Cyc" for h in st.session_state.history]
         
         sel_idx = st.selectbox("기록 선택", range(len(log_opts)), format_func=lambda x: log_opts[x], key="sel_hist_m", label_visibility="collapsed")
