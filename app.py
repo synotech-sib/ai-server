@@ -73,8 +73,10 @@ st.markdown("""
 # https://www.247connect.cloud/ko/%EA%B8%B0%EA%B3%84%EC%A0%81-%EC%9D%B8%EC%A1%B0-%EC%9D%B8%EA%B0%84/
 # -----------------------------------------------------------------------------
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
-URL_MATS  = "https://docs.google.com/spreadsheets/d/1_0PL3lJU5SvZYZXeF4sd5EYvAOormgDw/edit?usp=sharing"
-URL_PARAM = "https://docs.google.com/spreadsheets/d/1mUGyFRHq-JIMcfl0NFeWknfu7hZYVzWU/edit?usp=sharing"
+
+# 대표님께서 새로 주신 구글 시트 링크로 업데이트 완료!
+URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
+URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
