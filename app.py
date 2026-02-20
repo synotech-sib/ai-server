@@ -30,14 +30,14 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* ✅ 완벽한 중앙 정렬 및 최대 폭 강제 제어 (시선 집중 효과 복구 완료!) */
+    /* 완벽한 중앙 정렬 및 최대 폭 강제 제어 */
     [data-testid="stAppViewBlockContainer"] {
-        max-width: 1050px !important; /* 대형 모니터에서도 절대 이 폭을 넘지 않음 */
+        max-width: 1050px !important;
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
-        margin: 0 auto !important; /* 좌우 여백을 동일하게 주어 중앙에 배치 */
+        margin: 0 auto !important;
     }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
@@ -47,8 +47,8 @@ st.markdown("""
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
     div[data-testid="stMetricValue"] { font-size: 28px !important; color: #1A729A !important; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; }
-    
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
+    
     div[data-testid="stButton"] > button { height: 40px !important; background-color: #1A729A !important; color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: none !important; margin-top: 0px !important; }
     div[data-testid="stDownloadButton"] > button { height: 40px !important; background-color: #FFCA28 !important; color: #222 !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #E4B526 !important; margin-top: 0px !important; }
     div[data-testid="stDownloadButton"] > button:hover { background-color: #FFB300 !important; border: 1px solid #DDA010 !important; }
@@ -70,47 +70,45 @@ ADMIN_USERS = {
 ADMIN_PW = "synotech0773!"
 
 # -----------------------------------------------------------------------------
-# [클라우드 연동 URL 기본 설정]
+# [클라우드 연동 URL 통합 설정]
 # -----------------------------------------------------------------------------
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 
-# VIP 전용 데이터베이스 URL (Secrets 또는 Admin 설정에서 오버라이드 됨)
-ALTRIS_URL_MATS = st.session_state.get('alt_mats') or st.secrets.get("ALTRIS_URL_MATS", URL_MATS)
-ALTRIS_URL_USERS = st.session_state.get('alt_users') or st.secrets.get("ALTRIS_URL_USERS", URL_USERS)
-
 def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
 @st.cache_data(ttl=60)
-def load_cloud_data(url):
+def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=url)
-        df.columns = [str(c).split('(')[0].strip() for c in df.columns]
-        return df
+        df = conn.read(spreadsheet=url, worksheet=ws)
+        if df is not None and not df.empty:
+            df.columns = [str(c).split('(')[0].strip() for c in df.columns]
+            return df
+        return pd.DataFrame()
     except Exception: return pd.DataFrame()
 
-# 파라미터는 공용 사용
+# 파라미터 로드
 param_df = load_cloud_data(URL_PARAM)
 sys_params = param_df.set_index('Parameter_ID').to_dict('index') if not param_df.empty and 'Parameter_ID' in param_df.columns else {}
 def get_p(pid, prop, fallback): return float(sys_params[pid][prop]) if pid in sys_params else fallback
 
 def get_user_db():
-    if GSheetsConnection is None: return pd.DataFrame()
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        return conn.read(spreadsheet=URL_USERS, worksheet="Sheet1", ttl=5).astype(str)
-    except Exception: return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "Purpose", "RegDate"])
+    return load_cloud_data(URL_USERS, "Sheet1")
+
+# VIP 리스트 불러오기 (URL_USERS의 'VIPs' 탭 활용, 없으면 에러 무시)
+def get_vip_list():
+    df = load_cloud_data(URL_USERS, "VIPs")
+    if not df.empty and 'Company' in df.columns: return df['Company'].dropna().tolist()
+    return []
 
 # -----------------------------------------------------------------------------
 # ✉️ [이메일 발송 시스템] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    primary_email = "wschoi@synotech.co.kr"
-    alias_email = "synocore@synotech.co.kr"
-    app_password = None
+    primary_email = "wschoi@synotech.co.kr"; alias_email = "synocore@synotech.co.kr"; app_password = None
     try:
         if "EMAIL_PASSWORD" in st.secrets: app_password = st.secrets["EMAIL_PASSWORD"]
         elif "connections" in st.secrets and "gsheets" in st.secrets["connections"]: app_password = st.secrets["connections"]["gsheets"].get("EMAIL_PASSWORD")
@@ -141,15 +139,18 @@ def get_dqdv(cat_sel, v_tc, m_df=None):
         shifted_p = float(p) - (float(v_tc) * 0.015); dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
     return v_axis, dqdv
 
-def load_user_history(email, u_url):
+def load_user_history(email, workspace):
     if GSheetsConnection is None: return []
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        db_df = conn.read(spreadsheet=u_url, worksheet="myData", ttl=0)
+        db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
         if db_df.empty or 'Email' not in db_df.columns: return []
+        
+        # 본인 이메일과 현재 선택된 워크스페이스(격리 공간) 데이터만 불러옴
+        my_logs = db_df[(db_df['Email'] == email) & (db_df.get('Workspace', 'General') == workspace)]
         hist = []
-        for _, row in db_df[db_df['Email'] == email].iterrows():
-            row_dict = row.to_dict(); row_dict.pop('Email', None)
+        for _, row in my_logs.iterrows():
+            row_dict = row.to_dict(); row_dict.pop('Email', None); row_dict.pop('Workspace', None)
             try:
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'C-rate', 'Wh/kg', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
@@ -177,7 +178,7 @@ def create_pdf(data_list, title="Simulation Report"):
 # -----------------------------------------------------------------------------
 # 세션 상태 초기화
 # -----------------------------------------------------------------------------
-default_session_vars = { 'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "", 'history': [], 'sim_result': None, 'trigger_login': False, 'user_name': "", 'user_email': "", 'show_profile': False, 'is_vip': False }
+default_session_vars = { 'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "", 'history': [], 'sim_result': None, 'trigger_login': False, 'user_name': "", 'user_email': "", 'show_profile': False, 'is_admin': False, 'user_vip_name': None, 'workspace': 'General' }
 for key, value in default_session_vars.items():
     if key not in st.session_state: st.session_state[key] = value
 
@@ -196,19 +197,20 @@ with h_r:
         if login_btn or st.session_state.pop('trigger_login', False):
             df_u = get_user_db(); u_id_clean = u_id.strip().lower(); hashed_pw = hash_password(u_pw) if u_pw else ""
             
-            # ✅ 최고 관리자 로그인 로직 (최우석, 최서연)
+            # 관리자 및 일반/VIP 유저 판별
             if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_vip': True})
-                st.session_state.history = load_user_history(u_id_clean, ALTRIS_URL_USERS)
-                st.rerun()
+                st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'General'})
+                st.session_state.history = load_user_history(u_id_clean, 'General'); st.rerun()
             else:
                 valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                 if not valid.empty:
-                    # ✅ Altris 계정 식별 (VIP 라우팅 트리거)
-                    is_vip = u_id_clean.endswith("@altris.com")
-                    save_url = ALTRIS_URL_USERS if is_vip else URL_USERS
-                    st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'is_vip': is_vip, 'history': load_user_history(str(valid['Email'].values[0]), save_url)})
-                    st.rerun()
+                    # 도메인 추출하여 VIP 여부 확인 (예: abc@altris.com -> altris)
+                    domain = u_id_clean.split('@')[1].split('.')[0] if '@' in u_id_clean else ""
+                    vip_list = get_vip_list()
+                    user_vip = domain if domain in vip_list else None
+                    
+                    st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': u_id_clean, 'is_admin': False, 'user_vip_name': user_vip, 'workspace': 'General'})
+                    st.session_state.history = load_user_history(u_id_clean, 'General'); st.rerun()
                 else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         
         if reg_btn: st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
@@ -224,26 +226,51 @@ st.markdown("<br>", unsafe_allow_html=True)
 # -----------------------------------------------------------------------------
 # 👑 [최고 관리자 전용 대시보드]
 # -----------------------------------------------------------------------------
-if st.session_state.logged_in and st.session_state.user_email in ADMIN_USERS:
+if st.session_state.logged_in and st.session_state.is_admin:
     with st.container(border=True):
         st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
-        st.info("이 패널은 최고 관리자(최우석, 최서연)에게만 보입니다. 공용 구글 시트 DB 관리 및 VIP 전용 DB 연결을 제어할 수 있습니다.")
+        st.info("관리자는 통합 DB를 관리하고, 등록된 모든 VIP 기업의 전용 시뮬레이션 모드(탭)에 접근할 수 있습니다.")
         
         a1, a2, a3 = st.columns(3)
-        a1.link_button("👥 회원 관리 DB (Users) 열기", URL_USERS, use_container_width=True)
-        a2.link_button("🔋 공용 소재 DB (Materials) 열기", URL_MATS, use_container_width=True)
-        a3.link_button("⚙️ 보정 계수 DB (Parameters) 열기", URL_PARAM, use_container_width=True)
+        a1.link_button("👥 통합 회원/로그 DB 열기", URL_USERS, use_container_width=True)
+        a2.link_button("🔋 통합 소재 DB 열기 (탭 분리형)", URL_MATS, use_container_width=True)
+        a3.link_button("⚙️ 보정 계수 DB 열기", URL_PARAM, use_container_width=True)
         
         st.markdown("---")
-        st.markdown('<p class="sub-header-bold">🔒 VIP (Altris) 전용 DB 라우팅 관리</p>', unsafe_allow_html=True)
-        st.caption("새로운 Altris 구글 시트 링크를 아래에 입력하고 적용하면, Altris 직원이 로그인 시 이 DB로 완벽히 격리되어 데이터를 저장/열람합니다.")
-        c_v1, c_v2 = st.columns(2)
-        vip_mats = c_v1.text_input("Altris 전용 소재(Materials) 시트 URL", st.session_state.get('alt_mats', ''))
-        vip_users = c_v2.text_input("Altris 전용 유저저장(Users) 시트 URL", st.session_state.get('alt_users', ''))
-        if st.button("🔗 VIP DB 링크 임시 적용 (현재 세션 테스트용)", use_container_width=True):
-            st.session_state['alt_mats'] = vip_mats
-            st.session_state['alt_users'] = vip_users
-            st.success("적용되었습니다. (실제 서비스 반영을 위해서는 Streamlit Secrets에 코드를 기입해야 영구 적용됩니다.)")
+        st.markdown('<p class="sub-header-bold">🔒 워크스페이스 전환 (관리자 권한)</p>', unsafe_allow_html=True)
+        st.caption("아래 목록에 표시되는 VIP 회사는 Users 시트의 'VIPs' 탭에 등록된 영문 회사명들입니다. 해당 회사명을 클릭하면 Materials 시트에 동일한 이름으로 생성해둔 전용 탭(Worksheet)을 불러옵니다.")
+        
+        vip_opts = ["General (일반 공용)"] + get_vip_list()
+        sel_ws = st.selectbox("접속할 워크스페이스 선택", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
+        
+        if sel_ws != st.session_state.workspace:
+            st.session_state.workspace = sel_ws
+            st.session_state.history = load_user_history(st.session_state.user_email, sel_ws)
+            st.rerun()
+
+# -----------------------------------------------------------------------------
+# 🏢 [VIP 유저 전용 워크스페이스 선택]
+# -----------------------------------------------------------------------------
+if st.session_state.logged_in and st.session_state.user_vip_name and not st.session_state.is_admin:
+    with st.container(border=True):
+        st.markdown(f'<p class="sub-header-bold" style="color:#00509E;">🏢 {st.session_state.user_vip_name.upper()} 전용 워크스페이스</p>', unsafe_allow_html=True)
+        st.caption("귀하는 VIP 파트너로 등록되어 있습니다. 일반 시뮬레이션을 진행할지, 자사의 극비 소재가 포함된 전용 DB에 접속할지 선택해주세요.")
+        
+        mode_opts = ["General (일반 공용 모드)", f"{st.session_state.user_vip_name} 전용 모드"]
+        sel_mode = st.radio("시뮬레이션 환경 선택", mode_opts, index=1 if st.session_state.workspace == st.session_state.user_vip_name else 0, horizontal=True)
+        
+        new_ws = "General" if "General" in sel_mode else st.session_state.user_vip_name
+        if new_ws != st.session_state.workspace:
+            st.session_state.workspace = new_ws
+            st.session_state.history = load_user_history(st.session_state.user_email, new_ws)
+            st.rerun()
+
+# 워크스페이스에 따른 소재 데이터 로드 (탭 지정)
+ws_tab = "Sheet1" if st.session_state.workspace == "General" else st.session_state.workspace
+mat_df = load_cloud_data(URL_MATS, ws_tab)
+
+if mat_df.empty and st.session_state.workspace != "General":
+    st.error(f"🚨 관리자 알림: Materials 스프레드시트 내에 '{ws_tab}' 이라는 이름의 탭(Worksheet)이 존재하지 않아 데이터를 불러올 수 없습니다. 탭을 생성해주세요!")
 
 # -----------------------------------------------------------------------------
 # [계정 신청 및 법적 고지]
@@ -257,10 +284,10 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 if not e_in or "@" not in e_in: st.error("올바른 이메일 주소를 입력해주세요.")
                 else:
                     v_code = str(random.randint(100000, 999999))
-                    with st.spinner("📧 SynoCore에서 인증 메일을 발송 중입니다... (최대 10초 소요)"):
+                    with st.spinner("📧 SynoCore에서 인증 메일을 발송 중입니다..."):
                         if send_verification_email(e_in, v_code): st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
         elif st.session_state.reg_stage == 1:
-            st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다. 메일함을 확인해주세요.")
+            st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
             v_in = st.text_input("인증번호 6자리 입력")
             if st.button("인증 확인"):
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
@@ -293,37 +320,26 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 except Exception as e: st.error(f"회원 가입 처리 중 오류가 발생했습니다: {e}")
 
 # -----------------------------------------------------------------------------
-# [시뮬레이션 모드 선택 (VIP 전용 라우팅)]
-# -----------------------------------------------------------------------------
-is_pro = st.session_state.logged_in
-active_url_mats = URL_MATS
-active_url_users = ALTRIS_URL_USERS if st.session_state.get('is_vip') else URL_USERS
-
-if is_pro and st.session_state.get('is_vip'):
-    with st.container(border=True):
-        st.markdown('<p class="sub-header-bold" style="color:#00509E;">🏢 VIP 전용 워크스페이스 (Altris)</p>', unsafe_allow_html=True)
-        vip_mode = st.radio("시뮬레이션 환경 선택", ["일반 모드 (공용 소재 사용)", "Altris 전용 모드 (당사 극비 소재 사용)"], horizontal=True, label_visibility="collapsed")
-        if "Altris" in vip_mode: active_url_mats = ALTRIS_URL_MATS
-        else: active_url_mats = URL_MATS
-        st.caption("※ 어느 모드를 선택하든, 생성된 시뮬레이션 결과와 사용자 데이터는 귀사의 **격리망(Private DB)에만 안전하게 저장**됩니다.")
-
-# 데이터 로드 (선택된 DB에서)
-mat_df = load_cloud_data(active_url_mats)
-
-# -----------------------------------------------------------------------------
 # 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
+is_pro = st.session_state.logged_in
+
 with st.container(border=True):
-    st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
-    sp1, c_1 = st.columns([0.03, 0.97])
+    ws_badge = f" [Workspace: {st.session_state.workspace}]" if is_pro else ""
+    st.markdown(f'<p class="main-header">1. Material Selection <span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
+    sp1, c_1 = st.columns([0.01, 0.99])
     with c_1:
         m1, m2, m3, m4 = st.columns(4)
         if not mat_df.empty and 'Category' in mat_df.columns:
             cat_list = mat_df[mat_df['Category']=='Cathode']['Name'].tolist()
+            ano_list = mat_df[mat_df['Category']=='Anode']['Name'].tolist()
+            ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
+            sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
+            
             cat_sel = m1.selectbox("Cathode", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
-            ano_sel = m2.selectbox("Anode", mat_df[mat_df['Category']=='Anode']['Name'].tolist() if not mat_df.empty else ["Sample Anode"], key="sel_ano_m")
-            m3.selectbox("Electrolyte", mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist() if not mat_df.empty else ["Sample Elec"], key="sel_ele_m")
-            m4.selectbox("Separator", mat_df[mat_df['Category']=='Separator']['Name'].tolist() if not mat_df.empty else ["Sample Sep"], key="sel_sep_m")
+            ano_sel = m2.selectbox("Anode", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
+            m3.selectbox("Electrolyte", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
+            m4.selectbox("Separator", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
             
             row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
             def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
@@ -338,7 +354,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
-    sp2, c_2 = st.columns([0.03, 0.97])
+    sp2, c_2 = st.columns([0.01, 0.99])
     with c_2:
         expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
         s1, s2, s3, s4 = st.columns(4)
@@ -350,7 +366,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
-    sp3, c_3 = st.columns([0.03, 0.97])
+    sp3, c_3 = st.columns([0.01, 0.99])
     with c_3:
         show_adv = True if is_pro else st.checkbox("세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]", key="chk_adv_m", disabled=True)
         p1, p2, p3 = st.columns(3)
@@ -371,7 +387,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown('<p class="main-header">4. Target Settings</p>', unsafe_allow_html=True)
-    sp4, c_4 = st.columns([0.03, 0.97])
+    sp4, c_4 = st.columns([0.01, 0.99])
     with c_4:
         t1, t2 = st.columns(2)
         with t1: v_te = st.slider("Energy Goal (Wh/kg)", 100, 250, 160, label_visibility="collapsed")
@@ -380,7 +396,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
-    sp5, c_5 = st.columns([0.03, 0.97])
+    sp5, c_5 = st.columns([0.01, 0.99])
     with c_5:
         col_btn, col_msg = st.columns([1, 3])
         with col_btn:
@@ -426,40 +442,41 @@ with st.container(border=True):
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.history:
     with st.container(border=True):
-        st.markdown('<p class="main-header">6. Data Management & Export (Pro)</p>', unsafe_allow_html=True)
-        sp6, c_6 = st.columns([0.03, 0.97])
+        st.markdown(f'<p class="main-header">6. Data Management & Export ({st.session_state.workspace})</p>', unsafe_allow_html=True)
+        sp6, c_6 = st.columns([0.01, 0.99])
         with c_6:
             r1_c1, r1_c2 = st.columns(2)
             
-            # [저장 기능] -> 라우팅된 active_url_users에 저장
+            # ✅ 격리된 워크스페이스에 꼬리표를 달아 안전하게 저장
             if r1_c1.button("💾 내 계정에 저장하기", key="btn_save_my", use_container_width=True):
                 try:
-                    conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=active_url_users, worksheet="myData", ttl=0)
+                    conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
                     is_duplicate = False
-                    if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
-                        if not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])].empty: is_duplicate = True
+                    if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns and 'Workspace' in db_df.columns:
+                        if not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time']) & (db_df['Workspace'] == st.session_state.workspace)].empty: 
+                            is_duplicate = True
                             
                     if not is_duplicate:
-                        save_record = res.copy(); save_record['Email'] = st.session_state.user_email
+                        save_record = res.copy(); save_record['Email'] = st.session_state.user_email; save_record['Workspace'] = st.session_state.workspace
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
-                        _ = conn.update(spreadsheet=active_url_users, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
+                        _ = conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
                     if is_duplicate: st.warning("이미 저장된 결과와 중복되는 부분을 제외 하고 저장하였습니다.")
-                    else: st.success("내 계정에 성공적으로 저장되었습니다.")
+                    else: st.success(f"{st.session_state.workspace} 데이터베이스에 성공적으로 저장되었습니다.")
                 except Exception as e: st.error(f"저장 오류: {e}")
 
-            # ✅ [삭제 기능 신설] -> 라우팅된 DB에서 본인 데이터만 선별적 삭제
+            # ✅ 본인 데이터 완전히 삭제 기능
             if r1_c2.button("🗑️ 현재 기록 완전히 삭제", key="btn_del_my", use_container_width=True):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
-                    db_df = conn.read(spreadsheet=active_url_users, worksheet="myData", ttl=0)
+                    db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
                     if not db_df.empty:
-                        # 본인의 이메일과 현재 선택된 Time이 일치하는 데이터만 제외(삭제)하고 덮어씀
-                        new_df = db_df[~((db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time']))]
-                        _ = conn.update(spreadsheet=active_url_users, worksheet="myData", data=new_df)
+                        # 본인 이메일 + 현재 시간 + 현재 워크스페이스가 일치하는 데이터만 제외
+                        new_df = db_df[~((db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time']) & (db_df.get('Workspace', 'General') == st.session_state.workspace))]
+                        _ = conn.update(spreadsheet=URL_USERS, worksheet="myData", data=new_df)
                         
                         st.session_state.history = [h for h in st.session_state.history if h['Time'] != res['Time']]
-                        st.success("클라우드에서 해당 기록이 완전히 삭제되었습니다.")
+                        st.success("클라우드에서 해당 기록이 영구적으로 삭제되었습니다.")
                         st.rerun()
                 except Exception as e: st.error(f"삭제 중 오류가 발생했습니다: {e}")
             
@@ -470,16 +487,17 @@ if is_pro and st.session_state.history:
             buffer = io.BytesIO()
             try:
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df_export.to_excel(writer, index=False, sheet_name='Logs')
-                f_data = buffer.getvalue(); f_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"; m_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                f_data = buffer.getvalue(); f_name = f"SynoCore_{st.session_state.workspace}_Logs_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"; m_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             except ImportError:
-                f_data = df_export.to_csv(index=False).encode('utf-8-sig'); f_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv"; m_type = "text/csv"
+                f_data = df_export.to_csv(index=False).encode('utf-8-sig'); f_name = f"SynoCore_{st.session_state.workspace}_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv"; m_type = "text/csv"
 
             r2_c1.download_button(label="📥 내 기록 엑셀 다운로드", data=f_data, file_name=f_name, mime=m_type, use_container_width=True)
 
             if FPDF is not None:
-                r2_c2.download_button(label="📄 선택 항목 PDF 출력", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf", use_container_width=True)
-                r2_c3.download_button(label="📑 전체 이력 PDF 출력", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf", use_container_width=True)
+                r2_c2.download_button(label="📄 선택 항목 PDF 출력", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_{st.session_state.workspace}_{res['Time'].replace(':','')}.pdf", mime="application/pdf", use_container_width=True)
+                r2_c3.download_button(label="📑 전체 이력 PDF 출력", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name=f"SynoCore_{st.session_state.workspace}_All_Logs.pdf", mime="application/pdf", use_container_width=True)
             else:
                 r2_c2.warning("PDF 모듈 필요"); r2_c3.warning("PDF 모듈 필요")
 
+# 7. 푸터 (저작권 표시)
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
