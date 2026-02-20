@@ -30,7 +30,6 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* ✅ 1. 기본 여백 설정 (모바일/작은 화면에서는 100% 꽉 차게 동작) */
     .main .block-container {
         max-width: 100% !important;
         padding-top: 2rem !important;
@@ -38,7 +37,6 @@ st.markdown("""
         margin: 0 auto !important; 
     }
     
-    /* ✅ 2. 노트북 및 대형 모니터 (화면 폭 1024px 이상)에서는 정확히 70% 폭으로 중앙 집중! */
     @media screen and (min-width: 1024px) {
         .main .block-container {
             max-width: 70% !important;
@@ -55,14 +53,12 @@ st.markdown("""
     
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
-    /* 일반 버튼 (시노블루) */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; 
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* 파일 다운로드/출력 버튼 (윈도우 폴더 색상) */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; 
@@ -83,6 +79,9 @@ st.markdown("""
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
+    
+    /* 관리자 패널 전용 스타일 */
+    .admin-panel { background-color: #fff3cd !important; border: 2px solid #ffe69c !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -125,8 +124,6 @@ def get_user_db():
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 
-# -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     primary_email = "wschoi@synotech.co.kr"
     alias_email = "synocore@synotech.co.kr"
@@ -151,20 +148,8 @@ def send_verification_email(to_email, code):
         msg['From'] = f"SynoCore <{alias_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입을 위한 인증번호가 발급되었습니다."
-
-        body = f"""안녕하세요. 시노텍(SynoTech) 차세대 배터리 설계 플랫폼 SynoCore입니다.
-
-SynoCore Pro 서비스 이용을 위한 회원가입 인증번호를 안내해 드립니다.
-
-■ 인증번호 : {code}
-
-본 메일은 발신 전용이며, 인증번호는 1회에 한해 유효합니다.
-감사합니다.
-
-ⓒ SynoTech All rights reserved.
-"""
+        body = f"안녕하세요. 시노텍(SynoTech) 차세대 배터리 설계 플랫폼 SynoCore입니다.\n\nSynoCore Pro 서비스 이용을 위한 회원가입 인증번호를 안내해 드립니다.\n\n■ 인증번호 : {code}\n\n본 메일은 발신 전용이며, 인증번호는 1회에 한해 유효합니다.\n감사합니다.\n\nⓒ SynoTech All rights reserved."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(primary_email, app_password)
@@ -181,7 +166,6 @@ def get_dqdv(cat_sel, v_tc):
     dqdv = np.zeros_like(v_axis)
     
     p1, p2 = 3.15, 0.0 
-    
     if not mat_df.empty and 'Name' in mat_df.columns:
         mat_row = mat_df[mat_df['Name'] == cat_sel]
         if not mat_row.empty:
@@ -201,7 +185,6 @@ def get_dqdv(cat_sel, v_tc):
     for p in peaks:
         shifted_p = float(p) - (float(v_tc) * 0.015) 
         dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
-        
     return v_axis, dqdv
 
 def load_user_history(email):
@@ -210,7 +193,6 @@ def load_user_history(email):
         conn = st.connection("gsheets", type=GSheetsConnection)
         db_df = conn.read(spreadsheet=URL_USERS, worksheet="myData", ttl=0)
         if db_df.empty or 'Email' not in db_df.columns: return []
-        
         my_logs = db_df[db_df['Email'] == email]
         hist = []
         for _, row in my_logs.iterrows():
@@ -221,7 +203,6 @@ def load_user_history(email):
                     row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
             except: pass
-            
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0))
             row_dict['dq_x'], row_dict['dq_y'] = v_x, v_y
             hist.append(row_dict)
@@ -234,13 +215,10 @@ def create_pdf(data_list, title="Simulation Report"):
     pdf.add_page(); pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, title, ln=True, align="C"); pdf.set_font("Arial", "", 10)
     pdf.cell(0, 10, f"Generated: {(datetime.utcnow() + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)", ln=True, align="R"); pdf.ln(5)
-
     if not data_list:
         pdf.cell(0, 10, "No data available.", ln=True); return pdf.output(dest="S").encode("latin-1")
-
     headers = ["Time", "Cathode", "Cap(mAh)", "Volt(V)", "Active(%)", "C-rate", "Wh/kg", "Cell_V", "Life"]
     col_widths = [25, 60, 25, 20, 25, 20, 25, 25, 25]
-    
     pdf.set_font("Arial", "B", 10)
     for i, head in enumerate(headers): pdf.cell(col_widths[i], 10, head, border=1, align="C")
     pdf.ln(); pdf.set_font("Arial", "", 10)
@@ -266,7 +244,7 @@ for key, value in default_session_vars.items():
 def process_login(): st.session_state.trigger_login = True
 
 # -----------------------------------------------------------------------------
-# 4. 상단 헤더 및 로그인 모듈 (비율/워터마크 완벽 유지)
+# 4. 상단 헤더 및 로그인 모듈
 # -----------------------------------------------------------------------------
 h_l, h_r = st.columns([1, 1])
 
@@ -289,8 +267,9 @@ with h_r:
             hashed_pw = hash_password(u_pw) if u_pw else ""
             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
             
+            # ✅ 수정: 관리자 권한 로그인 시 '대표' 제외하고 '최우석'으로만 설정
             if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                st.session_state.update({'logged_in': True, 'user_name': "최우석 대표", 'user_email': u_id_clean, 'history': load_user_history(u_id_clean)}); st.rerun()
+                st.session_state.update({'logged_in': True, 'user_name': "최우석", 'user_email': u_id_clean, 'history': load_user_history(u_id_clean)}); st.rerun()
             elif not valid.empty:
                 st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'history': load_user_history(str(valid['Email'].values[0]))}); st.rerun()
             else: st.error("아이디 또는 비밀번호를 확인해주세요.")
@@ -305,6 +284,20 @@ with h_r:
             st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# 👑 [최고 관리자 전용 대시보드]
+# -----------------------------------------------------------------------------
+if st.session_state.logged_in and st.session_state.user_email == "wschoi@synotech.co.kr":
+    with st.container(border=True):
+        st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+        st.info("이 패널은 최고 관리자(최우석)에게만 보입니다. 아래 버튼을 클릭하여 구글 시트 DB를 직접 관리하고 보정 계수를 즉시 업데이트할 수 있습니다.")
+        
+        a1, a2, a3 = st.columns(3)
+        a1.link_button("👥 회원 관리 DB (Users) 열기", URL_USERS, use_container_width=True)
+        a2.link_button("🔋 소재 데이터 DB (Materials) 열기", URL_MATS, use_container_width=True)
+        a3.link_button("⚙️ 보정 계수 DB (Parameters) 열기", URL_PARAM, use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # [계정 신청 및 법적 고지]
@@ -395,7 +388,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
 if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
-        if st.session_state.user_email == "wschoi@synotech.co.kr": st.info("관리자(Admin) 마스터 계정은 시트 수정 대상이 아닙니다.")
+        if st.session_state.user_email == "wschoi@synotech.co.kr": st.info("관리자(Admin) 계정의 정보 변경은 시트에서 직접 수행해야 합니다.")
         else:
             df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u[df_u['Email'] == st.session_state.user_email].empty else {}
             st.markdown(f"**이메일(ID):** {st.session_state.user_email} (변경 불가)")
