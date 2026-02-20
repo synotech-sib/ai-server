@@ -48,7 +48,7 @@ st.markdown("""
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #003366; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
-    /* [요청 반영] 사용자 환영 메시지 텍스트 디자인 (박스 제거, 우측 정렬 및 높이 동기화) */
+    /* 사용자 환영 메시지 텍스트 디자인 (박스 제거, 우측 정렬 및 높이 동기화) */
     .user-greeting {
         color: #003366; font-weight: bold; height: 44px; 
         display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px;
@@ -63,7 +63,7 @@ def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
 # -----------------------------------------------------------------------------
-# 2. 세션 상태 초기화 (AttributeError 완벽 차단)
+# 2. 세션 상태 초기화
 # -----------------------------------------------------------------------------
 default_session_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0,
@@ -132,8 +132,17 @@ with h_r:
                 st.rerun()
             elif not valid.empty:
                 st.session_state.logged_in = True
-                st.session_state.user_name = valid.iloc[0].get('Name', '사용자')
-                st.session_state.user_email = valid.iloc[0].get('Email', '')
+                # [강화된 추출 로직] 실제 이름을 가장 안전하게 가져옵니다.
+                if 'Name' in valid.columns and str(valid['Name'].values[0]).strip() != "":
+                    st.session_state.user_name = str(valid['Name'].values[0])
+                else:
+                    st.session_state.user_name = "회원"
+                
+                # 이메일 세션 저장
+                if 'Email' in valid.columns:
+                    st.session_state.user_email = str(valid['Email'].values[0])
+                else:
+                    st.session_state.user_email = u_id_clean
                 st.rerun()
             else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         
@@ -142,9 +151,9 @@ with h_r:
             st.session_state.show_profile = False
             st.rerun()
     else:
-        # [요청 반영] 박스와 아이콘 제거하고 "이름 (Pro)" 형태로 심플하게 표시
+        # 로그인 후 우측 정렬된 텍스트와 버튼
         r_name, r_my, r_out = st.columns([2, 1, 1])
-        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} 님 (Pro)</div>', unsafe_allow_html=True)
         
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True):
             st.session_state.show_profile = not st.session_state.show_profile
@@ -339,7 +348,6 @@ with st.container(border=True):
             st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
             
     if run_clicked:
-        # C-rate 연동 물리 현상
         ir_drop = 0.1 + (v_tc * 0.02)
         cell_v = max(0.1, v_volt - ir_drop)
         efficiency = max(0.5, 1.0 - (v_tc * 0.015))
@@ -349,7 +357,6 @@ with st.container(border=True):
         kst_time = datetime.utcnow() + timedelta(hours=9)
         cur_time = kst_time.strftime("%H:%M:%S")
         
-        # dQ/dV 가상 데이터 계산
         v_axis = np.linspace(2.0, 4.2, 150)
         dqdv = np.zeros_like(v_axis)
         peaks = [3.05, 3.45] if "Prussian" in cat_sel or "Altris" in cat_sel else ([3.75] if "Polyanion" in cat_sel or "NVPF" in cat_sel else [3.15])
@@ -368,7 +375,7 @@ with st.container(border=True):
         st.session_state.sim_result = log_data
         st.rerun()
 
-    # 과거 기록 복원 및 결과/그래프 연동
+    # 과거 기록 복원
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
