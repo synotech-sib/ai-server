@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import os
 import hashlib
@@ -22,6 +22,12 @@ st.markdown("""
     .header-container { display: flex; align-items: center; justify-content: flex-start; }
     .syno-title { color: #003366; font-size: 38px; font-weight: 900; margin-right: 15px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 8px; }
+    
+    /* 메트릭(결과값) 카드 및 폰트 사이즈 조정 */
+    div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
+    div[data-testid="stMetricValue"] { font-size: 28px !important; color: #003366 !important; } /* 기본보다 한 단계 축소 및 색상 적용 */
+    div[data-testid="stMetricDelta"] { font-size: 14px !important; }
+    
     div[data-testid="stButton"] > button {
         height: 48px !important; background-color: #003366 !important;
         color: white !important; font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important;
@@ -165,19 +171,17 @@ with st.container(border=True):
         cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [2] Material Specs (Capacity/Voltage 노출 및 조작, 나머지는 노출되나 흐림처리 잠금)
+# [2] Material Specs
 with st.container(border=True):
     st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
     
-    exp_label = "🔓 물성 직접 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 물성 직접 수정 활성화"
+    exp_label = "🔓 밀도 및 수명 등 세부 물성 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔓 세부 물성 수정 활성화"
     expert = st.checkbox(exp_label, key="chk_exp_m", disabled=not is_pro)
     
     s1, s2, s3, s4 = st.columns(4)
-    # Cap과 Volt는 무조건 열어둠 (흐림 X, 조작 O)
     v_cap_in = s1.slider("Capacity (mAh/g)", 100.0, 220.0, float(c_cap_i), key=f"cap_{cat_sel}")
     v_volt_in = s2.slider("Voltage (V)", 2.5, 4.5, float(c_volt_i), key=f"volt_{cat_sel}")
     
-    # Dens와 Life는 상시 노출하되, Pro/Expert 아니면 비활성화 (흐림 O, 조작 X)
     v_dens_in = s3.slider("Density (g/cc)", 1.5, 4.0, float(c_dens_i), key=f"dens_{cat_sel}", disabled=not expert)
     v_life_in = s4.slider("Base Life (Cycles)", 500, 10000, int(c_life_i), key=f"life_{cat_sel}", disabled=not expert)
     
@@ -187,39 +191,32 @@ with st.container(border=True):
     v_life = v_life_in if expert else c_life_i
     st.markdown("<br>", unsafe_allow_html=True)
 
-# [3] Process Parameters (모두 노출하되, 윗줄 3개만 조작 가능. 나머지는 흐림처리 잠금)
+# [3] Process Parameters
 with st.container(border=True):
     st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
     
-    # [요청 반영] 문구 변경
     adv_label = "🔍 세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]" if not is_pro else "🔍 세부 파라미터 수정 활성화"
     show_adv = st.checkbox(adv_label, key="chk_adv_m", disabled=not is_pro)
     
     p1, p2, p3 = st.columns(3)
     with p1:
         st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-        # 윗줄: 항상 열어둠
         v_load_in = st.slider("Loading (mg/cm2)", 5.0, 45.0, float(c_load_i), key=f"load_{cat_sel}")
-        # 아랫줄들: 노출은 하되 활성화 체크 여부(show_adv)에 따라 흐림처리
         st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m", disabled=not show_adv)
         st.slider("Conductive Agent %", 0.5, 5.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
         st.slider("Binder %", 0.5, 5.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
-        v_load = v_load_in # 계산용 (현재 로직상 항상 입력값 반영)
+        v_load = v_load_in
 
     with p2:
         st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
-        # 윗줄: 항상 열어둠
         v_np_in = st.slider("N/P Ratio", 1.0, 1.5, 1.15, key="sl_np_m")
-        # 아랫줄들: 흐림처리
         st.slider("Anode Press Density", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
         st.slider("Anode Active %", 90.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
         v_np = v_np_in
 
     with p3:
         st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
-        # 윗줄: 항상 열어둠
         v_act_in = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sl_act_m")
-        # 아랫줄들: 흐림처리
         st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
         st.slider("Separator Thick (μm)", 12, 30, 16, key="ad_sep_m", disabled=not show_adv)
         v_act = v_act_in
@@ -236,9 +233,10 @@ with st.container(border=True):
         v_te = st.slider("Energy Goal", 100, 250, 160, key="sl_te_m", label_visibility="collapsed")
     with t2:
         st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
-        v_tc = st.slider("C-rate", 0.1, 20.0, 1.0, key="sl_tc_m", label_visibility="collapsed")
+        # [요청 반영] C-rate 범위 0.1~10.0, 단위 0.1로 수정
+        v_tc = st.slider("C-rate", 0.1, 10.0, 1.0, step=0.1, key="sl_tc_m", label_visibility="collapsed")
 
-# [5] Simulation Control & Analysis 
+# [5] Simulation Control & Analysis
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
     
@@ -250,33 +248,43 @@ with st.container(border=True):
             st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
             
     if run_clicked:
-        res_whkg = (v_cap * (v_act/100) * (v_volt - 0.1)) / 2.5
-        cell_v = v_volt - 0.1
-        cur_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # C-rate에 따른 물리 현상 연산 엔진
+        ir_drop = 0.1 + (v_tc * 0.02)
+        cell_v = max(0.1, v_volt - ir_drop)
+        efficiency = max(0.5, 1.0 - (v_tc * 0.015))
+        res_whkg = ((v_cap * (v_act/100) * cell_v) / 2.5) * efficiency
+        life_cyc = int(v_life * (0.95 ** v_tc))
         
-        # dQ/dV 가상 데이터 계산 로직
+        # [요청 반영] KST (한국 표준시) 적용
+        kst_time = datetime.utcnow() + timedelta(hours=9)
+        cur_time = kst_time.strftime("%H:%M:%S")
+        
+        # dQ/dV 데이터 계산
         v_axis = np.linspace(2.0, 4.2, 150)
         dqdv = np.zeros_like(v_axis)
         peaks = [3.05, 3.45] if "Prussian" in cat_sel or "Altris" in cat_sel else ([3.75] if "Polyanion" in cat_sel or "NVPF" in cat_sel else [3.15])
         for p in peaks:
-            dqdv += np.exp(-(v_axis - p)**2 / (2 * 0.05**2)) * 15
+            shifted_p = p - (v_tc * 0.015) 
+            dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
         
         log_data = {
             "Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel,
             "Cap(mAh/g)": v_cap, "Volt(V)": v_volt, "Load(mg)": v_load,
             "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc,
-            "Wh/kg": round(res_whkg, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": v_life,
+            "Wh/kg": round(res_whkg, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": life_cyc,
             "dq_x": v_axis, "dq_y": dqdv
         }
         st.session_state.history.insert(0, log_data)
         st.session_state.sim_result = log_data
         st.rerun()
 
-    # 과거 기록 복원 (드롭다운 자동 연동) 및 결과/그래프 출력
+    # 과거 기록 복원 (드롭다운 자동 연동)
     if st.session_state.history:
         st.markdown("---")
         st.markdown('<p class="sub-header-bold">🔍 과거 기록 불러오기 (선택 시 아래 결과가 즉시 변경됩니다)</p>', unsafe_allow_html=True)
-        log_opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg" for h in st.session_state.history]
+        
+        # [요청 반영] 드롭다운에 핵심 수치 4가지 직관적 표시
+        log_opts = [f"[{h['Time']}] {h['Cathode']} | {h['Wh/kg']} Wh/kg | {h['Cell_V']} V | {h['Life(Cyc)']} Cyc" for h in st.session_state.history]
         
         sel_idx = st.selectbox("기록 선택", range(len(log_opts)), format_func=lambda x: log_opts[x], key="sel_hist_m", label_visibility="collapsed")
         res = st.session_state.history[sel_idx]
