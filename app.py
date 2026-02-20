@@ -79,7 +79,6 @@ URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# 3개의 시트를 공통으로 불러오는 스마트 캐싱 함수
 @st.cache_data(ttl=60)
 def load_cloud_data(url):
     if GSheetsConnection is None: return pd.DataFrame()
@@ -169,7 +168,6 @@ for key, value in default_session_vars.items():
 
 def process_login(): st.session_state.trigger_login = True
 
-# 시트 데이터 실시간 로드
 mat_df = load_cloud_data(URL_MATS)
 param_df = load_cloud_data(URL_PARAM)
 
@@ -286,11 +284,13 @@ with st.container(border=True):
             m4.selectbox("Separator", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
             
             row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
+            
+            # 엑셀 데이터 파싱 (안전장치 포함)
             def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
             def_vlt_min, def_vlt_max, def_vlt_val = float(row.get('Volt_Min', 2.0)), float(row.get('Volt_Max', 4.5)), float(row.get('Volt_Def', 3.05))
             def_den_min, def_den_max, def_den_val = float(row.get('Den_Min', 1.0)), float(row.get('Den_Max', 4.5)), float(row.get('Den_Def', 2.2))
             def_lif_min, def_lif_max, def_lif_val = int(row.get('Life_Min', 500)), int(row.get('Life_Max', 10000)), int(row.get('Life_Def', 4000))
-            def_lod_val = float(row.get('Load_Def', 14.0))
+            def_lod_min, def_lod_max, def_lod_val = float(row.get('Load_Min', 5.0)), float(row.get('Load_Max', 45.0)), float(row.get('Load_Def', 14.0))
         else:
             st.warning("Cloud에서 소재 리스트를 불러오지 못했습니다. (기본값 작동)")
             cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
@@ -298,7 +298,7 @@ with st.container(border=True):
             def_vlt_min, def_vlt_max, def_vlt_val = 2.0, 4.5, 3.05
             def_den_min, def_den_max, def_den_val = 1.0, 4.0, 2.2
             def_lif_min, def_lif_max, def_lif_val = 500, 10000, 4000
-            def_lod_val = 14.0
+            def_lod_min, def_lod_max, def_lod_val = 5.0, 45.0, 14.0
         st.markdown("<br>", unsafe_allow_html=True)
 
 with st.container(border=True):
@@ -308,10 +308,12 @@ with st.container(border=True):
         expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
         
         s1, s2, s3, s4 = st.columns(4)
-        v_cap_in = s1.slider("Capacity (mAh/g)", def_cap_min, def_cap_max, def_cap_val, key=f"cap_{cat_sel}")
-        v_volt_in = s2.slider("Voltage (V)", def_vlt_min, def_vlt_max, def_vlt_val, key=f"volt_{cat_sel}")
-        v_dens_in = s3.slider("Density (g/cc)", def_den_min, def_den_max, def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
-        v_life_in = s4.slider("Base Life (Cycles)", def_lif_min, def_lif_max, def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
+        
+        # [대안 1 적용] min_value와 max_value를 엑셀의 Min/Max 구간으로 원천 고정
+        v_cap_in = s1.slider("Capacity (mAh/g)", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
+        v_volt_in = s2.slider("Voltage (V)", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
+        v_dens_in = s3.slider("Density (g/cc)", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
+        v_life_in = s4.slider("Base Life (Cycles)", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
         
         v_cap, v_volt = v_cap_in, v_volt_in
         v_dens = v_dens_in if expert else def_den_val
@@ -327,10 +329,11 @@ with st.container(border=True):
         p1, p2, p3 = st.columns(3)
         with p1:
             st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-            v_load_in = st.slider("Loading (mg/cm2)", 5.0, 45.0, def_lod_val, key=f"load_{cat_sel}")
+            # [대안 1 적용] Loading 항목도 엑셀의 Min/Max로 원천 고정
+            v_load_in = st.slider("Loading (mg/cm2)", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
             st.slider("Cathode Press Density", 1.5, 3.5, 2.5, key="ad_c_den_m", disabled=not show_adv)
-            st.slider("Conductive Agent %", get_p('cat_conductive', 'Min', 0.5), get_p('cat_conductive', 'Max', 10.0), get_p('cat_conductive', 'Default', 2.0), step=get_p('cat_conductive', 'Step', 0.1), key="ad_c_con_m", disabled=not show_adv)
-            st.slider("Binder %", get_p('cat_binder', 'Min', 0.5), get_p('cat_binder', 'Max', 10.0), get_p('cat_binder', 'Default', 3.0), step=get_p('cat_binder', 'Step', 0.1), key="ad_c_bin_m", disabled=not show_adv)
+            st.slider("Conductive Agent %", min_value=get_p('cat_conductive', 'Min', 0.5), max_value=get_p('cat_conductive', 'Max', 10.0), value=get_p('cat_conductive', 'Default', 2.0), step=get_p('cat_conductive', 'Step', 0.1), key="ad_c_con_m", disabled=not show_adv)
+            st.slider("Binder %", min_value=get_p('cat_binder', 'Min', 0.5), max_value=get_p('cat_binder', 'Max', 10.0), value=get_p('cat_binder', 'Default', 3.0), step=get_p('cat_binder', 'Step', 0.1), key="ad_c_bin_m", disabled=not show_adv)
             v_load = v_load_in
         with p2:
             st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
@@ -341,8 +344,8 @@ with st.container(border=True):
         with p3:
             st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
             v_act_in = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sl_act_m")
-            st.slider("E/C Ratio (g/Ah)", get_p('ec_ratio', 'Min', 1.0), get_p('ec_ratio', 'Max', 8.0), get_p('ec_ratio', 'Default', 3.5), step=get_p('ec_ratio', 'Step', 0.1), key="ad_ec_m", disabled=not show_adv)
-            st.slider("Separator Thick (μm)", int(get_p('sep_thick', 'Min', 5)), int(get_p('sep_thick', 'Max', 50)), int(get_p('sep_thick', 'Default', 16)), key="ad_sep_m", disabled=not show_adv)
+            st.slider("E/C Ratio (g/Ah)", min_value=get_p('ec_ratio', 'Min', 1.0), max_value=get_p('ec_ratio', 'Max', 8.0), value=get_p('ec_ratio', 'Default', 3.5), step=get_p('ec_ratio', 'Step', 0.1), key="ad_ec_m", disabled=not show_adv)
+            st.slider("Separator Thick (μm)", min_value=int(get_p('sep_thick', 'Min', 5)), max_value=int(get_p('sep_thick', 'Max', 50)), value=int(get_p('sep_thick', 'Default', 16)), key="ad_sep_m", disabled=not show_adv)
             v_act = v_act_in
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -356,7 +359,7 @@ with st.container(border=True):
             v_te = st.slider("Energy Goal", 100, 250, 160, key="sl_te_m", label_visibility="collapsed")
         with t2:
             st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
-            v_tc = st.slider("C-rate", get_p('target_crate', 'Min', 0.1), get_p('target_crate', 'Max', 10.0), get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
+            v_tc = st.slider("C-rate", min_value=get_p('target_crate', 'Min', 0.1), max_value=get_p('target_crate', 'Max', 10.0), value=get_p('target_crate', 'Default', 1.0), step=get_p('target_crate', 'Step', 0.1), key="sl_tc_m", label_visibility="collapsed")
 
 with st.container(border=True):
     st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
@@ -431,7 +434,6 @@ if is_pro and st.session_state.history:
         with c_6:
             btn1, btn2, btn3, btn4 = st.columns(4)
             
-            # (1) 클라우드 저장 로직 개선
             if btn1.button("💾 내 계정에 저장하기", key="btn_save_my"):
                 try:
                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -442,35 +444,29 @@ if is_pro and st.session_state.history:
                         if not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])].empty:
                             is_duplicate = True
                             
-                    # 중복이 아닐 경우에만 DB 업데이트 실행 (중복 회피)
                     if not is_duplicate:
                         save_record = res.copy()
                         save_record['Email'] = st.session_state.user_email
                         save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                         conn.update(spreadsheet=URL_USERS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                     
-                    # 중복 여부와 관계없이 저장버튼 클릭 시 단일 메시지 표출
-                    st.success("내 계정에 저장하기가 완료되었습니다.")
+                    st.warning("이미 저장된 시뮬레이션 결과와 중복되는 부분을 제외 하였습니다. 내 기록 다운로드를 실행해 주세요.") if is_duplicate else st.success("내 계정에 저장하기가 완료되었습니다.")
                 except Exception as e: 
                     st.error(f"저장 오류: {e}")
 
-            # (2) 엑셀 다운로드 기능 탑재
             df_export = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
             buffer = io.BytesIO()
             try:
-                # openpyxl 라이브러리를 통해 진짜 .xlsx 엑셀 파일 생성
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df_export.to_excel(writer, index=False, sheet_name='Simulation_Logs')
                 file_data = buffer.getvalue()
                 file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
                 mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             except ImportError:
-                # 서버에 openpyxl 모듈이 없을 경우, 엑셀에서 열리는 CSV 파일로 자동 우회 생성
                 file_data = df_export.to_csv(index=False).encode('utf-8-sig')
                 file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv"
                 mime_type = "text/csv"
 
-            # 다운로드 버튼 (클릭 시 file_data 내보내기)
             btn2.download_button(
                 label="📥 내 기록 다운로드",
                 data=file_data,
@@ -479,7 +475,6 @@ if is_pro and st.session_state.history:
                 key="btn_download_excel"
             )
 
-            # (3) PDF 출력
             if FPDF is not None:
                 btn3.download_button(label="📄 선택 항목 PDF 출력", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf")
                 btn4.download_button(label="📑 전체 이력 PDF 출력", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf")
