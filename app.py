@@ -82,7 +82,7 @@ st.markdown("""
         padding-bottom: 10px;
     }
     
-    /* 가이드 토글 박스화 (마이크로소프트 폴더 옐로우 골드 색상) */
+    /* 가이드 토글 박스화 */
     div[data-testid="stToggle"] {
         background-color: #F4CE14; 
         border: 1px solid #D4AC0D;
@@ -106,7 +106,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. 클라우드 DB 연동 설정 및 마스터 계정 세팅
+# 2. 클라우드 DB 연동 설정
 # -----------------------------------------------------------------------------
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
 ADMIN_PW = "synotech0773!"
@@ -153,7 +153,6 @@ def get_user_db():
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
-# 안전한 형변환 도우미
 def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
     except: return default
@@ -255,7 +254,7 @@ default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'show_guide': False, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None, 'selected_term': None
+    'admin_view': None, 'admin_ws': None, 'selected_term': None, 'active_glossary': None
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -350,7 +349,6 @@ if is_pro and st.session_state.get('is_admin', False):
                 ws_options = ["Users", "VIPs"]
             elif st.session_state.admin_view == 'mats':
                 target_url = URL_MATS
-                # ✅ 관리자 편의를 위해 material_overall을 맨 위에 추가
                 ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
             elif st.session_state.admin_view == 'param':
                 target_url = URL_PARAM
@@ -367,7 +365,6 @@ if is_pro and st.session_state.get('is_admin', False):
             
             conn = st.connection("gsheets", type=GSheetsConnection)
             try:
-                # ✅ material_overall 선택 시: 모든 데이터를 취합한 읽기 전용 뷰 제공
                 if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
                     st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다. (수정은 개별 탭에서 진행해주세요.)")
                     vips = get_vip_list_exact()
@@ -383,7 +380,6 @@ if is_pro and st.session_state.get('is_admin', False):
                     
                     st.dataframe(df_admin, use_container_width=True)
                 else:
-                    # 일반 개별 탭 선택 시: 인라인 에디터 제공
                     df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
                     st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
                     
@@ -482,7 +478,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 60:20:20 레이아웃)
+# 5. 시뮬레이터 본문 (60:20:20 레이아웃)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
     col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
@@ -659,7 +655,7 @@ with col_main:
             p1, p2, p3 = st.columns(3)
             with p1:
                 st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-                v_load = st.slider("**Loading (mg/cm2)**", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
+                v_load = st.slider("**Cathode Areal Loading (mg/cm2)**", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
                 v_press = st.slider("**Cathode Press Density**", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
                 st.slider("**Conductive Agent %**", 0.5, 10.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
                 st.slider("**Binder %**", 0.5, 10.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
@@ -678,7 +674,6 @@ with col_main:
                 v_ec = st.slider("**E/C Ratio (g/Ah)**", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
                 st.slider("**Separator Thick (μm)**", 5, 50, 16, key="ad_sep_m", disabled=not show_adv)
                 
-            # ✅ 안내 문구를 (B)와 (C) 영역의 완벽한 중앙에 정렬 및 문구 수정
             info1, info2 = st.columns([1, 2])
             with info1:
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
@@ -709,8 +704,9 @@ with col_main:
         with c_4:
             t1, t2, t3 = st.columns(3)
             with t1:
-                st.markdown('<p class="sub-header-bold">Energy Density Goal</p>', unsafe_allow_html=True)
-                v_te = st.slider("Energy Goal (Wh/kg)", 100, 350, 250, label_visibility="collapsed")
+                # ✅ 수정: Energy Density (Wh/kg)
+                st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
+                v_te = st.slider("Energy Density", 100, 350, 250, label_visibility="collapsed")
             with t2:
                 st.markdown('<p class="sub-header-bold">Simulation C-rate</p>', unsafe_allow_html=True)
                 v_tc = st.slider("C-rate", 0.1, 10.0, 1.0, label_visibility="collapsed")
@@ -890,34 +886,263 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 📖 7. 우측 가이드 패널 렌더링
+# 📖 7. 우측 가이드 패널 렌더링 (심층 지식 DB 보강 및 LaTeX 적용)
 # -----------------------------------------------------------------------------
 GLOSSARY_DB = {
-    "Active Ratio (%)": {"brief": "셀 내 전체 소재 중 실제 용량을 발현하는 활물질의 비중입니다.", "deep": "활물질 비중이 높을수록 에너지 밀도는 상승하지만, 상대적으로 도전재와 바인더가 줄어들어 전자 전도도 저하 및 전극 탈리가 발생할 수 있습니다. 수명과 출력 성능의 Trade-off를 고려한 최적 설계가 필수적입니다."},
-    "Anode (음극)": {"brief": "배터리 충전 시 양극에서 넘어온 나트륨 이온을 받아들이는 소재입니다.", "deep": "SIB에서는 주로 하드카본(Hard Carbon)이 핵심 음극재로 사용되며, 양극(Cathode)의 가역 용량보다 더 큰 용량을 수용할 수 있도록 설계되어야 충전 시 나트륨 금속 석출(Na-Plating)을 방지할 수 있습니다."},
-    "Binder & Conductive Agent": {"brief": "바인더는 소재를 결착시키고, 도전재는 전자의 이동 통로를 제공합니다.", "deep": "바인더 함량이 높으면 전하 전달 저항이 커집니다. 반면 도전재(예: Carbon Black, CNT)는 소량으로도 3차원 네트워크를 형성하여 배터리의 율속(Rate) 특성과 급속 충전 성능을 획기적으로 개선합니다."},
-    "C-rate": {"brief": "배터리의 충전 및 방전 속도를 나타내는 기준 단위입니다.", "deep": "1C는 배터리를 1시간 만에 완전히 충/방전하는 속도를 의미합니다. SIB에서 C-rate가 높아질수록(급속 방전) 내부 저항(IR Drop)에 의해 실제 작동 전압 강하(Overpotential)가 커져, 최종적으로 뽑아낼 수 있는 에너지 밀도(Wh/kg)가 현저히 감소합니다."},
-    "Capacity (mAh/g)": {"brief": "소재 1g당 저장하고 낼 수 있는 전하량(용량)입니다.", "deep": "양/음극재 고유의 물리화학적 특성이며 전이금속의 산화환원 반응에 기인합니다. 실제 셀 단위에서는 전극의 로딩량(Loading), 작동 전압(Voltage), 활물질 비중과 결합하여 SIB 전체의 에너지 밀도를 결정하는 핵심 변수입니다."},
-    "Cathode (양극)": {"brief": "배터리의 작동 전압과 전체 에너지를 결정하는 핵심 소재입니다.", "deep": "SIB 양극재로는 프러시안 블루(Prussian Blue), 층상 산화물(Layered Oxides), 폴리음이온(Polyanion) 등 다양한 조성이 연구되고 있습니다. 양극재의 평균 방전 전압과 가역 용량이 셀 단위 에너지 밀도(Wh/kg)의 한계치를 가장 크게 좌우합니다."},
-    "E/C Ratio (g/Ah)": {"brief": "셀 용량(Ah) 대비 주입된 전해액(Electrolyte)의 무게 비율입니다.", "deep": "E/C Ratio가 너무 낮으면 셀 내부의 전해액 고갈(Depletion)로 인해 수명(Cycle Life)이 급감합니다. 반대로 너무 높으면 셀의 총 무게가 증가하여 중량당 에너지 밀도(Wh/kg)가 크게 하락하고 원가가 상승하므로, 통상 2.0 ~ 4.0 수준에서 최적화합니다."},
-    "Loading (mg/cm2)": {"brief": "전극 집전체 단위 면적당 코팅된 슬러리의 무게입니다.", "deep": "전극 로딩을 높이면 셀 내 비활성 소재(집전체, 분리막 등)의 공간 비율이 줄어들어 에너지 밀도(Wh/kg, Wh/L)가 크게 상승합니다. 그러나 두꺼운 전극은 나트륨 이온 확산 거리를 늘려 고출력(C-rate) 및 급속 충전 성능을 심각하게 저하시킵니다."},
-    "N/P Ratio": {"brief": "양극(Cathode)의 가역 용량 대비 음극(Anode)의 설계 용량 비율입니다.", "deep": "통상 1.05 ~ 1.20 사이로 안전 마진을 두고 설정합니다. 1.0 미만일 경우 충전 시 음극에 수용되지 못한 나트륨 이온이 표면에 금속 형태로 석출(Na-Plating)되어 분리막을 관통하는 수지상(Dendrite)을 형성, 내부 단락 및 화재의 치명적 원인이 됩니다."},
-    "Porosity (공극률)": {"brief": "전극 합제 내부에 존재하는 빈 공간의 비율(%)입니다.", "deep": "나트륨 이온이 이동하는 전해액의 필수 침투 경로입니다. 공극률이 20% 미만으로 너무 낮으면 전해액 함침이 불량해지고 이온 전도도가 낮아져 수명이 급감합니다. 너무 높으면 반대로 체적 에너지 밀도(Wh/L)가 떨어지고 입자 간 접촉이 끊어질 수 있습니다."},
-    "Press Density (합제 밀도)": {"brief": "전극 슬러리를 롤 프레스(Press) 공정으로 압축한 밀도(g/cc)입니다.", "deep": "합제 밀도를 한계점까지 높이면 부피당 에너지 밀도(Wh/L)가 극대화됩니다. 하지만 지나치게 압연할 경우 소재 입자가 깨져(Cracking) 부반응을 일으키고, 내부 공극률(Porosity)이 소실되어 율속(Rate) 특성이 급락하는 Trade-off가 존재합니다."},
-    "Separator (분리막)": {"brief": "양극과 음극의 물리적 접촉을 막아 단락을 방지하는 다공성 막입니다.", "deep": "두께가 얇을수록(예: 16μm -> 9μm) 동일한 부피의 셀 내에 더 많은 전극을 감아 넣을 수 있어 에너지 밀도가 오릅니다. 그러나 기계적 강도와 내열성이 약해져 열폭주나 덴드라이트 관통에 의한 폭발 위험(Safety)이 급격히 증가합니다."},
-    "True Density (진밀도)": {"brief": "소재 입자 자체의 내부 빈 공간을 제외한 순수 뼈대의 밀도입니다.", "deep": "진밀도는 합성된 소재 고유의 물성이며 변하지 않습니다. 엔지니어는 이 진밀도 값과 실제 압연 밀도(Press Density) 값을 바탕으로 전극 내부의 빈 공간인 공극률(Porosity)을 계산(1 - 합제밀도/진밀도)하여 셀 설계를 확정합니다."},
-    "Voltage (V)": {"brief": "배터리의 작동 전압으로, 양극과 음극의 전위차로 결정됩니다.", "deep": "평균 방전 전압(Average Voltage)은 '전압 × 용량 = 에너지' 공식에 따라 에너지 밀도 계산의 핵심 요소입니다. 고전압 SIB 양극재나 고전압 전해액 시스템을 사용하여 충전 컷오프 전압을 올리면 더 높은 에너지를 얻을 수 있습니다."}
+    "Active Ratio (%)": {
+        "brief": "셀 내 전체 소재 중 실제 용량을 발현하는 활물질(Active Material)의 비중을 의미합니다.", 
+        "deep": """
+**[Active Ratio 심층 분석]**
+
+활물질 비중 설계는 배터리의 **에너지 밀도와 출력 성능 간의 가장 대표적인 Trade-off 관계**를 보여줍니다.
+
+* **고에너지 셀 (High Energy):** 활물질 비중을 96%~98% 수준으로 극대화합니다. 그러나 상대적으로 도전재와 바인더가 부족해져 내부 저항이 증가하고, 충방전 시 전극 탈리 현상이 발생할 수 있습니다.
+* **고출력 셀 (High Power):** 활물질을 90% 이하로 낮추고 도전재 비율을 높여 전자의 이동 속도(Electronic Conductivity)를 극대화합니다.
+
+**[에너지 밀도(Wh/kg) 산출 공식에서의 역할]**
+셀 단위의 중량당 에너지 밀도는 활물질 비중에 정비례하여 증가합니다.
+$$ Energy\ Density\ (Wh/kg) = \frac{Capacity\ (mAh/g) \times Voltage\ (V) \times Active\ Ratio\ (\%)}{Cell\ Factor} $$
+(단, Cell Factor는 패키징 부자재 무게 등을 반영한 보정 상수)
+"""
+    },
+    "Anode (음극)": {
+        "brief": "배터리 충전 시 양극에서 넘어온 나트륨(Na) 이온을 받아들여 저장하는 전극 소재입니다.", 
+        "deep": """
+**[Anode (음극) 심층 분석]**
+
+리튬 이온 배터리(LIB)의 표준 음극재인 흑연(Graphite)은 층간 간격이 좁아 크기가 큰 나트륨 이온(Na+)이 층간 삽입(Intercalation)되기 어렵습니다. 따라서 SIB에서는 주로 닫힌 기공(Closed Pore) 구조를 갖는 **하드카본(Hard Carbon)**이 필수적으로 사용됩니다.
+
+* **작동 원리 (Storage Mechanism):** 하드카본은 크게 두 단계로 이온을 저장합니다.
+  1. 슬로핑 영역 (Sloping Region): 탄소 층(Graphene layer) 사이 결함 구조에 나트륨 이온이 흡착됩니다.
+  2. 플래토 영역 (Plateau Region): 닫힌 기공 내부에 나트륨 이온이 금속 클러스터 형태로 채워집니다.
+
+* **설계 시 주의사항:** 음극의 가역 용량이 양극에서 오는 이온을 모두 수용하지 못하면 **나트륨 금속 석출(Na-Plating)** 현상이 발생하여 열폭주 및 셀 단락(Short)의 원인이 됩니다. 이를 막기 위해 반드시 **N/P Ratio**를 1.05 이상으로 설계해야 합니다.
+"""
+    },
+    "Anode Active %": {
+        "brief": "음극 슬러리 전체 무게 중 순수 하드카본(음극 활물질)이 차지하는 중량 비율입니다.", 
+        "deep": """
+**[Anode Active % 심층 분석]**
+
+음극 활물질 비중은 양극 활물질 비중(`Active Ratio`)과 동일한 개념이나, **수계 바인더 시스템(Aqueous Binder System)**을 사용하는 음극 공정의 특수성을 고려해야 합니다.
+
+* **조성 특징:** 음극은 보통 SBR(Styrene-Butadiene Rubber) 바인더와 CMC(Carboxymethyl Cellulose) 증점제를 사용합니다. 이 시스템은 결착력이 매우 뛰어나 활물질 비중을 **95% ~ 98%까지 극단적으로 높일 수 있습니다.**
+* **설계 최적화:** 음극 활물질 비율을 높이면 전체 음극 코팅층의 부피와 무게를 줄일 수 있어 셀 전체의 에너지 밀도(Wh/L, Wh/kg) 상승에 크게 기여합니다. 
+* **Trade-off:** 하지만 98%를 초과하여 바인더가 너무 적어지면, 구리 집전체(Cu Foil)와의 접착력(Adhesion)이 떨어져 롤 프레스(Roll Press) 공정 중 음극 층이 벗겨지는 치명적 불량이 발생합니다.
+"""
+    },
+    "Anode Press Density": {
+        "brief": "코팅된 음극을 롤 프레스(Roll Press) 기계로 압축했을 때의 밀도(g/cc)를 나타냅니다.", 
+        "deep": """
+**[Anode Press Density 심층 분석]**
+
+음극 합제 밀도는 하드카본 입자의 물리적 파괴 한계와 밀접한 연관이 있습니다. 
+
+* **물리적 특성:** 하드카본은 구형 흑연과 달리 비정질(Amorphous) 탄소의 무질서한 덩어리 형태이므로 심하게 압축할 경우 입자가 깨지기(Particle Cracking) 쉽습니다.
+* **밀도 한계 (Limits):** 일반적으로 LIB의 인조흑연은 1.6~1.7 g/cc까지 압축이 가능하지만, SIB용 **하드카본은 보통 1.0 ~ 1.2 g/cc 수준**이 한계치로 평가받습니다.
+* **설계 Trade-off:**
+  1. 합제 밀도를 한계 이상으로 높이면 체적 에너지 밀도(Wh/L)는 상승하지만, 입자가 깨지면서 새로운 SEI 층이 형성되어 초기 효율(ICE)이 급감합니다.
+  2. 반대로 너무 낮게 설정하면 전자 전도 네트워크가 끊어지고 전해액만 과도하게 머금어 배터리 수명(Cycle Life)이 저하됩니다.
+
+**[음극 공극률 (Porosity) 계산식]**
+$$ Anode\ Porosity\ (\%) = \left( 1 - \frac{Anode\ Press\ Density}{Anode\ True\ Density} \right) \times 100 $$
+"""
+    },
+    "Binder & Conductive Agent": {
+        "brief": "바인더는 소재를 결착시키는 접착제이고, 도전재는 전자의 이동 통로를 제공하는 첨가제입니다.", 
+        "deep": """
+**[Binder & Conductive Agent 심층 분석]**
+
+배터리가 장기간 안정적으로 구동하기 위해서는 활물질 입자들을 물리적, 전기적으로 하나로 묶어주는 첨가제가 필수적입니다.
+
+* **도전재 (Conductive Agent):** 활물질 자체는 전기가 잘 통하지 않는 경우가 많습니다. 카본블랙(Carbon Black)이나 탄소나노튜브(CNT)를 소량(1~3%) 첨가하여 입자 사이사이에 **3차원 전자 이동 네트워크**를 형성합니다. 도전재가 부족하면 고속 방전(C-rate) 시 전압 강하(IR Drop)가 심하게 발생합니다.
+* **바인더 (Binder):** 양극에는 주로 유기용매계인 PVDF를, 음극에는 수계인 SBR/CMC를 사용합니다. 충방전 시 발생하는 **활물질의 부피 팽창/수축을 기계적으로 잡아주어** 전극 붕괴를 막아줍니다.
+* **비중 설계 한계:** 두 첨가제는 스스로 용량을 내지 못하는(Dead Weight) 물질이므로, 기술이 발전할수록 이들의 비중을 1% 단위로 줄여 에너지 밀도를 극대화하는 추세입니다.
+"""
+    },
+    "C-rate": {
+        "brief": "배터리의 충전 및 방전 속도를 나타내는 기준 단위입니다.", 
+        "deep": """
+**[C-rate 심층 분석]**
+
+C-rate(Current Rate)는 배터리 설계에서 출력(Power) 성능을 평가하는 절대적인 지표입니다. 
+
+* **기본 정의:** 1C는 해당 배터리 셀이 가진 전체 용량을 **정확히 1시간 만에 100% 충전(또는 방전)하는 전류의 크기**를 의미합니다.
+  * 예시: 10Ah 용량의 배터리에서 1C는 10A의 전류, 2C는 20A(30분 완충), 0.5C는 5A(2시간 완충)를 의미합니다.
+
+* **시뮬레이터 반영 원리 (Peukert's Law 적용):**
+  방전 C-rate가 높아질수록 셀 내부의 저항(Ohmic, Charge Transfer, Diffusion)에 의해 **과전압(Overpotential)**이 발생합니다. 이는 실제 작동 전압(Cell Voltage)을 깎아내려 최종적으로 우리가 쓸 수 있는 에너지(Wh)를 극심하게 감소시킵니다.
+  
+**[효율 감소 연산 로직]**
+$$ Actual\ Capacity\ \approx Nominal\ Capacity \times (1 - C\_rate \times Loss\_Factor) $$
+"""
+    },
+    "Capacity (mAh/g)": {
+        "brief": "소재 1g당 저장하고 외부로 내보낼 수 있는 전하량(용량)입니다.", 
+        "deep": """
+**[Capacity 심층 분석]**
+
+비용량(Specific Capacity, mAh/g)은 소재 고유의 결정 구조와 전이 금속의 산화/환원(Redox) 반응 한계에 의해 결정되는 배터리 설계의 '절대값'입니다.
+
+* **SIB 양극재의 한계:** 현재 SIB용 층상 산화물(Layered Oxides) 양극재는 주로 120 ~ 160 mAh/g 수준의 가역 용량을 보여줍니다. (리튬 이온 배터리의 NCM 양극재가 200 mAh/g 이상인 것에 비해 상대적으로 낮습니다.)
+* **에너지 밀도와의 관계:** 배터리 산업에서 "더 멀리 가는(더 오래 쓰는)" 배터리를 만들려면 이 Capacity 값을 높이는 것이 1순위 과제입니다. 
+
+**[Areal Capacity (면적당 용량) 계산식]**
+실제 셀 설계 엔지니어는 1g당 용량을 집전체 면적 단위로 환산하여 N/P Ratio 밸런스를 맞춥니다.
+$$ Areal\ Capacity\ (mAh/cm^2) = \frac{Capacity\ (mAh/g) \times Loading\ (mg/cm^2) \times Active\ \%}{1000} $$
+"""
+    },
+    "Cathode (양극)": {
+        "brief": "배터리의 작동 전압과 전체 에너지를 결정하는 핵심 이온 공급원(Source)입니다.", 
+        "deep": """
+**[Cathode (양극) 심층 분석]**
+
+SIB의 에너지 밀도 한계를 돌파하기 위한 가장 중요한 열쇠가 바로 양극재의 혁신입니다. 배터리 원가의 약 40% 이상을 차지합니다.
+
+* **SIB 주요 양극재 3대장:**
+  1. **프러시안 블루 (Prussian Blue Analogues):** 합성이 쉽고 저렴하지만 수분 제어가 어렵고 수명이 짧은 단점이 있습니다.
+  2. **층상 산화물 (Layered Oxides, O3/P2 Type):** 망간(Mn), 철(Fe), 니켈(Ni) 등을 섞어 층상 구조를 만듭니다. 가장 상용화에 가까우나 고전압에서 구조 붕괴가 일어납니다.
+  3. **폴리음이온 (Polyanion):** 구조가 매우 단단하여 10,000회 이상의 초장수명을 자랑하지만 에너지 밀도가 다소 낮습니다.
+
+* **설계 파라미터:** 양극의 작동 전압(Voltage)과 용량(Capacity)을 곱한 값이 곧 배터리 셀 전체의 총 에너지(Energy) 한계천장이 됩니다.
+"""
+    },
+    "Cathode Areal Loading (mg/cm2)": {
+        "brief": "전극 집전체(알루미늄 포일) 단위 면적(cm²) 당 코팅된 양극 슬러리의 무게입니다.", 
+        "deep": """
+**[Cathode Areal Loading 심층 분석]**
+
+로딩(Loading)량은 셀 내부의 **활성 물질(에너지를 내는 물질)과 비활성 물질(분리막, 동박, 알루미늄박 등)의 비율을 결정하는 핵심 공정 설계 변수**입니다.
+
+* **후막(Thick) 전극의 장점 (High Loading):** 로딩량을 30~40 mg/cm² 수준으로 극단적으로 높이면, 동일한 부피 내에 겹쳐 들어가는 분리막과 메탈 집전체의 장수가 줄어들어 **배터리의 부피당/무게당 에너지 밀도(Wh/L, Wh/kg)가 극대화**됩니다.
+* **후막(Thick) 전극의 단점 (Trade-off):** 전극이 너무 두꺼워지면, 나트륨 이온이 전해액을 타고 전극 깊숙이 침투(Diffusion)하는 거리가 멀어져 **급속 충전(고속 C-rate)이 불가능해집니다.** 또한 건조 공정 시 표면과 내부의 용매 증발 속도 차이로 인해 표면에 바인더가 몰리는 결함(Binder Migration)이 발생합니다.
+"""
+    },
+    "Cathode Press Density": {
+        "brief": "코팅 건조를 마친 양극을 롤 프레스 기계로 강력하게 압축한 후의 밀도(g/cc)입니다.", 
+        "deep": """
+**[Cathode Press Density 심층 분석]**
+
+양극 합제 밀도(Press Density 또는 Calendered Density)는 배터리의 **체적당 에너지 밀도(Wh/L)**를 끌어올리는 가장 직관적인 파라미터입니다.
+
+* **최적 압연의 중요성:** 분말 가루 형태의 슬러리가 건조된 직후에는 내부에 50~60%의 텅 빈 공간이 존재합니다. 이를 롤 프레스로 강하게 눌러 빈 공간을 20~30% 수준으로 줄여주면, 입자 간의 전기적 접촉(Electrical Contact)이 극대화되고 부피가 획기적으로 줄어듭니다.
+* **압축 과다 시 치명적 결함:** 하지만 수치를 극대화하기 위해 진밀도(True Density)에 가깝게 너무 꽉 눌러버리면 다음과 같은 현상이 일어납니다.
+  1. **입자 파괴 (Particle Cracking):** 양극재 입자가 부서지며 새로운 표면이 드러나 부반응이 가속화됩니다.
+  2. **전해액 함침 불가 (Zero Porosity):** 나트륨 이온이 헤엄쳐 다닐 전해액(수영장)이 들어갈 틈이 없어져, 셀 내부 저항이 무한대로 치솟아 배터리가 사망(Dead)합니다. (현재 시뮬레이터에 적용된 경고 로직의 핵심입니다.)
+"""
+    },
+    "Cycle Life": {
+        "brief": "배터리를 100% 충전하고 0%까지 방전하는 과정을 1회(Cycle)로 보았을 때, 초기 용량의 80% 이하로 떨어지기 전까지 반복할 수 있는 횟수입니다.", 
+        "deep": """
+**[Cycle Life 심층 분석]**
+
+수명(Cycle Life)은 배터리의 경제성과 지속 가능성을 평가하는 최종 품질 지표입니다.
+
+* **열화(Degradation)의 근본 원인:** SIB의 수명은 여러 가지 화학적/물리적 요인에 의해 갉아먹힙니다.
+  1. **SEI (고체전해질계면) 지속 성장:** 매 충방전마다 전해액이 음극 표면에서 미세하게 분해되며 찌꺼기 층을 형성하고, 이 과정에서 가용 나트륨 이온을 소모해 버립니다.
+  2. **양극재 상전이 (Phase Transition):** 깊은 충방전 구간에서 층상 산화물 양극재의 결정 구조가 뒤틀려 다시 돌아오지 않는 비가역적 손상이 누적됩니다.
+  3. **체적 팽창에 의한 미세 균열 (Micro-cracking):** 입자의 수축/팽창이 반복되며 입자가 깨지고 전해액과 부반응을 일으킵니다.
+
+* **시뮬레이션 연산 한계:** 현재 시뮬레이터는 입력된 Base 수명에 가혹 조건(높은 C-rate) 패널티를 부여하는 물리 수식을 적용 중입니다. 향후 AI 예측 모델(Surrogate Model)이 도입되면 수천 건의 실제 열화 곡선 데이터를 바탕으로 완벽한 역추적 수명 계산이 가능해집니다.
+"""
+    },
+    "E/C Ratio (g/Ah)": {
+        "brief": "셀 전체 용량(Ah) 대비 주입된 전해액(Electrolyte) 무게(g)의 비율입니다.", 
+        "deep": """
+**[E/C Ratio 심층 분석]**
+
+E/C Ratio(Electrolyte-to-Capacity Ratio)는 셀의 **최종 에너지 밀도와 수명 사이의 딜레마(Trade-off)**를 결정짓는 핵심 공정 수치입니다.
+
+* **E/C Ratio가 높을 때 (풍부한 전해액):** 배터리 수명(Cycle Life)이 압도적으로 길어집니다. 충방전을 거듭하며 SEI 층 형성으로 전해액이 소모되더라도 여유분이 충분하기 때문입니다. 하지만 전해액 자체가 매우 무거운 액체이므로 배터리 팩 전체가 무거워져 **에너지 밀도(Wh/kg)는 곤두박질**칩니다.
+* **E/C Ratio가 낮을 때 (Lean Electrolyte, < 2.0):** 우주항공이나 드론 등 초경량 배터리를 설계할 때 사용합니다. 무게가 줄어 Wh/kg는 극대화되지만, 몇 백 번 충방전 후 전해액이 완전히 말라붙는 **'전해액 고갈(Electrolyte Depletion)'** 현상이 발생해 배터리가 급사(Sudden Death)하는 위험이 도사리고 있습니다.
+"""
+    },
+    "N/P Ratio": {
+        "brief": "충전 시 양극(Cathode)에서 나오는 이온의 양 대비 음극(Anode)이 수용할 수 있는 용량의 설계 비율입니다.", 
+        "deep": """
+**[N/P Ratio 심층 분석]**
+
+N/P Ratio(Negative to Positive Capacity Ratio)는 배터리의 **안전성(Safety)을 지키는 최후의 방어선**이자 수명 설계의 척도입니다.
+
+**[N/P Ratio 연산 공식]**
+$$ N/P\ Ratio = \frac{Anode\ Areal\ Capacity\ (mAh/cm^2)}{Cathode\ Areal\ Capacity\ (mAh/cm^2)} $$
+
+* **안전 마진 (일반적으로 1.05 ~ 1.15):** 음극 용량을 양극보다 약 5%~15% 더 크게(여유 있게) 설계합니다.
+* **N/P < 1.05 일 때의 치명적 위험:** 충전 시 양극에서 100마리의 나트륨 이온이 넘어오는데, 음극의 방 크기가 95마리분밖에 안 된다면 남은 5마리는 음극 표면에 금속 형태로 뾰족하게 쌓입니다. 이를 **나트륨 석출(Na-Plating)**이라 부르며, 뾰족한 수지상(Dendrite)으로 자라나 분리막을 관통해 거대한 화재 폭발을 일으킵니다.
+* **N/P >= 1.15 초과 시의 손실:** 너무 안전만 생각해서 음극을 과도하게 두껍게 바르면, 버려지는 잉여 음극 공간 때문에 전체 셀의 에너지 밀도(Wh/kg)가 떨어지고, 초기에 낭비되는 비가역 나트륨 이온이 많아져 효율이 급감합니다.
+"""
+    },
+    "Porosity (공극률)": {
+        "brief": "프레스 공정을 마친 전극 합제층 내부에 여전히 존재하는 빈 공간의 부피 비율(%)입니다.", 
+        "deep": """
+**[Porosity (공극률) 심층 분석]**
+
+공극률은 배터리 내부에서 이온이 이동하는 고속도로(전해액 통로)의 폭을 의미합니다. 엔지니어는 이 수치를 조절하여 이온 전도도와 에너지 밀도를 최적화합니다.
+
+**[공극률 도출 계산식]**
+$$ Porosity\ (\%) = \left( 1 - \frac{Press\ Density\ (합제밀도)}{True\ Density\ (진밀도)} \right) \times 100 $$
+
+* **공극률이 부족할 때 (< 20%):** 에너지 밀도를 높이려고 롤 프레스로 전극을 가혹하게 압착하면 빈 공간이 사라집니다. 빈 공간이 없으면 주액(Injection) 공정에서 전해액이 전극 내부로 스며들지 못하는 **함침(Wetting) 불량**이 발생하며, 이온이 이동할 길이 끊겨 배터리 저항이 치솟습니다.
+* **공극률이 과도할 때 (> 40%):** 압착을 덜 하여 빈 공간이 너무 많아지면, 동일한 배터리 케이스(캔, 파우치) 안에 넣을 수 있는 전극의 길이가 짧아져 셀 단위의 체적당 에너지 밀도(Wh/L)가 급락하고 활물질 입자 간의 전기적 연결망이 약해집니다.
+"""
+    },
+    "Separator Thick (μm)": {
+        "brief": "양극과 음극의 물리적 접촉(쇼트)을 막고 이온만 통과시키는 다공성 폴리머 필름의 두께입니다.", 
+        "deep": """
+**[Separator Thick 심층 분석]**
+
+분리막 두께 설계는 **배터리의 에너지 밀도와 관통 화재(안전성) 사이의 극단적인 줄타기**를 보여줍니다.
+
+* **에너지 밀도 관점:** 16μm이던 분리막 두께를 최신 공법을 적용해 9μm, 심지어 5μm까지 줄이게 되면, 젤리롤(Jelly-roll)을 감을 때 생겨난 빈 공간만큼 양극/음극재를 한 바퀴라도 더 감아 넣을 수 있습니다. 이는 배터리 셀의 용량을 직접적으로 늘려줍니다.
+* **안전성(Safety) 관점:** 분리막이 얇아질수록 제조 공정 중 유입된 미세한 금속 이물질이나 충전 중 자라나는 나트륨 덴드라이트(Na-Dendrite)에 의해 분리막이 뚫릴(Penetration) 확률이 급증합니다. 뚫리는 순간 양/음극이 직접 닿아 내부 단락(Short-circuit)이 발생하고 열폭주로 이어집니다.
+"""
+    },
+    "True Density (진밀도)": {
+        "brief": "소재 입자 자체의 내부 기공이나 입자 간 빈 공간을 완전히 제외한 뼈대 물질 고유의 밀도(g/cc)입니다.", 
+        "deep": """
+**[True Density (진밀도) 심층 분석]**
+
+진밀도(True Density)는 소재를 합성할 때 결정되는 **불변의 물리 화학적 특성**이며, 엔지니어가 임의로 바꿀 수 없는 기준 상수(Constant) 역할을 합니다.
+
+* **측정 및 활용:** 기체 비중병(Gas Pycnometer) 등을 이용하여 매우 정밀하게 측정합니다. 
+* **공정 설계의 등대:** 엔지니어는 롤 프레스(Roll Press) 기계로 전극을 누를 때, "이 소재를 어디까지 세게 눌러도 될까?"를 고민합니다. 이때 절대 넘을 수 없는 최대 한계벽이 바로 진밀도 수치입니다. 합제 밀도(Press Density)가 이 진밀도에 도달한다는 것은 전극 내부에 빈 공간(공극률)이 0%가 됨을 의미하기 때문입니다.
+"""
+    },
+    "Voltage (V)": {
+        "brief": "배터리의 구동 전압으로, 양극(Cathode)과 음극(Anode) 소재 고유의 산화환원 전위차에 의해 결정됩니다.", 
+        "deep": """
+**[Voltage 심층 분석]**
+
+작동 전압(Operating Voltage)은 배터리 셀 단위의 총 에너지 밀도(Energy)를 산출하는 가장 중요한 곱셈 인자 중 하나입니다.
+
+**[에너지 밀도 지배 방정식]**
+$$ Energy\ (Wh) = Capacity\ (Ah) \times Average\ Voltage\ (V) $$
+
+* **양극재의 전위 한계:** 현재 SIB용 프러시안 블루나 층상 산화물은 평균 3.0V ~ 3.2V 사이의 작동 전압을 가집니다. 이를 4.0V 이상의 고전압(High-voltage) 영역까지 끌어올려 충전(Cut-off)하게 되면 Capacity(용량)가 늘어나 에너지가 폭발적으로 증가합니다.
+* **고전압 충전의 부작용 (Trade-off):** 전압을 너무 높이면 일반적인 유기 액체 전해액의 전기화학적 안정창(Electrochemical Window)을 벗어나게 되어, 전해액이 산화(Oxidation) 분해되며 가스를 발생시킵니다. 이는 배터리가 부푸는 스웰링(Swelling) 현상과 급격한 수명 단축의 주원인입니다.
+"""
+    }
 }
 
+# 사용자 정의 아코디언 UI (Auto-Close 로직)
 if col_glossary and col_deep:
     with col_glossary:
         st.markdown(f"#### 📖 Glossary")
-        
         sorted_terms = sorted(GLOSSARY_DB.keys())
         
         for term in sorted_terms:
-            with st.expander(term):
-                st.write(GLOSSARY_DB[term]["brief"])
+            # 현재 이 용어가 활성화된 상태인지 확인
+            is_active = (st.session_state.active_glossary == term)
+            icon = "▼" if is_active else "▶"
+            
+            # 버튼 클릭 시 세션 상태 토글
+            if st.button(f"{icon} {term}", key=f"btn_glos_{term}", use_container_width=True):
+                st.session_state.active_glossary = None if is_active else term
+                st.rerun()
+            
+            # 활성화된 용어만 설명 및 '더 자세히' 버튼 노출
+            if is_active:
+                st.info(GLOSSARY_DB[term]["brief"])
                 if st.button("🔍 더 자세히", key=f"btn_deep_{term}", use_container_width=True):
                     st.session_state.selected_term = term
                     st.rerun()
@@ -928,9 +1153,10 @@ if col_glossary and col_deep:
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
             current_term = st.session_state.selected_term
             st.markdown(f"**[{current_term}]**")
+            # 80% 화면을 꽉 채울 심층 지식(수식 포함) 렌더링
             st.info(GLOSSARY_DB[current_term]["deep"])
         else:
-            st.info("👈 좌측 용어 사전에서 **'🔍 더 자세히'** 버튼을 클릭하시면, 해당 파라미터가 배터리 설계에 미치는 심층 실무 인사이트가 표출됩니다.")
+            st.info("👈 좌측 용어 사전에서 **'🔍 더 자세히'** 버튼을 클릭하시면, 해당 파라미터가 배터리 설계에 미치는 심층 실무 지식과 계산 수식이 표출됩니다.")
 
 # 7. 푸터 (저작권 표시)
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
