@@ -874,7 +874,6 @@ with col_main:
                         plot_bgcolor="#f4f6f9", xaxis_title="DOD (%)", yaxis_title="Voltage (V)"
                     )
                     st.plotly_chart(fig1, use_container_width=True)
-                    # ✅ 그래프 해석 문구 줄바꿈 시 첫 글자 들여쓰기 정렬 적용 (Flexbox)
                     st.markdown("""
                     <div style='display:flex; align-items:flex-start; color:#666; font-size:13px; margin-top:5px;'>
                         <span style='margin-right:5px;'>💡</span>
@@ -933,7 +932,7 @@ with col_main:
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ User Comment 기능 추가)
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ 가시성 높은 User Comment 적용)
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
@@ -956,7 +955,7 @@ with col_main:
                             save_record = res.copy()
                             save_record['Email'] = st.session_state.user_email
                             save_record['Workspace'] = st.session_state.workspace
-                            save_record['User Comment'] = "" # 초기 빈 코멘트 생성
+                            save_record['User Comment'] = "" 
                             save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                             conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                         
@@ -998,47 +997,60 @@ with col_main:
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                         
                         if not my_saved_data.empty:
-                            # 레이아웃 분할: 제목, 코멘트 저장 버튼, 삭제 버튼
                             col_title, col_btn_save, col_btn_del = st.columns([0.6, 0.2, 0.2])
                             with col_title:
                                 st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                             
-                            # User Comment 컬럼 세팅
                             df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
                             if 'User Comment' not in df_display.columns:
                                 df_display['User Comment'] = ""
+                            df_display['User Comment'] = df_display['User Comment'].fillna("")
                             
-                            # 보기 좋게 컬럼 순서 재배치
                             cols = [c for c in df_display.columns if c != 'User Comment'] + ['User Comment']
                             df_display = df_display[cols]
                             df_display.insert(0, "선택", False)
                             
-                            # ✅ st.data_editor: '선택'과 'User Comment'만 수정 가능하도록 오픈
+                            # ✅ 원본 코멘트 데이터 백업 (비교 검증용)
+                            original_comments = df_display['User Comment'].tolist()
+                            
                             disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                             edited_df = st.data_editor(
                                 df_display, 
                                 use_container_width=True, 
                                 hide_index=True,
-                                disabled=disabled_cols
+                                disabled=disabled_cols,
+                                column_config={
+                                    "User Comment": st.column_config.TextColumn(
+                                        "💬 사용자 코멘트 (더블클릭)", 
+                                        help="실제 실험 결과(Real Wh/kg)나 개선사항 등을 자유롭게 기재하여 데이터 품질을 높여주세요.",
+                                        width="large",
+                                        required=False
+                                    )
+                                }
                             )
                             
                             with col_btn_save:
-                                if st.button("💾 코멘트 업데이트", type="secondary", use_container_width=True):
-                                    if 'User Comment' not in db_df_all.columns:
-                                        db_df_all['User Comment'] = ""
+                                if st.button("💾 사용자 코멘트 저장", type="secondary", use_container_width=True):
+                                    current_comments = edited_df['User Comment'].tolist()
                                     
-                                    # 변경된 코멘트 내용을 원본 DB에 매핑하여 덮어쓰기
-                                    for idx, row in edited_df.iterrows():
-                                        mask = (db_df_all['Email'] == st.session_state.user_email) & \
-                                               (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
-                                               (db_df_all['Time'] == row['Time'])
-                                        if mask.any():
-                                            db_df_all.loc[mask, 'User Comment'] = row['User Comment']
-                                    
-                                    conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all)
-                                    st.cache_data.clear()
-                                    st.success("코멘트가 성공적으로 저장되었습니다.")
-                                    st.rerun()
+                                    # ✅ 1글자라도 변경사항이 있는지 검증
+                                    if current_comments == original_comments:
+                                        st.warning("수정되거나 추가된 코멘트가 없습니다.")
+                                    else:
+                                        if 'User Comment' not in db_df_all.columns:
+                                            db_df_all['User Comment'] = ""
+                                        
+                                        for idx, row in edited_df.iterrows():
+                                            mask = (db_df_all['Email'] == st.session_state.user_email) & \
+                                                   (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
+                                                   (db_df_all['Time'] == row['Time'])
+                                            if mask.any():
+                                                db_df_all.loc[mask, 'User Comment'] = row['User Comment']
+                                        
+                                        conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all)
+                                        st.cache_data.clear()
+                                        st.success("코멘트가 성공적으로 저장되었습니다.")
+                                        st.rerun()
 
                             with col_btn_del:
                                 selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
@@ -1322,8 +1334,7 @@ if col_glossary:
             
 if col_deep:
     with col_deep:
-        # Details 닫기 버튼 텍스트형으로 변경하여 제목과 동일 선상에 배치 (word-break 적용)
-        c_title, c_btn = st.columns([0.7, 0.3])
+        c_title, c_btn = st.columns([0.75, 0.25])
         c_title.markdown("<div style='font-size:16px; font-weight:bold; margin-bottom:10px; word-break:keep-all;'>🎓 Details</div>", unsafe_allow_html=True)
         with c_btn:
             if st.button("닫기", key="close_details_btn"):
