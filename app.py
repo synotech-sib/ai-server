@@ -114,7 +114,7 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=600)
+# ✅ 함수 데코레이터(@st.cache_data) 삭제로 캐시 덫 방지 (내부에서 ttl 제어)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -462,7 +462,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 60:20:20 레이아웃)
+# 5. 시뮬레이터 본문 (✅ 60:20:20 비율 적용)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
     col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
@@ -630,7 +630,6 @@ with col_main:
             v_life = s4.slider("**Base Life (Cycles)**", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
             st.markdown("<br>", unsafe_allow_html=True)
 
-    # ✅ Box 3 텍스트 정렬 및 경고 처리 개편
     with st.container(border=True):
         st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
         sp3, c_3 = st.columns([0.03, 0.97])
@@ -659,18 +658,18 @@ with col_main:
                 v_ec = st.slider("**E/C Ratio (g/Ah)**", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
                 st.slider("**Separator Thick (μm)**", 5, 50, 16, key="ad_sep_m", disabled=not show_adv)
                 
-            # ✅ 정보 텍스트 수평 정렬 (Porosity와 당구장 표시 맞춤)
+            # ✅ 안내 문구를 (B)와 (C) 열의 중앙(가운데)에 정렬
             info1, info2 = st.columns([1, 2])
             with info1:
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
             with info2:
                 st.markdown(
-                    "<div style='text-align: left; padding-left: 10px; color: #888; font-size: 13px; font-weight: bold; padding-top: 5px;'>"
-                    "※ 자세한 사항은 기술 가이드 보기에서 확인 하시기 바랍니다."
+                    "<div style='text-align: center; color: #888; font-size: 13px; font-weight: bold; padding-top: 5px;'>"
+                    "※ 자세한 사항은 로그인 밑의「기술 가이드 보기」에서 확인 하시기 바랍니다."
                     "</div>", unsafe_allow_html=True
                 )
 
-            # ✅ 경고 메시지 독립 열 (UI 꼬임 방지)
+            # 경고 메시지 독립 열
             w1, w2, w3 = st.columns(3)
             with w1:
                 if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
@@ -905,7 +904,6 @@ if col_glossary and col_deep:
                     st.rerun()
             
     with col_deep:
-        # ✅ 타이틀 변경
         st.markdown(f"#### 🎓 Details")
         
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
