@@ -114,7 +114,7 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=600)
+# ✅ 스마트 캐싱 (ttl=600 적용, 캐시 덫 방지를 위해 함수 데코레이터 제외)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -245,7 +245,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 (✅ selected_term 추가)
+# 4. 세션 초기화 및 헤더 모듈
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -279,7 +279,7 @@ with h_r:
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        # ✅ 로그인 성공 시 자동으로 가이드 열기 ('show_guide': True)
+                        # ✅ 로그인 성공 시 가이드 자동 오픈
                         st.session_state.update({'logged_in': True, 'show_guide': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
                         st.session_state.history = load_user_history(u_id_clean, 'material_overall')
                         st.rerun()
@@ -287,7 +287,7 @@ with h_r:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                         if not valid.empty:
                             domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                            # ✅ 로그인 성공 시 자동으로 가이드 열기 ('show_guide': True)
+                            # ✅ 로그인 성공 시 가이드 자동 오픈
                             st.session_state.update({'logged_in': True, 'show_guide': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
                             st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
                             st.rerun()
@@ -306,9 +306,10 @@ with h_r:
     t1, t2 = st.columns([1, 1])
     with t2:
         toggle_label = "**기술 가이드 보기**" if is_pro else "**기술 가이드 보기 (Pro Mode)**"
-        st.session_state.show_guide = st.toggle(
+        # ✅ 더블클릭 버그 해결 (key 파라미터 적용)
+        st.toggle(
             toggle_label, 
-            value=st.session_state.get('show_guide', False),
+            key="show_guide",
             disabled=not is_pro
         )
 
@@ -494,7 +495,7 @@ with col_main:
                 
                 _dfs = []
                 if not df_vip.empty:
-                    _dfs.append(df_vip.iloc[::-1])
+                    _dfs.append(df_vip.iloc[::-1]) # 최신 등록 소재가 드롭다운 상단에 오도록 정렬
                 if not mat_df_public.empty:
                     _dfs.append(mat_df_public)
                 
@@ -585,6 +586,7 @@ with col_main:
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
                 
+                # 보안 텍스트 왼쪽 정렬
                 if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                     st.markdown(
                         "<div style='text-align: left; margin-top: 15px; color: #666; font-size: 14px; font-weight: bold;'>"
