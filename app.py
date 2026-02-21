@@ -182,7 +182,7 @@ st.markdown("""
         line-height: 1.6 !important;
     }
 
-    /* [8] ✅ Details 닫기 버튼 텍스트화 및 글자 2단계 축소 (12px) */
+    /* [8] Details 닫기 버튼 텍스트화 및 글자 2단계 축소 (12px) */
     div[data-testid="column"]:nth-of-type(3) div[data-testid="stButton"] > button {
         background: transparent !important;
         border: none !important;
@@ -514,7 +514,6 @@ if is_pro and st.session_state.get('is_admin', False):
                 else:
                     st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
             
-            # ✅ 편집 메뉴가 열렸을 때만 하단 시뮬레이터 테스트 워크스페이스 선택 활성화
             st.markdown("---")
             st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
             st.caption("ℹ️ 위에서 수정한 DB가 하단의 시뮬레이터에 잘 적용되었는지 특정 VIP의 시점으로 테스트할 수 있습니다.")
@@ -581,7 +580,6 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
 # 5. 시뮬레이터 본문 (✅ 66:17:17 동적 레이아웃 적용)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
-    # '더 자세히' 클릭 상태에 따라 레이아웃 비율 동적 변경 (평상시: 83:17, 클릭시: 66:17:17)
     if st.session_state.get('selected_term'):
         col_main, col_glossary, col_deep = st.columns([0.66, 0.17, 0.17])
     else:
@@ -825,7 +823,6 @@ with col_main:
         with c_5:
             col_btn, col_msg = st.columns([1, 3])
             with col_btn:
-                # ✅ 버튼 텍스트 변경
                 run_clicked = st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True)
             with col_msg:
                 if not st.session_state.history:
@@ -877,8 +874,13 @@ with col_main:
                         plot_bgcolor="#f4f6f9", xaxis_title="DOD (%)", yaxis_title="Voltage (V)"
                     )
                     st.plotly_chart(fig1, use_container_width=True)
-                    # ✅ 그래프 해석 문구 의미 중심으로 개편
-                    st.caption("💡 현재 설계된 소재 조합은 방전이 진행되어도 전압 강하가 완만하여, 디바이스 구동 시 배터리 소진 직전까지 안정적인 출력을 제공합니다.")
+                    # ✅ 그래프 해석 문구 줄바꿈 시 첫 글자 들여쓰기 정렬 적용 (Flexbox)
+                    st.markdown("""
+                    <div style='display:flex; align-items:flex-start; color:#666; font-size:13px; margin-top:5px;'>
+                        <span style='margin-right:5px;'>💡</span>
+                        <span style='line-height:1.4;'>고율 방전 시 분극(Polarization) 및 IR Drop에 의한 초기 과전압(Overpotential) 크기를 나타내며, Plateau 구간의 기울기가 실가용 에너지의 품질을 결정합니다.</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                 with g2:
                     st.markdown('<p class="sub-header-bold">dQ/dV Profile</p>', unsafe_allow_html=True)
@@ -888,8 +890,12 @@ with col_main:
                         plot_bgcolor="#f4f6f9", xaxis_title="Voltage (V)", yaxis_title="dQ/dV"
                     )
                     st.plotly_chart(fig2, use_container_width=True)
-                    # ✅ 그래프 해석 문구 의미 중심으로 개편
-                    st.caption("💡 피크(Peak)가 솟은 구간은 내부 구조 변화와 함께 이온의 출입이 가장 활발하게 일어나는 핵심 반응 전압대를 나타냅니다.")
+                    st.markdown("""
+                    <div style='display:flex; align-items:flex-start; color:#666; font-size:13px; margin-top:5px;'>
+                        <span style='margin-right:5px;'>💡</span>
+                        <span style='line-height:1.4;'>주요 상전이(Phase transition) 구간의 가역성을 진단합니다. 피크의 브로드닝(Broadening) 및 전압 Shift 현상은 활물질의 구조적 열화나 저항 증가를 암시합니다.</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                 with g3:
                     st.markdown('<p class="sub-header-bold">Cell Performance Radar</p>', unsafe_allow_html=True)
@@ -913,8 +919,12 @@ with col_main:
                         showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10), template="plotly_white"
                     )
                     st.plotly_chart(fig3, use_container_width=True)
-                    # ✅ 그래프 해석 문구 의미 중심으로 개편
-                    st.caption("💡 에너지, 출력, 수명 등 어느 한 곳에 치우치지 않고 오각형 면적이 균형 잡힐수록 양산 경쟁력이 뛰어난 최적의 설계입니다.")
+                    st.markdown("""
+                    <div style='display:flex; align-items:flex-start; color:#666; font-size:13px; margin-top:5px;'>
+                        <span style='margin-right:5px;'>💡</span>
+                        <span style='line-height:1.4;'>5대 핵심 설계 지표의 Trade-off 밸런스입니다. 특정 축의 극단적 돌출 설계는 폼팩터 패키징 한계 및 양산성 병목(Bottle-neck)의 주요 원인이 됩니다.</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 st.markdown("---")
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
@@ -923,7 +933,7 @@ with col_main:
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ User Comment 기능 추가)
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
@@ -946,6 +956,7 @@ with col_main:
                             save_record = res.copy()
                             save_record['Email'] = st.session_state.user_email
                             save_record['Workspace'] = st.session_state.workspace
+                            save_record['User Comment'] = "" # 초기 빈 코멘트 생성
                             save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                             conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                         
@@ -981,37 +992,65 @@ with col_main:
                 st.markdown("---")
                 
                 try:
-                    db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    db_df_all = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
                     if not db_df_all.empty and 'Email' in db_df_all.columns:
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                         
                         if not my_saved_data.empty:
-                            col_title, col_btn_del = st.columns([0.8, 0.2])
+                            # 레이아웃 분할: 제목, 코멘트 저장 버튼, 삭제 버튼
+                            col_title, col_btn_save, col_btn_del = st.columns([0.6, 0.2, 0.2])
                             with col_title:
                                 st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                             
+                            # User Comment 컬럼 세팅
                             df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
+                            if 'User Comment' not in df_display.columns:
+                                df_display['User Comment'] = ""
+                            
+                            # 보기 좋게 컬럼 순서 재배치
+                            cols = [c for c in df_display.columns if c != 'User Comment'] + ['User Comment']
+                            df_display = df_display[cols]
                             df_display.insert(0, "선택", False)
                             
+                            # ✅ st.data_editor: '선택'과 'User Comment'만 수정 가능하도록 오픈
+                            disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                             edited_df = st.data_editor(
                                 df_display, 
                                 use_container_width=True, 
                                 hide_index=True,
-                                disabled=[col for col in df_display.columns if col != "선택"]
+                                disabled=disabled_cols
                             )
                             
+                            with col_btn_save:
+                                if st.button("💾 코멘트 업데이트", type="secondary", use_container_width=True):
+                                    if 'User Comment' not in db_df_all.columns:
+                                        db_df_all['User Comment'] = ""
+                                    
+                                    # 변경된 코멘트 내용을 원본 DB에 매핑하여 덮어쓰기
+                                    for idx, row in edited_df.iterrows():
+                                        mask = (db_df_all['Email'] == st.session_state.user_email) & \
+                                               (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
+                                               (db_df_all['Time'] == row['Time'])
+                                        if mask.any():
+                                            db_df_all.loc[mask, 'User Comment'] = row['User Comment']
+                                    
+                                    conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all)
+                                    st.cache_data.clear()
+                                    st.success("코멘트가 성공적으로 저장되었습니다.")
+                                    st.rerun()
+
                             with col_btn_del:
                                 selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
                                 if st.button("🗑️ 선택 항목 삭제", type="primary", use_container_width=True):
                                     if not selected_times:
                                         st.warning("삭제할 항목을 체크해 주세요.")
                                     else:
-                                        mask = ~((db_df_all['Email'] == st.session_state.user_email) & 
-                                                 (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & 
+                                        mask = ~((db_df_all['Email'] == st.session_state.user_email) & \
+                                                 (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
                                                  (db_df_all['Time'].isin(selected_times)))
                                         updated_db = db_df_all[mask]
                                         
-                                        conn = st.connection("gsheets", type=GSheetsConnection)
                                         conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
                                         st.cache_data.clear() 
                                         st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
@@ -1027,7 +1066,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 📖 7. 우측 가이드 패널 렌더링 (심층 지식 DB 보강 및 LaTeX 적용)
+# 📖 7. 우측 가이드 패널 렌더링
 # -----------------------------------------------------------------------------
 GLOSSARY_DB = {
     "Active Ratio (%)": {
@@ -1283,9 +1322,9 @@ if col_glossary:
             
 if col_deep:
     with col_deep:
-        # Details 닫기 버튼을 인라인으로 텍스트 옆에 착 붙이기 위한 컬럼 설계
-        c_title, c_btn = st.columns([0.65, 0.35], vertical_alignment="bottom")
-        c_title.markdown("<div style='font-size:16px; font-weight:bold; margin-bottom:5px; word-break:keep-all;'>🎓 Details</div>", unsafe_allow_html=True)
+        # Details 닫기 버튼 텍스트형으로 변경하여 제목과 동일 선상에 배치 (word-break 적용)
+        c_title, c_btn = st.columns([0.7, 0.3])
+        c_title.markdown("<div style='font-size:16px; font-weight:bold; margin-bottom:10px; word-break:keep-all;'>🎓 Details</div>", unsafe_allow_html=True)
         with c_btn:
             if st.button("닫기", key="close_details_btn"):
                 st.session_state.selected_term = None
