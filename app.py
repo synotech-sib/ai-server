@@ -24,14 +24,14 @@ except ImportError:
     GSheetsConnection = None
 
 # -----------------------------------------------------------------------------
-# 1. 페이지 설정 및 다국어 지원
+# 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore V1.6 Pro", layout="wide")
+st.set_page_config(page_title="SynoCore V1.7 Pro", layout="wide")
 
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    /* 가로폭 컴팩트 제어 (대표님 원본 유지) */
+    /* 가로폭 컴팩트 제어 */
     .main .block-container {
         max-width: 1150px; 
         padding-top: 2rem;
@@ -55,7 +55,7 @@ st.markdown("""
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 및 다운로드 오렌지 색상 (대표님 원본 유지) */
+    /* PDF 및 다운로드 오렌지 색상 */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; 
@@ -80,8 +80,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. 클라우드 DB 연동 설정
+# 2. 클라우드 DB 연동 설정 및 마스터 계정 세팅
 # -----------------------------------------------------------------------------
+# ✅ 마스터 계정 리스트 및 이름 적용
+ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
+ADMIN_PW = "synotech0773!"
+
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
@@ -90,7 +94,7 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=5) # 빠른 반영을 위해 TTL 단축
+@st.cache_data(ttl=5)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -130,7 +134,7 @@ def get_user_db():
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     sender_email = "wschoi@synotech.co.kr"
-    sender_password = "앱비밀번호입력필요" # 대표님 앱 비밀번호 16자리
+    sender_password = "여기에_16자리_앱비밀번호를_입력하세요" # ⚠️ 비밀번호 기입 필요
     try:
         if "EMAIL_PASSWORD" in st.secrets: sender_password = st.secrets["EMAIL_PASSWORD"]
     except: pass
@@ -140,7 +144,6 @@ def send_verification_email(to_email, code):
         msg['From'] = f"SynoCore Admin <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
-
         body = f"안녕하세요. SynoCore Pro 시뮬레이터 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
@@ -214,22 +217,20 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 상단 헤더 모듈 (✅ Enter 로그인 & 글자 밀림 해결)
+# 4. 세션 초기화 및 헤더 모듈 
 # -----------------------------------------------------------------------------
-for key in ['logged_in', 'show_reg', 'reg_stage', 'v_code', 'temp_email', 'history', 'sim_result', 'user_name', 'user_email', 'show_profile', 'workspace', 'user_vip_name', 'show_guide']:
+for key in ['logged_in', 'show_reg', 'reg_stage', 'v_code', 'temp_email', 'history', 'sim_result', 'user_name', 'user_email', 'show_profile', 'workspace', 'user_vip_name', 'show_guide', 'is_admin']:
     if key not in st.session_state: st.session_state[key] = False if isinstance(default:=False, bool) else [] if key == 'history' else "material_list" if key == 'workspace' else ""
 
-h_l, h_r = st.columns([1.2, 1]) # 우측(h_r) 공간을 더 넓게 확보하여 글자 밀림 방지
+h_l, h_r = st.columns([1.2, 1]) 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.6 Pro</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.7 Pro</span></div>', unsafe_allow_html=True)
 
 with h_r:
     if not st.session_state.logged_in:
-        c1, c2 = st.columns(2)
-        
+        c1, c2 = st.columns([1, 1])
         with c1.popover("Login"):
-            # ✅ st.form을 활용하여 Enter 키로 로그인되도록 개선
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -240,8 +241,11 @@ with h_r:
                     u_id_clean = u_id.strip().lower()
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
-                    if u_id_clean == "wschoi@synotech.co.kr" and u_pw == "synotech0773!":
-                        st.session_state.update({'logged_in': True, 'user_name': "최우석 대표", 'user_email': u_id_clean, 'workspace': 'material_list', 'history': load_user_history(u_id_clean, 'material_list')}); st.rerun()
+                    # ✅ 마스터 계정 다중 로그인 적용 (대표님 + 서연님)
+                    if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
+                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_list'})
+                        st.session_state.history = load_user_history(u_id_clean, 'material_list')
+                        st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                         if not valid.empty:
@@ -251,7 +255,6 @@ with h_r:
                             st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         
-        # ✅ '계정 신청'을 '계정 가입'으로 변경
         if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
@@ -259,10 +262,38 @@ with h_r:
         r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
-            for k in ['logged_in', 'history']: st.session_state[k] = False if type(st.session_state[k])==bool else []
+            for k in ['logged_in', 'history', 'is_admin']: st.session_state[k] = False if type(st.session_state[k])==bool else []
             st.rerun()
 
-st.markdown("<br>", unsafe_allow_html=True)
+is_pro = st.session_state.logged_in
+
+# ✅ 가이드 토글 버튼을 우측 (로그인 아래쪽)으로 배치
+if is_pro:
+    t_spacer, t_tog = st.columns([0.83, 0.17])
+    with t_tog:
+        st.session_state.show_guide = st.toggle("💡 기술 가이드 보기", value=st.session_state.get('show_guide', False))
+
+st.markdown("---")
+
+# -----------------------------------------------------------------------------
+# 👑 [최고 관리자 전용 대시보드] 최상단 배치
+# -----------------------------------------------------------------------------
+if is_pro and st.session_state.get('is_admin', False):
+    with st.container(border=True):
+        st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+        a1, a2, a3, a4 = st.columns(4)
+        a1.link_button("👥 유저 관리 DB (Users)", URL_USERS, use_container_width=True)
+        a2.link_button("🔋 소재 DB (Materials)", URL_MATS, use_container_width=True)
+        a3.link_button("⚙️ 파라미터 DB (Param)", URL_PARAM, use_container_width=True)
+        a4.link_button("💾 시뮬레이션 로그 DB", URL_LOGS, use_container_width=True)
+        
+        st.markdown("---")
+        vip_opts = ["material_list"] + get_vip_list_exact()
+        sel_ws = st.selectbox("**🔒 관리자 접속 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
+        if sel_ws != st.session_state.workspace:
+            st.session_state.workspace = sel_ws
+            st.session_state.history = load_user_history(st.session_state.user_email, sel_ws)
+            st.rerun()
 
 # -----------------------------------------------------------------------------
 # 계정 가입 및 My 계정 관리
@@ -298,7 +329,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
 if st.session_state.get('show_profile') and st.session_state.logged_in:
     with st.container(border=True):
         st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
-        if st.session_state.user_email == "wschoi@synotech.co.kr": st.info("관리자 계정입니다.")
+        if st.session_state.get('is_admin', False): st.info("관리자 계정입니다.")
         else:
             df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u[df_u['Email'] == st.session_state.user_email].empty else {}
             st.markdown(f"**이메일(ID):** {st.session_state.user_email} (변경 불가)")
@@ -314,13 +345,8 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (60:20:20 레이아웃 제어)
+# 5. 시뮬레이터 본문 (60:20:20 레이아웃)
 # -----------------------------------------------------------------------------
-is_pro = st.session_state.logged_in
-
-if is_pro:
-    st.session_state.show_guide = st.toggle("💡 기술 가이드 보기 (Technical Guide)", value=st.session_state.get('show_guide', False))
-
 if st.session_state.get('show_guide', False):
     col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
 else:
@@ -333,7 +359,6 @@ with col_main:
         st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
-            # ✅ 하이브리드 데이터베이스 병합 로직
             df_vip = load_cloud_data(URL_MATS, st.session_state.workspace) if is_pro and st.session_state.workspace != "material_list" else pd.DataFrame()
             mat_df = pd.concat([mat_df_public, df_vip]).drop_duplicates(subset=['Name'], keep='last') if not mat_df_public.empty else pd.DataFrame()
 
@@ -344,12 +369,12 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                cat_sel = m1.selectbox("Cathode", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
-                ano_sel = m2.selectbox("Anode", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
-                m3.selectbox("Electrolyte", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
-                m4.selectbox("Separator", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
+                # ✅ 섹션 1: 텍스트 볼드체 적용
+                cat_sel = m1.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
+                ano_sel = m2.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
+                m3.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
+                m4.selectbox("**Separator**", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
                 
-                # ✅ VIP 전용 탭에 사용자 직접 추가 기능
                 if is_pro and st.session_state.workspace != "material_list":
                     with st.expander("➕ 내 전용 소재 추가하기"):
                         new_cat_name = st.text_input("새로운 양극재 이름 (예: Altris_PW_Gen2)")
@@ -361,14 +386,13 @@ with col_main:
                             st.success("내 전용 소재가 저장되었습니다!"); st.rerun()
 
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
-                # ⚠️ 진밀도 기본값 4.5 반영 (공극률 마이너스 오류 해결)
                 def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
                 def_vlt_min, def_vlt_max, def_vlt_val = float(row.get('Volt_Min', 2.0)), float(row.get('Volt_Max', 4.5)), float(row.get('Volt_Def', 3.05))
                 def_den_min, def_den_max, def_den_val = float(row.get('Den_Min', 1.0)), float(row.get('Den_Max', 5.0)), float(row.get('Den_Def', 4.5))
                 def_lif_min, def_lif_max, def_lif_val = int(row.get('Life_Min', 500)), int(row.get('Life_Max', 10000)), int(row.get('Life_Def', 4000))
                 def_lod_min, def_lod_max, def_lod_val = float(row.get('Load_Min', 5.0)), float(row.get('Load_Max', 45.0)), float(row.get('Load_Def', 14.0))
             else:
-                st.warning("Cloud에서 소재 리스트를 불러오지 못했습니다.")
+                st.warning("Cloud에서 소재 리스트를 불러오지 못했습니다. 앱이 기본값으로 작동합니다.")
                 cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
                 def_cap_min, def_cap_max, def_cap_val = 100.0, 250.0, 160.0; def_vlt_min, def_vlt_max, def_vlt_val = 2.0, 4.5, 3.05; def_den_min, def_den_max, def_den_val = 1.0, 5.0, 4.5; def_lif_min, def_lif_max, def_lif_val = 500, 10000, 4000; def_lod_min, def_lod_max, def_lod_val = 5.0, 45.0, 14.0
             st.markdown("<br>", unsafe_allow_html=True)
@@ -377,46 +401,45 @@ with col_main:
         st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
-            # ✅ 기존 체크박스 문구 복구
             expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
             
             s1, s2, s3, s4 = st.columns(4)
-            v_cap = s1.slider("Capacity (mAh/g)", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
-            v_volt = s2.slider("Voltage (V)", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
-            v_den = s3.slider("True Density (g/cc)", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
-            v_life = s4.slider("Base Life (Cycles)", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
+            # ✅ 섹션 2: 텍스트 볼드체 적용
+            v_cap = s1.slider("**Capacity (mAh/g)**", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
+            v_volt = s2.slider("**Voltage (V)**", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
+            v_den = s3.slider("**True Density (g/cc)**", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
+            v_life = s4.slider("**Base Life (Cycles)**", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
             st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
         sp3, c_3 = st.columns([0.03, 0.97])
         with c_3:
-            # ✅ 기존 체크박스 문구 복구
             show_adv = True if is_pro else st.checkbox("세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]", key="chk_adv_m", disabled=True)
             
             p1, p2, p3 = st.columns(3)
             with p1:
                 st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-                v_load = st.slider("Loading (mg/cm2)", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
-                v_press = st.slider("Cathode Press Density", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
-                st.slider("Conductive Agent %", 0.5, 10.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
-                st.slider("Binder %", 0.5, 10.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
+                # ✅ 섹션 3: 텍스트 볼드체 적용
+                v_load = st.slider("**Loading (mg/cm2)**", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
+                v_press = st.slider("**Cathode Press Density**", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
+                st.slider("**Conductive Agent %**", 0.5, 10.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
+                st.slider("**Binder %**", 0.5, 10.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
                 
-                # ✅ 공극률 자동 계산 로직 적용
                 porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
                 if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
                     
             with p2:
                 st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
-                v_np = st.slider("N/P Ratio", 1.0, 1.5, 1.15, step=0.01, key="sl_np_m")
-                st.slider("Anode Press Density", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
-                st.slider("Anode Active %", 80.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
+                v_np = st.slider("**N/P Ratio**", 1.0, 1.5, 1.15, step=0.01, key="sl_np_m")
+                st.slider("**Anode Press Density**", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
+                st.slider("**Anode Active %**", 80.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
             with p3:
                 st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
-                v_act = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0, key="sl_act_m")
-                st.slider("E/C Ratio (g/Ah)", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
-                st.slider("Separator Thick (μm)", 5, 50, 16, key="ad_sep_m", disabled=not show_adv)
+                v_act = st.slider("**Active Ratio (%)**", 80.0, 99.0, 92.0, key="sl_act_m")
+                st.slider("**E/C Ratio (g/Ah)**", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
+                st.slider("**Separator Thick (μm)**", 5, 50, 16, key="ad_sep_m", disabled=not show_adv)
             st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container(border=True):
@@ -433,6 +456,8 @@ with col_main:
             with t3:
                 st.markdown('<p class="sub-header-bold">Cycle Life Goal</p>', unsafe_allow_html=True)
                 v_tl = st.slider("Cycle Goal", 500, 10000, 2000, label_visibility="collapsed")
+        # ✅ 여유 공간 확보
+        st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
@@ -450,7 +475,7 @@ with col_main:
                 cell_v = max(0.1, v_volt - ir_drop)
                 efficiency = max(0.5, 1.0 - (v_tc * 0.015))
                 res_whkg = ((v_cap * (v_act/100) * cell_v) / 2.5) * efficiency
-                whl = res_whkg * v_press * 0.8 # 부피당 에너지 밀도 도출
+                whl = res_whkg * v_press * 0.8  
                 life_cyc = int(v_life * (0.95 ** v_tc))
                 
                 cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%H:%M:%S")
@@ -498,6 +523,8 @@ with col_main:
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
                 df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
                 st.dataframe(df_history, use_container_width=True)
+        # ✅ 여유 공간 확보
+        st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
     # 6. 내 데이터 관리
