@@ -153,7 +153,6 @@ st.markdown("""
         align-items: center !important;
         margin-top: 5px !important;
     }
-    /* "더 자세히" 글자에만 밑줄 적용 */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button p {
         text-decoration: underline !important;
         margin: 0 !important;
@@ -161,7 +160,6 @@ st.markdown("""
         font-size: 14px !important;
         font-weight: normal !important;
     }
-    /* 버튼 뒤에 밑줄 없는 ">" 기호 동적 추가 */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button::after {
         content: ' >';
         text-decoration: none !important;
@@ -184,21 +182,23 @@ st.markdown("""
         line-height: 1.6 !important;
     }
 
-    /* [8] ✅ Details 닫기 버튼 크기 2단계 축소 및 레이아웃 밀림 방지 */
+    /* [8] ✅ Details 닫기 버튼 텍스트화 및 글자 2단계 축소 (12px) */
     div[data-testid="column"]:nth-of-type(3) div[data-testid="stButton"] > button {
-        font-size: 10px !important;
-        font-weight: bold !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        background-color: #e0e0e0 !important;
-        color: #333 !important;
-        padding: 0px 4px !important;
-        margin-top: 5px !important;
-        line-height: 1 !important;
+        background: transparent !important;
+        border: none !important;
+        color: #888 !important;
+        text-decoration: underline !important;
+        font-size: 12px !important; 
+        font-weight: normal !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        display: inline-block !important;
     }
     div[data-testid="column"]:nth-of-type(3) div[data-testid="stButton"] > button:hover {
-        background-color: #d0d0d0 !important;
-        color: #000 !important;
+        color: #D35400 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -514,6 +514,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 else:
                     st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
             
+            # ✅ 편집 메뉴가 열렸을 때만 하단 시뮬레이터 테스트 워크스페이스 선택 활성화
             st.markdown("---")
             st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
             st.caption("ℹ️ 위에서 수정한 DB가 하단의 시뮬레이터에 잘 적용되었는지 특정 VIP의 시점으로 테스트할 수 있습니다.")
@@ -867,7 +868,6 @@ with col_main:
                 r3.metric("Cell Voltage", f"{res['Cell_V']} V")
                 r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=res['Life(Cyc)'] - v_tl)
                 
-                # ✅ 한 줄(Row) 3개 그래프 배치 및 옅은 그레이 바탕색 적용
                 g1, g2, g3 = st.columns(3)
                 with g1:
                     st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
@@ -877,7 +877,8 @@ with col_main:
                         plot_bgcolor="#f4f6f9", xaxis_title="DOD (%)", yaxis_title="Voltage (V)"
                     )
                     st.plotly_chart(fig1, use_container_width=True)
-                    st.caption("💡 **해석:** 방전 심도(DOD)에 따른 전압 강하 추이입니다. 곡선이 평탄할수록 방전 내내 안정적인 출력을 유지함을 의미합니다.")
+                    # ✅ 그래프 해석 문구 의미 중심으로 개편
+                    st.caption("💡 현재 설계된 소재 조합은 방전이 진행되어도 전압 강하가 완만하여, 디바이스 구동 시 배터리 소진 직전까지 안정적인 출력을 제공합니다.")
                     
                 with g2:
                     st.markdown('<p class="sub-header-bold">dQ/dV Profile</p>', unsafe_allow_html=True)
@@ -887,7 +888,8 @@ with col_main:
                         plot_bgcolor="#f4f6f9", xaxis_title="Voltage (V)", yaxis_title="dQ/dV"
                     )
                     st.plotly_chart(fig2, use_container_width=True)
-                    st.caption("💡 **해석:** 산화·환원 반응의 집중도를 나타냅니다. 피크(Peak) 위치는 주요 구조적 상전이가 일어나는 전압 구간입니다.")
+                    # ✅ 그래프 해석 문구 의미 중심으로 개편
+                    st.caption("💡 피크(Peak)가 솟은 구간은 내부 구조 변화와 함께 이온의 출입이 가장 활발하게 일어나는 핵심 반응 전압대를 나타냅니다.")
                     
                 with g3:
                     st.markdown('<p class="sub-header-bold">Cell Performance Radar</p>', unsafe_allow_html=True)
@@ -911,7 +913,8 @@ with col_main:
                         showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10), template="plotly_white"
                     )
                     st.plotly_chart(fig3, use_container_width=True)
-                    st.caption("💡 **해석:** 현재 설계된 셀의 5대 핵심 성능 밸런스(각형/파우치 패키징 기준)를 100점 만점 지수로 시각화했습니다.")
+                    # ✅ 그래프 해석 문구 의미 중심으로 개편
+                    st.caption("💡 에너지, 출력, 수명 등 어느 한 곳에 치우치지 않고 오각형 면적이 균형 잡힐수록 양산 경쟁력이 뛰어난 최적의 설계입니다.")
 
                 st.markdown("---")
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
@@ -1093,7 +1096,7 @@ $$ Anode\ Porosity\ (\%) = \left( 1 - \frac{Anode\ Press\ Density}{Anode\ True\ 
 
 배터리가 장기간 안정적으로 구동하기 위해서는 활물질 입자들을 물리적, 전기적으로 하나로 묶어주는 첨가제가 필수적입니다.
 
-* **도전재 (Conductive Agent):** 활물질 자체는 전기가 잘 통하지 않는 경우가 많습니다. 카본블랙(Carbon Black)이나 탄소나노튜브(CNT) 시 소량(1~3%) 첨가하여 입자 사이사이에 **3차원 전자 이동 네트워크**를 형성합니다. 도전재가 부족하면 고속 방전(C-rate) 시 전압 강하(IR Drop)가 심하게 발생합니다.
+* **도전재 (Conductive Agent):** 활물질 자체는 전기가 잘 통하지 않는 경우가 많습니다. 카본블랙(Carbon Black)이나 탄소나노튜브(CNT)를 소량(1~3%) 첨가하여 입자 사이사이에 **3차원 전자 이동 네트워크**를 형성합니다. 도전재가 부족하면 고속 방전(C-rate) 시 전압 강하(IR Drop)가 심하게 발생합니다.
 * **바인더 (Binder):** 양극에는 주로 유기용매계인 PVDF를, 음극에는 수계인 SBR/CMC를 사용합니다. 충방전 시 발생하는 **활물질의 부피 팽창/수축을 기계적으로 잡아주어** 전극 붕괴를 막아줍니다.
 * **비중 설계 한계:** 두 첨가제는 스스로 용량을 내지 못하는(Dead Weight) 물질이므로, 기술이 발전할수록 이들의 비중을 1% 단위로 줄여 에너지 밀도를 극대화하는 추세입니다.
 """
@@ -1280,11 +1283,13 @@ if col_glossary:
             
 if col_deep:
     with col_deep:
-        c_title, c_btn = st.columns([0.75, 0.25])
-        c_title.markdown(f"#### 🎓 Details")
-        if c_btn.button("✖ 닫기", use_container_width=True):
-            st.session_state.selected_term = None
-            st.rerun()
+        # Details 닫기 버튼을 인라인으로 텍스트 옆에 착 붙이기 위한 컬럼 설계
+        c_title, c_btn = st.columns([0.65, 0.35], vertical_alignment="bottom")
+        c_title.markdown("<div style='font-size:16px; font-weight:bold; margin-bottom:5px; word-break:keep-all;'>🎓 Details</div>", unsafe_allow_html=True)
+        with c_btn:
+            if st.button("닫기", key="close_details_btn"):
+                st.session_state.selected_term = None
+                st.rerun()
             
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
             current_term = st.session_state.selected_term
