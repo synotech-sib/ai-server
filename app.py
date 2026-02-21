@@ -77,6 +77,11 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     
+    /* 모바일 스크롤 오작동 방지 슬라이더 패딩 */
+    div[data-testid="stSlider"] {
+        padding-bottom: 10px;
+    }
+    
     /* 가이드 토글 박스화 (마이크로소프트 폴더 옐로우 골드 색상) */
     div[data-testid="stToggle"] {
         background-color: #F4CE14; 
@@ -114,7 +119,6 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# ✅ 함수 데코레이터(@st.cache_data) 삭제로 캐시 덫 방지 (내부에서 ttl 제어)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -346,7 +350,8 @@ if is_pro and st.session_state.get('is_admin', False):
                 ws_options = ["Users", "VIPs"]
             elif st.session_state.admin_view == 'mats':
                 target_url = URL_MATS
-                ws_options = ["material_list"] + get_vip_list_exact()
+                # ✅ 관리자 편의를 위해 material_overall을 맨 위에 추가
+                ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
             elif st.session_state.admin_view == 'param':
                 target_url = URL_PARAM
                 ws_options = ["param_config"]
@@ -362,37 +367,52 @@ if is_pro and st.session_state.get('is_admin', False):
             
             conn = st.connection("gsheets", type=GSheetsConnection)
             try:
-                df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
-                st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
-                
-                original_cols = df_admin.columns.tolist()
-                df_display = df_admin.copy()
-                is_log_view = (st.session_state.admin_view == 'logs')
-                
-                if is_log_view and not df_display.empty:
-                    front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
-                    other_cols = [c for c in original_cols if c not in front_cols]
-                    df_display = df_display[front_cols + other_cols]
-                    df_display = df_display.iloc[::-1].reset_index(drop=True)
-                
-                edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
-                
-                if st.button("💾 변경사항 클라우드에 저장", type="primary"):
-                    try:
-                        save_df = edited_df.copy()
-                        
-                        if is_log_view and not save_df.empty:
-                            save_df = save_df.iloc[::-1].reset_index(drop=True)
-                        
-                        if set(original_cols) == set(save_df.columns):
-                            save_df = save_df[original_cols]
-                            
-                        edited_df_safe = save_df.fillna("")
-                        conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
-                        st.cache_data.clear()
-                        st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                    except Exception as e:
-                        st.error(f"저장 중 오류 발생: {e}")
+                # ✅ material_overall 선택 시: 모든 데이터를 취합한 읽기 전용 뷰 제공
+                if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
+                    st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다. (수정은 개별 탭에서 진행해주세요.)")
+                    vips = get_vip_list_exact()
+                    dfs = []
+                    for v in vips:
+                        tmp = load_cloud_data(target_url, v)
+                        if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
+                    tmp_public = load_cloud_data(target_url, "material_list")
+                    if not tmp_public.empty: dfs.append(tmp_public)
+                    
+                    df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                    df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
+                    
+                    st.dataframe(df_admin, use_container_width=True)
+                else:
+                    # 일반 개별 탭 선택 시: 인라인 에디터 제공
+                    df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
+                    st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
+                    
+                    original_cols = df_admin.columns.tolist()
+                    df_display = df_admin.copy()
+                    is_log_view = (st.session_state.admin_view == 'logs')
+                    
+                    if is_log_view and not df_display.empty:
+                        front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
+                        other_cols = [c for c in original_cols if c not in front_cols]
+                        df_display = df_display[front_cols + other_cols]
+                        df_display = df_display.iloc[::-1].reset_index(drop=True)
+                    
+                    edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
+                    
+                    if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                        try:
+                            save_df = edited_df.copy()
+                            if is_log_view and not save_df.empty:
+                                save_df = save_df.iloc[::-1].reset_index(drop=True)
+                            if set(original_cols) == set(save_df.columns):
+                                save_df = save_df[original_cols]
+                                
+                            edited_df_safe = save_df.fillna("")
+                            conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                            st.cache_data.clear()
+                            st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                        except Exception as e:
+                            st.error(f"저장 중 오류 발생: {e}")
             except Exception as e:
                 err_msg = str(e)
                 if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
@@ -462,7 +482,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 60:20:20 비율 적용)
+# 5. 시뮬레이터 본문 (✅ 60:20:20 레이아웃)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
     col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
@@ -658,7 +678,7 @@ with col_main:
                 v_ec = st.slider("**E/C Ratio (g/Ah)**", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
                 st.slider("**Separator Thick (μm)**", 5, 50, 16, key="ad_sep_m", disabled=not show_adv)
                 
-            # ✅ 안내 문구를 (B)와 (C) 열의 중앙(가운데)에 정렬
+            # ✅ 안내 문구를 (B)와 (C) 영역의 완벽한 중앙에 정렬 및 문구 수정
             info1, info2 = st.columns([1, 2])
             with info1:
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
@@ -669,7 +689,6 @@ with col_main:
                     "</div>", unsafe_allow_html=True
                 )
 
-            # 경고 메시지 독립 열
             w1, w2, w3 = st.columns(3)
             with w1:
                 if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
