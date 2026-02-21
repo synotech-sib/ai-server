@@ -114,13 +114,13 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# ✅ 모든 DB Read에 10분(600초) 캐시 적용 -> 구글 API Rate Limit(429 에러) 원천 차단
-@st.cache_data(ttl=600)
+# ✅ 함수 데코레이터(@st.cache_data) 삭제: 에러 시 빈 값을 영구 캐시하는 '캐시 덫' 방지
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=url, worksheet=ws)
+        # ✅ conn.read 내부에 직접 ttl=600을 부여하여 정상 데이터만 스마트하게 캐시
+        df = conn.read(spreadsheet=url, worksheet=ws, ttl=600)
         if df is not None and not df.empty:
             df.columns = [str(c).split('(')[0].strip() for c in df.columns]
             return df
@@ -146,7 +146,7 @@ def get_user_db():
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600) # ✅ 캐시 적용
+        return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
@@ -206,7 +206,7 @@ def load_user_history(email, workspace="material_list"):
     if GSheetsConnection is None: return []
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600) # ✅ 캐시 적용
+        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
         if db_df.empty or 'Email' not in db_df.columns: return []
         my_logs = db_df[(db_df['Email'] == email) & (db_df.get('Workspace', 'material_list') == workspace)]
         hist = []
@@ -363,7 +363,7 @@ if is_pro and st.session_state.get('is_admin', False):
             
             conn = st.connection("gsheets", type=GSheetsConnection)
             try:
-                df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) # ✅ 캐시 적용
+                df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
                 st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
                 
                 original_cols = df_admin.columns.tolist()
@@ -390,13 +390,12 @@ if is_pro and st.session_state.get('is_admin', False):
                             
                         edited_df_safe = save_df.fillna("")
                         conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
-                        st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                        st.cache_data.clear()
                         st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
                     except Exception as e:
                         st.error(f"저장 중 오류 발생: {e}")
             except Exception as e:
                 err_msg = str(e)
-                # ✅ 429 에러(Rate Limit) 전용 안내 메시지 추가
                 if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
                     st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
                 else:
@@ -440,7 +439,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
-                st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                st.cache_data.clear() 
                 st.success("가입신청 완료! 로그인 해주세요."); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
 
 if st.session_state.get('show_profile') and st.session_state.logged_in:
@@ -460,7 +459,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
                 df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept; df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); 
-                st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                st.cache_data.clear() 
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
@@ -521,7 +520,7 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
-                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                                    st.cache_data.clear() 
                                     st.success("소재가 저장되었습니다.")
                                     st.rerun()
                                 except Exception as e:
@@ -541,7 +540,7 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
-                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                                    st.cache_data.clear() 
                                     st.success("소재가 저장되었습니다.")
                                     st.rerun()
                                 except Exception as e:
@@ -560,7 +559,7 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
-                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                                    st.cache_data.clear() 
                                     st.success("소재가 저장되었습니다.")
                                     st.rerun()
                                 except Exception as e:
@@ -579,7 +578,7 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
-                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                                    st.cache_data.clear() 
                                     st.success("소재가 저장되었습니다.")
                                     st.rerun()
                                 except Exception as e:
@@ -774,7 +773,7 @@ with col_main:
                         if is_duplicate:
                             st.warning("이미 저장된 시뮬레이션 결과입니다.")
                         else:
-                            st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                            st.cache_data.clear() 
                             st.success("내 계정에 저장하기가 완료되었습니다.")
                     except Exception as e: 
                         st.error(f"저장 오류: {e}")
@@ -803,7 +802,6 @@ with col_main:
                 st.markdown("---")
                 
                 try:
-                    # ✅ ttl=600 캐시 적용 완료
                     db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
                     if not db_df_all.empty and 'Email' in db_df_all.columns:
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
@@ -836,7 +834,7 @@ with col_main:
                                         
                                         conn = st.connection("gsheets", type=GSheetsConnection)
                                         conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
-                                        st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                                        st.cache_data.clear() 
                                         st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
                                         st.rerun()
                         else:
