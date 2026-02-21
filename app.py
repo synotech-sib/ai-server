@@ -77,20 +77,25 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     
-    /* 가이드 토글 박스화 (MS 폴더 색상 적용 및 버튼과 사이즈 동일화) */
+    /* ✅ 가이드 토글 박스화 (마이크로소프트 폴더 옐로우 골드 색상) */
     div[data-testid="stToggle"] {
-        background-color: #F8D775;
+        background-color: #F4CE14; 
+        border: 1px solid #D4AC0D;
         padding: 0px 15px;
         border-radius: 4px;
         height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
+        margin-top: 10px;
     }
     div[data-testid="stToggle"] > label {
         margin-bottom: 0px !important; 
-        font-size: 16px !important;
+        font-size: 15px !important;
         color: #333 !important;
+        width: 100%;
+        display: flex;
+        justify-content: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -144,7 +149,7 @@ def get_user_db():
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
-# ✅ 안전한 형변환 도우미 함수 추가 (ValueError 방지)
+# 안전한 형변환 도우미
 def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
     except: return default
@@ -240,12 +245,12 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 
+# 4. 세션 초기화 및 헤더 모듈 (✅ 버튼 폭 정렬 마스터본)
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
-    'workspace': 'material_list', 'user_vip_name': None, 'show_guide': False, 'is_admin': False
+    'workspace': 'material_overall', 'user_vip_name': None, 'show_guide': False, 'is_admin': False
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -257,7 +262,9 @@ with h_l:
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.7 Pro</span></div>', unsafe_allow_html=True)
 
 with h_r:
-    if not st.session_state.logged_in:
+    is_pro = st.session_state.logged_in
+    
+    if not is_pro:
         c1, c2 = st.columns([1, 1])
         with c1.popover("Login", use_container_width=True):
             with st.form("login_form", border=False):
@@ -271,8 +278,9 @@ with h_r:
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_list'})
-                        st.session_state.history = load_user_history(u_id_clean, 'material_list')
+                        # 관리자는 기본적으로 material_overall 로 진입
+                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
+                        st.session_state.history = load_user_history(u_id_clean, 'material_overall')
                         st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -293,15 +301,15 @@ with h_r:
             for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
 
-is_pro = st.session_state.logged_in
-
-t_spacer, t_tog = st.columns([0.82, 0.18])
-with t_tog:
-    st.session_state.show_guide = st.toggle(
-        "**기술 가이드 보기**", 
-        value=st.session_state.get('show_guide', False),
-        disabled=not is_pro
-    )
+    # ✅ 하위 50% 영역(우측)에 토글을 배치하여 위쪽 버튼과 100% 사이즈 동일화
+    t1, t2 = st.columns([1, 1])
+    with t2:
+        toggle_label = "**기술 가이드 보기**" if is_pro else "**기술 가이드 보기 (Pro Mode)**"
+        st.session_state.show_guide = st.toggle(
+            toggle_label, 
+            value=st.session_state.get('show_guide', False),
+            disabled=not is_pro
+        )
 
 st.markdown("---")
 
@@ -318,7 +326,8 @@ if is_pro and st.session_state.get('is_admin', False):
         a4.link_button("💾 시뮬레이션 로그 DB", URL_LOGS, use_container_width=True)
         
         st.markdown("---")
-        vip_opts = ["material_list"] + get_vip_list_exact()
+        # ✅ material_overall (모든 소재 보기) 항목 최상단 추가
+        vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
         sel_ws = st.selectbox("**🔒 관리자 접속 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
         if sel_ws != st.session_state.workspace:
             st.session_state.workspace = sel_ws
@@ -389,8 +398,19 @@ with col_main:
         st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
-            df_vip = load_cloud_data(URL_MATS, st.session_state.workspace) if is_pro and st.session_state.workspace != "material_list" else pd.DataFrame()
-            mat_df = pd.concat([mat_df_public, df_vip]).drop_duplicates(subset=['Name'], keep='last') if not mat_df_public.empty else pd.DataFrame()
+            # ✅ Admin overall 기능 처리
+            if is_pro and st.session_state.workspace == "material_overall":
+                vips = get_vip_list_exact()
+                dfs = [mat_df_public]
+                for v in vips:
+                    tmp = load_cloud_data(URL_MATS, v)
+                    if not tmp.empty: dfs.append(tmp)
+                mat_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                mat_df = mat_df.drop_duplicates(subset=['Name'], keep='last') if not mat_df.empty else pd.DataFrame()
+                df_vip = pd.DataFrame() # Add disabled in overall mode
+            else:
+                df_vip = load_cloud_data(URL_MATS, st.session_state.workspace) if is_pro and st.session_state.workspace != "material_list" else pd.DataFrame()
+                mat_df = pd.concat([mat_df_public, df_vip]).drop_duplicates(subset=['Name'], keep='last') if not mat_df_public.empty else pd.DataFrame()
 
             m1, m2, m3, m4 = st.columns(4)
             if not mat_df.empty and 'Category' in mat_df.columns:
@@ -399,10 +419,9 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ 저장 직후 캐시 비우기 (load_cloud_data.clear()) 적용
                 with m1:
                     cat_sel = st.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
-                    if is_pro and st.session_state.workspace != "material_list":
+                    if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                         with st.expander("➕ 양극재 추가"):
                             n_cat = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Cat_01")
                             c_cat = st.number_input("용량 (mAh/g)", value=160.0, key="n_cat_c")
@@ -415,15 +434,14 @@ with col_main:
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
-                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
 
                 with m2:
                     ano_sel = st.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
-                    if is_pro and st.session_state.workspace != "material_list":
+                    if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                         with st.expander("➕ 음극재 추가"):
                             n_ano = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Ano_01")
                             c_ano = st.number_input("용량 (mAh/g)", value=360.0, key="n_ano_c")
@@ -436,15 +454,14 @@ with col_main:
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
-                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
 
                 with m3:
                     st.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
-                    if is_pro and st.session_state.workspace != "material_list":
+                    if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                         with st.expander("➕ 전해액 추가"):
                             n_ele = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Elec_01")
                             d_ele = st.number_input("밀도 (g/cc)", value=1.2, key="n_ele_d")
@@ -456,15 +473,14 @@ with col_main:
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
-                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
 
                 with m4:
                     st.selectbox("**Separator**", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
-                    if is_pro and st.session_state.workspace != "material_list":
+                    if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                         with st.expander("➕ 분리막 추가"):
                             n_sep = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Sep_01")
                             t_sep = st.number_input("두께 (μm)", value=16.0, key="n_sep_t") 
@@ -476,13 +492,20 @@ with col_main:
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
-                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
                 
-                # ✅ ValueError 방지 - safe_float 및 safe_int 적용
+                # ✅ 하단 보안 문구 가로 배치
+                if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
+                    st.markdown(
+                        "<div style='text-align: center; margin-top: 15px; color: #666; font-size: 14px; font-weight: bold;'>"
+                        "🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다."
+                        "</div><br>", 
+                        unsafe_allow_html=True
+                    )
+                
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
                 def_cap_min = safe_float(row.get('Cap_Min'), 100.0)
                 def_cap_max = safe_float(row.get('Cap_Max'), 250.0)
