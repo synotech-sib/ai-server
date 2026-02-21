@@ -131,7 +131,8 @@ def get_vip_list_exact():
     return [str(x).strip() for x in df['Company'].dropna().tolist() if str(x).strip()] if not df.empty and 'Company' in df.columns else []
 
 mat_df_public = load_cloud_data(URL_MATS, "material_list")
-param_df = load_cloud_data(URL_PARAM, "Sheet1")
+# ✅ Sheet1에서 param_config로 탭 이름 수정
+param_df = load_cloud_data(URL_PARAM, "param_config")
 
 sys_params = {}
 if not param_df.empty and 'Parameter_ID' in param_df.columns:
@@ -313,7 +314,7 @@ with h_r:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드] 인라인 에디터 (✅ 로그 DB 컬럼 재배치 적용)
+# 👑 [최고 관리자 전용 대시보드] 인라인 에디터
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     with st.container(border=True):
@@ -330,7 +331,8 @@ if is_pro and st.session_state.get('is_admin', False):
             st.rerun()
         if a3.button("⚙️ 파라미터 DB", use_container_width=True):
             if st.session_state.admin_view == 'param': st.session_state.admin_view = None
-            else: st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'Sheet1'
+            # ✅ Sheet1에서 param_config로 탭 이름 수정
+            else: st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'
             st.rerun()
         if a4.button("💾 로그 DB", use_container_width=True):
             if st.session_state.admin_view == 'logs': st.session_state.admin_view = None
@@ -349,7 +351,8 @@ if is_pro and st.session_state.get('is_admin', False):
                 ws_options = ["material_list"] + get_vip_list_exact()
             elif st.session_state.admin_view == 'param':
                 target_url = URL_PARAM
-                ws_options = ["Sheet1"]
+                # ✅ Sheet1에서 param_config로 드롭다운 옵션 수정
+                ws_options = ["param_config"]
             elif st.session_state.admin_view == 'logs':
                 target_url = URL_LOGS
                 ws_options = ["myData"]
@@ -365,7 +368,6 @@ if is_pro and st.session_state.get('is_admin', False):
                 df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=0)
                 st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
                 
-                # ✅ 로그 DB 뷰 전용 최적화 (Workspace, Email, Time 앞으로 땡기고 최신순 정렬)
                 original_cols = df_admin.columns.tolist()
                 df_display = df_admin.copy()
                 is_log_view = (st.session_state.admin_view == 'logs')
@@ -374,7 +376,6 @@ if is_pro and st.session_state.get('is_admin', False):
                     front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
                     other_cols = [c for c in original_cols if c not in front_cols]
                     df_display = df_display[front_cols + other_cols]
-                    # 최신순 (아래에서부터 위로 역순 정렬)
                     df_display = df_display.iloc[::-1].reset_index(drop=True)
                 
                 edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
@@ -383,11 +384,9 @@ if is_pro and st.session_state.get('is_admin', False):
                     try:
                         save_df = edited_df.copy()
                         
-                        # ✅ 로그 뷰일 경우 물리적 DB 무결성을 위해 저장 전 원래 순서로 원상복구
                         if is_log_view and not save_df.empty:
-                            save_df = save_df.iloc[::-1].reset_index(drop=True) # 다시 시간순(오래된 순) 복원
+                            save_df = save_df.iloc[::-1].reset_index(drop=True)
                         
-                        # 원래 구글 시트의 컬럼 순서대로 복구
                         if set(original_cols) == set(save_df.columns):
                             save_df = save_df[original_cols]
                             
