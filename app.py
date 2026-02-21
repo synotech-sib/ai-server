@@ -462,10 +462,10 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 80:10:10 레이아웃)
+# 5. 시뮬레이터 본문 (✅ 60:20:20 레이아웃 복원)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
-    col_main, col_glossary, col_deep = st.columns([0.8, 0.1, 0.1])
+    col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
 else:
     col_main = st.container()
     col_glossary, col_deep = None, None
@@ -646,11 +646,11 @@ with col_main:
                 
                 porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
-                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험! (우측 상단의 '기술 가이드 보기' 참조)")
+                # ✅ 수정된 부분: "(우측 상단의 '기술 가이드 보기' 참조)" 삭제
+                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
                     
             with p2:
                 st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
-                # ✅ N/P Ratio 기본값을 1.10으로 변경, 경고 2가지(부족/과다) 추가
                 v_np = st.slider("**N/P Ratio**", 0.95, 1.50, 1.10, step=0.01, key="sl_np_m")
                 st.slider("**Anode Press Density**", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
                 st.slider("**Anode Active %**", 80.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
@@ -891,7 +891,8 @@ if col_glossary and col_deep:
                     st.rerun()
             
     with col_deep:
-        st.markdown(f"#### 🎓 Detail")
+        # ✅ 타이틀 Details 로 변경
+        st.markdown(f"#### 🎓 Details")
         
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
             current_term = st.session_state.selected_term
