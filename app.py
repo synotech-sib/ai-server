@@ -77,7 +77,7 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     
-    /* ✅ 가이드 토글 박스화 (마이크로소프트 폴더 옐로우 골드 색상) */
+    /* 가이드 토글 박스화 (마이크로소프트 폴더 옐로우 골드 색상) */
     div[data-testid="stToggle"] {
         background-color: #F4CE14; 
         border: 1px solid #D4AC0D;
@@ -245,7 +245,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 (✅ 버튼 폭 정렬 마스터본)
+# 4. 세션 초기화 및 헤더 모듈 
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -278,7 +278,6 @@ with h_r:
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        # 관리자는 기본적으로 material_overall 로 진입
                         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
                         st.session_state.history = load_user_history(u_id_clean, 'material_overall')
                         st.rerun()
@@ -301,7 +300,6 @@ with h_r:
             for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
 
-    # ✅ 하위 50% 영역(우측)에 토글을 배치하여 위쪽 버튼과 100% 사이즈 동일화
     t1, t2 = st.columns([1, 1])
     with t2:
         toggle_label = "**기술 가이드 보기**" if is_pro else "**기술 가이드 보기 (Pro Mode)**"
@@ -326,7 +324,6 @@ if is_pro and st.session_state.get('is_admin', False):
         a4.link_button("💾 시뮬레이션 로그 DB", URL_LOGS, use_container_width=True)
         
         st.markdown("---")
-        # ✅ material_overall (모든 소재 보기) 항목 최상단 추가
         vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
         sel_ws = st.selectbox("**🔒 관리자 접속 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
         if sel_ws != st.session_state.workspace:
@@ -398,19 +395,29 @@ with col_main:
         st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
-            # ✅ Admin overall 기능 처리
+            # ✅ VIP 데이터 상단 & 최신순(역순) 노출, Admin overall 데이터 병합 로직
             if is_pro and st.session_state.workspace == "material_overall":
                 vips = get_vip_list_exact()
-                dfs = [mat_df_public]
+                dfs = []
                 for v in vips:
                     tmp = load_cloud_data(URL_MATS, v)
-                    if not tmp.empty: dfs.append(tmp)
+                    if not tmp.empty: 
+                        dfs.append(tmp.iloc[::-1]) # VIP 데이터 역순 (최신 위로)
+                if not mat_df_public.empty: dfs.append(mat_df_public)
                 mat_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-                mat_df = mat_df.drop_duplicates(subset=['Name'], keep='last') if not mat_df.empty else pd.DataFrame()
-                df_vip = pd.DataFrame() # Add disabled in overall mode
+                mat_df = mat_df.drop_duplicates(subset=['Name'], keep='first') if not mat_df.empty else pd.DataFrame()
+                df_vip = pd.DataFrame() # overall 모드에선 추가기능 숨김
             else:
                 df_vip = load_cloud_data(URL_MATS, st.session_state.workspace) if is_pro and st.session_state.workspace != "material_list" else pd.DataFrame()
-                mat_df = pd.concat([mat_df_public, df_vip]).drop_duplicates(subset=['Name'], keep='last') if not mat_df_public.empty else pd.DataFrame()
+                
+                # ✅ VIP 전용 소재가 먼저(맨 위) 오도록 순서 변경 및 최신 추가순 반영
+                _dfs = []
+                if not df_vip.empty:
+                    _dfs.append(df_vip.iloc[::-1])
+                if not mat_df_public.empty:
+                    _dfs.append(mat_df_public)
+                
+                mat_df = pd.concat(_dfs, ignore_index=True).drop_duplicates(subset=['Name'], keep='first') if _dfs else pd.DataFrame()
 
             m1, m2, m3, m4 = st.columns(4)
             if not mat_df.empty and 'Category' in mat_df.columns:
@@ -497,10 +504,10 @@ with col_main:
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
                 
-                # ✅ 하단 보안 문구 가로 배치
+                # ✅ 하단 보안 문구 왼쪽 정렬 & 와이드 배치
                 if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                     st.markdown(
-                        "<div style='text-align: center; margin-top: 15px; color: #666; font-size: 14px; font-weight: bold;'>"
+                        "<div style='text-align: left; margin-top: 15px; color: #666; font-size: 14px; font-weight: bold;'>"
                         "🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다."
                         "</div><br>", 
                         unsafe_allow_html=True
