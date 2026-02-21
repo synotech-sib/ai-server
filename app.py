@@ -245,7 +245,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈
+# 4. 세션 초기화 및 헤더 모듈 
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -462,7 +462,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 60:20:20 레이아웃 복원)
+# 5. 시뮬레이터 본문 (✅ 60:20:20 레이아웃)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
     col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
@@ -630,6 +630,7 @@ with col_main:
             v_life = s4.slider("**Base Life (Cycles)**", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
             st.markdown("<br>", unsafe_allow_html=True)
 
+    # ✅ Box 3 텍스트 정렬 및 경고 처리 개편
     with st.container(border=True):
         st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
         sp3, c_3 = st.columns([0.03, 0.97])
@@ -645,9 +646,6 @@ with col_main:
                 st.slider("**Binder %**", 0.5, 10.0, 3.0, key="ad_c_bin_m", disabled=not show_adv)
                 
                 porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
-                st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
-                # ✅ 수정된 부분: "(우측 상단의 '기술 가이드 보기' 참조)" 삭제
-                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
                     
             with p2:
                 st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
@@ -655,17 +653,33 @@ with col_main:
                 st.slider("**Anode Press Density**", 0.8, 2.0, 1.1, key="ad_a_den_m", disabled=not show_adv)
                 st.slider("**Anode Active %**", 80.0, 98.0, 95.0, key="ad_a_act_m", disabled=not show_adv)
                 
-                if v_np < 1.05:
-                    st.error("⚠️ N/P Ratio 위험: 나트륨 석출(Na-Plating) 및 단락 위험!")
-                elif v_np >= 1.15:
-                    st.warning("⚠️ N/P Ratio 과다: 잉여 음극 설계로 인한 초기 비가역 용량 증가 및 에너지 밀도 하락!")
-
             with p3:
                 st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
                 v_act = st.slider("**Active Ratio (%)**", 80.0, 99.0, 92.0, key="sl_act_m")
                 v_ec = st.slider("**E/C Ratio (g/Ah)**", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
                 st.slider("**Separator Thick (μm)**", 5, 50, 16, key="ad_sep_m", disabled=not show_adv)
                 
+            # ✅ 정보 텍스트 수평 정렬 (Porosity와 당구장 표시 맞춤)
+            info1, info2 = st.columns([1, 2])
+            with info1:
+                st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
+            with info2:
+                st.markdown(
+                    "<div style='text-align: left; padding-left: 10px; color: #888; font-size: 13px; font-weight: bold; padding-top: 5px;'>"
+                    "※ 자세한 사항은 기술 가이드 보기에서 확인 하시기 바랍니다."
+                    "</div>", unsafe_allow_html=True
+                )
+
+            # ✅ 경고 메시지 독립 열 (UI 꼬임 방지)
+            w1, w2, w3 = st.columns(3)
+            with w1:
+                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
+            with w2:
+                if v_np < 1.05:
+                    st.error("⚠️ N/P Ratio 위험: 나트륨 석출(Na-Plating) 및 단락 위험!")
+                elif v_np >= 1.15:
+                    st.warning("⚠️ N/P Ratio 과다: 잉여 음극 설계로 인한 초기 비가역 용량 증가 및 에너지 밀도 하락!")
+            with w3:
                 if show_adv and v_ec < 2.0:
                     st.error("⚠️ E/C Ratio 부족: 전해액 고갈(Depletion)에 따른 수명 급감 위험!")
                     
@@ -891,7 +905,7 @@ if col_glossary and col_deep:
                     st.rerun()
             
     with col_deep:
-        # ✅ 타이틀 Details 로 변경
+        # ✅ 타이틀 변경
         st.markdown(f"#### 🎓 Details")
         
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
