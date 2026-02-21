@@ -76,6 +76,22 @@ st.markdown("""
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
+    
+    /* 가이드 토글 박스화 (MS 폴더 색상 적용 및 버튼과 사이즈 동일화) */
+    div[data-testid="stToggle"] {
+        background-color: #F8D775;
+        padding: 0px 15px;
+        border-radius: 4px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    div[data-testid="stToggle"] > label {
+        margin-bottom: 0px !important; 
+        font-size: 16px !important;
+        color: #333 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -127,6 +143,15 @@ def get_user_db():
         return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=5).astype(str)
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
+
+# ✅ 안전한 형변환 도우미 함수 추가 (ValueError 방지)
+def safe_float(val, default):
+    try: return float(val) if val != "" and not pd.isna(val) else default
+    except: return default
+
+def safe_int(val, default):
+    try: return int(float(val)) if val != "" and not pd.isna(val) else default
+    except: return default
 
 # -----------------------------------------------------------------------------
 # ✉️ [이메일 발송 시스템] 
@@ -215,7 +240,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈
+# 4. 세션 초기화 및 헤더 모듈 
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -270,11 +295,10 @@ with h_r:
 
 is_pro = st.session_state.logged_in
 
-# ✅ 가이드 토글 버튼 너비 및 활성화 조건 수정 (볼드체 + 우측 정렬 + 비로그인 시 disabled)
 t_spacer, t_tog = st.columns([0.82, 0.18])
 with t_tog:
     st.session_state.show_guide = st.toggle(
-        "**💡 기술 가이드 보기**", 
+        "**기술 가이드 보기**", 
         value=st.session_state.get('show_guide', False),
         disabled=not is_pro
     )
@@ -375,62 +399,110 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
+                # ✅ 저장 직후 캐시 비우기 (load_cloud_data.clear()) 적용
                 with m1:
                     cat_sel = st.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 양극재 추가"):
-                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_cat = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Cat_01")
                             c_cat = st.number_input("용량 (mAh/g)", value=160.0, key="n_cat_c")
                             v_cat = st.number_input("전압 (V)", value=3.2, key="n_cat_v")
+                            
                             if st.button("저장", key="btn_save_cat"):
-                                new_row = pd.DataFrame([{"Name": n_cat, "Category": "Cathode", "Cap_Def": c_cat, "Volt_Def": v_cat, "Den_Def": 2.2}])
-                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
-                                st.rerun()
+                                try:
+                                    new_row = pd.DataFrame([{"Name": n_cat, "Category": "Cathode", "Cap_Def": c_cat, "Volt_Def": v_cat, "Den_Def": 2.2}])
+                                    conn = st.connection("gsheets", type=GSheetsConnection)
+                                    updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
+                                    conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.success("소재가 저장되었습니다.")
+                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
+                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
 
                 with m2:
                     ano_sel = st.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 음극재 추가"):
-                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_ano = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Ano_01")
                             c_ano = st.number_input("용량 (mAh/g)", value=360.0, key="n_ano_c")
                             v_ano = st.number_input("전압 (V)", value=0.1, key="n_ano_v")
+                            
                             if st.button("저장", key="btn_save_ano"):
-                                new_row = pd.DataFrame([{"Name": n_ano, "Category": "Anode", "Cap_Def": c_ano, "Volt_Def": v_ano, "Den_Def": 1.1}])
-                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
-                                st.rerun()
+                                try:
+                                    new_row = pd.DataFrame([{"Name": n_ano, "Category": "Anode", "Cap_Def": c_ano, "Volt_Def": v_ano, "Den_Def": 1.1}])
+                                    conn = st.connection("gsheets", type=GSheetsConnection)
+                                    updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
+                                    conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.success("소재가 저장되었습니다.")
+                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
+                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
 
                 with m3:
                     st.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 전해액 추가"):
-                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_ele = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Elec_01")
                             d_ele = st.number_input("밀도 (g/cc)", value=1.2, key="n_ele_d")
+                            
                             if st.button("저장", key="btn_save_ele"):
-                                new_row = pd.DataFrame([{"Name": n_ele, "Category": "Electrolyte", "Den_Def": d_ele}])
-                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
-                                st.rerun()
+                                try:
+                                    new_row = pd.DataFrame([{"Name": n_ele, "Category": "Electrolyte", "Den_Def": d_ele}])
+                                    conn = st.connection("gsheets", type=GSheetsConnection)
+                                    updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
+                                    conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.success("소재가 저장되었습니다.")
+                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
+                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
 
                 with m4:
                     st.selectbox("**Separator**", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 분리막 추가"):
-                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_sep = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Sep_01")
                             t_sep = st.number_input("두께 (μm)", value=16.0, key="n_sep_t") 
+                            
                             if st.button("저장", key="btn_save_sep"):
-                                new_row = pd.DataFrame([{"Name": n_sep, "Category": "Separator", "Load_Def": t_sep}])
-                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
-                                st.rerun()
+                                try:
+                                    new_row = pd.DataFrame([{"Name": n_sep, "Category": "Separator", "Load_Def": t_sep}])
+                                    conn = st.connection("gsheets", type=GSheetsConnection)
+                                    updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
+                                    conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.success("소재가 저장되었습니다.")
+                                    load_cloud_data.clear() # 캐시 지우기 추가
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
+                            st.markdown("<div style='margin-top: 10px; color: #666; font-size: 13px;'>🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.</div><br>", unsafe_allow_html=True)
                 
+                # ✅ ValueError 방지 - safe_float 및 safe_int 적용
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
-                def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
-                def_vlt_min, def_vlt_max, def_vlt_val = float(row.get('Volt_Min', 2.0)), float(row.get('Volt_Max', 4.5)), float(row.get('Volt_Def', 3.05))
-                def_den_min, def_den_max, def_den_val = float(row.get('Den_Min', 1.0)), float(row.get('Den_Max', 5.0)), float(row.get('Den_Def', 4.5))
-                def_lif_min, def_lif_max, def_lif_val = int(row.get('Life_Min', 500)), int(row.get('Life_Max', 10000)), int(row.get('Life_Def', 4000))
-                def_lod_min, def_lod_max, def_lod_val = float(row.get('Load_Min', 5.0)), float(row.get('Load_Max', 45.0)), float(row.get('Load_Def', 14.0))
+                def_cap_min = safe_float(row.get('Cap_Min'), 100.0)
+                def_cap_max = safe_float(row.get('Cap_Max'), 250.0)
+                def_cap_val = safe_float(row.get('Cap_Def'), 160.0)
+                
+                def_vlt_min = safe_float(row.get('Volt_Min'), 2.0)
+                def_vlt_max = safe_float(row.get('Volt_Max'), 4.5)
+                def_vlt_val = safe_float(row.get('Volt_Def'), 3.05)
+                
+                def_den_min = safe_float(row.get('Den_Min'), 1.0)
+                def_den_max = safe_float(row.get('Den_Max'), 5.0)
+                def_den_val = safe_float(row.get('Den_Def'), 4.5)
+                
+                def_lif_min = safe_int(row.get('Life_Min'), 500)
+                def_lif_max = safe_int(row.get('Life_Max'), 10000)
+                def_lif_val = safe_int(row.get('Life_Def'), 4000)
+                
+                def_lod_min = safe_float(row.get('Load_Min'), 5.0)
+                def_lod_max = safe_float(row.get('Load_Max'), 45.0)
+                def_lod_val = safe_float(row.get('Load_Def'), 14.0)
             else:
                 st.warning("Cloud에서 소재 리스트를 불러오지 못했습니다. 앱이 기본값으로 작동합니다.")
                 cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
@@ -466,7 +538,7 @@ with col_main:
                 
                 porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
-                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험! (우측 상단의 '💡 기술 가이드 보기' 참조)")
+                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험! (우측 상단의 '기술 가이드 보기' 참조)")
                     
             with p2:
                 st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
