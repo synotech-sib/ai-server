@@ -245,7 +245,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 
+# 4. 세션 초기화 및 헤더 모듈
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -395,22 +395,20 @@ with col_main:
         st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
-            # ✅ VIP 데이터 상단 & 최신순(역순) 노출, Admin overall 데이터 병합 로직
             if is_pro and st.session_state.workspace == "material_overall":
                 vips = get_vip_list_exact()
                 dfs = []
                 for v in vips:
                     tmp = load_cloud_data(URL_MATS, v)
                     if not tmp.empty: 
-                        dfs.append(tmp.iloc[::-1]) # VIP 데이터 역순 (최신 위로)
+                        dfs.append(tmp.iloc[::-1]) 
                 if not mat_df_public.empty: dfs.append(mat_df_public)
                 mat_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
                 mat_df = mat_df.drop_duplicates(subset=['Name'], keep='first') if not mat_df.empty else pd.DataFrame()
-                df_vip = pd.DataFrame() # overall 모드에선 추가기능 숨김
+                df_vip = pd.DataFrame()
             else:
                 df_vip = load_cloud_data(URL_MATS, st.session_state.workspace) if is_pro and st.session_state.workspace != "material_list" else pd.DataFrame()
                 
-                # ✅ VIP 전용 소재가 먼저(맨 위) 오도록 순서 변경 및 최신 추가순 반영
                 _dfs = []
                 if not df_vip.empty:
                     _dfs.append(df_vip.iloc[::-1])
@@ -504,7 +502,6 @@ with col_main:
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
                 
-                # ✅ 하단 보안 문구 왼쪽 정렬 & 와이드 배치
                 if is_pro and st.session_state.workspace not in ["material_list", "material_overall"]:
                     st.markdown(
                         "<div style='text-align: left; margin-top: 15px; color: #666; font-size: 14px; font-weight: bold;'>"
@@ -691,7 +688,10 @@ with col_main:
                             save_record.pop('dq_x', None); save_record.pop('dq_y', None)
                             conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True))
                         
-                        st.warning("이미 저장된 시뮬레이션 결과입니다.") if is_duplicate else st.success("내 계정에 저장하기가 완료되었습니다.")
+                        if is_duplicate:
+                            st.warning("이미 저장된 시뮬레이션 결과입니다.")
+                        else:
+                            st.success("내 계정에 저장하기가 완료되었습니다.")
                     except Exception as e: 
                         st.error(f"저장 오류: {e}")
 
