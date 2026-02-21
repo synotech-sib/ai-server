@@ -245,12 +245,13 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈
+# 4. 세션 초기화 및 헤더 모듈 (✅ admin_view 상태 추가)
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
-    'workspace': 'material_overall', 'user_vip_name': None, 'show_guide': False, 'is_admin': False
+    'workspace': 'material_overall', 'user_vip_name': None, 'show_guide': False, 'is_admin': False,
+    'admin_view': None, 'admin_ws': None
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -312,16 +313,76 @@ with h_r:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드] 최상단 배치
+# 👑 [최고 관리자 전용 대시보드] 인라인 에디터(Web CMS) 반영
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     with st.container(border=True):
         st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
         a1, a2, a3, a4 = st.columns(4)
-        a1.link_button("👥 유저 관리 DB (Users)", URL_USERS, use_container_width=True)
-        a2.link_button("🔋 소재 DB (Materials)", URL_MATS, use_container_width=True)
-        a3.link_button("⚙️ 파라미터 DB (Param)", URL_PARAM, use_container_width=True)
-        a4.link_button("💾 시뮬레이션 로그 DB", URL_LOGS, use_container_width=True)
+        
+        # 버튼 토글 로직 (동일 버튼 누르면 닫힘)
+        if a1.button("👥 유저 관리 DB", use_container_width=True):
+            if st.session_state.admin_view == 'users': st.session_state.admin_view = None
+            else: st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'
+            st.rerun()
+        if a2.button("🔋 소재 DB", use_container_width=True):
+            if st.session_state.admin_view == 'mats': st.session_state.admin_view = None
+            else: st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'material_list'
+            st.rerun()
+        if a3.button("⚙️ 파라미터 DB", use_container_width=True):
+            if st.session_state.admin_view == 'param': st.session_state.admin_view = None
+            else: st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'Sheet1'
+            st.rerun()
+        if a4.button("💾 로그 DB", use_container_width=True):
+            if st.session_state.admin_view == 'logs': st.session_state.admin_view = None
+            else: st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'
+            st.rerun()
+
+        # 인라인 에디터 표시 영역
+        if st.session_state.admin_view:
+            st.markdown("---")
+            st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
+            
+            # 선택된 DB에 따른 URL 및 탭 목록 세팅
+            if st.session_state.admin_view == 'users':
+                target_url = URL_USERS
+                ws_options = ["Users", "VIPs"]
+            elif st.session_state.admin_view == 'mats':
+                target_url = URL_MATS
+                ws_options = ["material_list"] + get_vip_list_exact()
+            elif st.session_state.admin_view == 'param':
+                target_url = URL_PARAM
+                ws_options = ["Sheet1"]
+            elif st.session_state.admin_view == 'logs':
+                target_url = URL_LOGS
+                ws_options = ["myData"]
+            
+            # 서브 탭 선택기 (탭이 여러개일 경우)
+            if len(ws_options) > 1:
+                sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
+                if sel_ws_admin != st.session_state.admin_ws:
+                    st.session_state.admin_ws = sel_ws_admin
+                    st.rerun()
+            
+            # 데이터 불러오기 및 에디터 렌더링
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            try:
+                df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=0)
+                st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
+                
+                # 데이터 에디터 (수정, 추가, 삭제 허용)
+                edited_df = st.data_editor(df_admin, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
+                
+                if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                    try:
+                        edited_df_safe = edited_df.fillna("") # gspread 직렬화 에러 방지
+                        conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                        st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                        load_cloud_data.clear() # 수정 후 캐시 초기화
+                    except Exception as e:
+                        st.error(f"저장 중 오류 발생: {e}")
+            except Exception as e:
+                st.error("데이터를 불러올 수 없습니다.")
         
         st.markdown("---")
         vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
@@ -662,7 +723,7 @@ with col_main:
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ 다중 체크박스 삭제 UI)
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 (체크박스 다중 선택 기능 추가)
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
@@ -716,23 +777,22 @@ with col_main:
                 else:
                     btn3.warning("PDF 모듈 필요"); btn4.warning("PDF 모듈 필요")
 
-                # ✅ 체크박스를 통한 클라우드 데이터 일괄 삭제 기능 구현
                 st.markdown("---")
-                col_title, col_btn_del = st.columns([0.8, 0.2])
-                with col_title:
-                    st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                 
+                # 체크박스 삭제를 위한 데이터그리드
                 try:
                     db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
                     if not db_df_all.empty and 'Email' in db_df_all.columns:
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
+                        
                         if not my_saved_data.empty:
+                            col_title, col_btn_del = st.columns([0.8, 0.2])
+                            with col_title:
+                                st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                             
-                            # 데이터프레임 복사 및 맨 앞에 '선택' 열(Checkbox) 추가
                             df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
                             df_display.insert(0, "선택", False)
                             
-                            # st.data_editor를 통해 인터랙티브 표 렌더링 ('선택' 열만 수정 가능하도록 잠금 설정)
                             edited_df = st.data_editor(
                                 df_display, 
                                 use_container_width=True, 
@@ -741,14 +801,11 @@ with col_main:
                             )
                             
                             with col_btn_del:
-                                # 선택된 행들의 Time 값 추출
                                 selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
-                                
                                 if st.button("🗑️ 선택 항목 삭제", type="primary", use_container_width=True):
                                     if not selected_times:
                                         st.warning("삭제할 항목을 체크해 주세요.")
                                     else:
-                                        # 선택된 항목을 제외한 데이터만 필터링하여 DB 업데이트
                                         mask = ~((db_df_all['Email'] == st.session_state.user_email) & 
                                                  (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & 
                                                  (db_df_all['Time'].isin(selected_times)))
@@ -756,10 +813,10 @@ with col_main:
                                         
                                         conn = st.connection("gsheets", type=GSheetsConnection)
                                         conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
-                                        
                                         st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
                                         st.rerun()
                         else:
+                            st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                             st.info("클라우드 DB에 이전에 저장된 시뮬레이션 데이터가 없습니다.")
                 except Exception:
                     st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
