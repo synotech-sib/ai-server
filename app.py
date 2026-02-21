@@ -215,7 +215,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 (✅ 줄바꿈 방지 및 컬럼 비율 조정)
+# 4. 세션 초기화 및 헤더 모듈
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -226,7 +226,6 @@ for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# ✅ h_r 영역을 더 넓게 할당하여 버튼 글자 줄바꿈 방지
 h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
@@ -271,11 +270,14 @@ with h_r:
 
 is_pro = st.session_state.logged_in
 
-# ✅ 가이드 토글 버튼 너비 확장 (글자 줄바꿈 100% 방지)
-if is_pro:
-    t_spacer, t_tog = st.columns([0.75, 0.25])
-    with t_tog:
-        st.session_state.show_guide = st.toggle("💡 기술 가이드 보기", value=st.session_state.get('show_guide', False))
+# ✅ 가이드 토글 버튼 너비 및 활성화 조건 수정 (볼드체 + 우측 정렬 + 비로그인 시 disabled)
+t_spacer, t_tog = st.columns([0.82, 0.18])
+with t_tog:
+    st.session_state.show_guide = st.toggle(
+        "**💡 기술 가이드 보기**", 
+        value=st.session_state.get('show_guide', False),
+        disabled=not is_pro
+    )
 
 st.markdown("---")
 
@@ -373,7 +375,6 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ 1. 소재 선택 및 공식 보안 문구 추가
                 with m1:
                     cat_sel = st.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
                     if is_pro and st.session_state.workspace != "material_list":
@@ -465,7 +466,6 @@ with col_main:
                 
                 porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
-                # ✅ 공극률 부족 시 우측 상단 가이드를 참조하라는 문구 추가
                 if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험! (우측 상단의 '💡 기술 가이드 보기' 참조)")
                     
             with p2:
@@ -563,7 +563,7 @@ with col_main:
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ 신규 기능 적용)
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
@@ -614,7 +614,6 @@ with col_main:
                 else:
                     btn3.warning("PDF 모듈 필요"); btn4.warning("PDF 모듈 필요")
 
-                # ✅ 과거 클라우드 저장 데이터를 보여주는 전용 패널 추가
                 st.markdown("---")
                 st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                 
