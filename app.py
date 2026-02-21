@@ -215,7 +215,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 (✅ 완벽한 정석 Dictionary 초기화 적용)
+# 4. 세션 초기화 및 헤더 모듈 (✅ 줄바꿈 방지 및 컬럼 비율 조정)
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -226,7 +226,8 @@ for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-h_l, h_r = st.columns([1.2, 1]) 
+# ✅ h_r 영역을 더 넓게 할당하여 버튼 글자 줄바꿈 방지
+h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">V1.7 Pro</span></div>', unsafe_allow_html=True)
@@ -234,7 +235,7 @@ with h_l:
 with h_r:
     if not st.session_state.logged_in:
         c1, c2 = st.columns([1, 1])
-        with c1.popover("Login", use_container_width=True): # ✅ 버튼 폭 맞춤
+        with c1.popover("Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -270,9 +271,9 @@ with h_r:
 
 is_pro = st.session_state.logged_in
 
-# ✅ 가이드 토글 버튼을 우측 (로그인 영역 아래쪽)으로 정렬 배치
+# ✅ 가이드 토글 버튼 너비 확장 (글자 줄바꿈 100% 방지)
 if is_pro:
-    t_spacer, t_tog = st.columns([0.83, 0.17])
+    t_spacer, t_tog = st.columns([0.75, 0.25])
     with t_tog:
         st.session_state.show_guide = st.toggle("💡 기술 가이드 보기", value=st.session_state.get('show_guide', False))
 
@@ -372,11 +373,12 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ 1. 소재 선택 및 최적화된 소재 추가 폼
+                # ✅ 1. 소재 선택 및 공식 보안 문구 추가
                 with m1:
                     cat_sel = st.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 양극재 추가"):
+                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_cat = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Cat_01")
                             c_cat = st.number_input("용량 (mAh/g)", value=160.0, key="n_cat_c")
                             v_cat = st.number_input("전압 (V)", value=3.2, key="n_cat_v")
@@ -389,6 +391,7 @@ with col_main:
                     ano_sel = st.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 음극재 추가"):
+                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_ano = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Ano_01")
                             c_ano = st.number_input("용량 (mAh/g)", value=360.0, key="n_ano_c")
                             v_ano = st.number_input("전압 (V)", value=0.1, key="n_ano_v")
@@ -401,6 +404,7 @@ with col_main:
                     st.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 전해액 추가"):
+                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_ele = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Elec_01")
                             d_ele = st.number_input("밀도 (g/cc)", value=1.2, key="n_ele_d")
                             if st.button("저장", key="btn_save_ele"):
@@ -412,6 +416,7 @@ with col_main:
                     st.selectbox("**Separator**", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
                     if is_pro and st.session_state.workspace != "material_list":
                         with st.expander("➕ 분리막 추가"):
+                            st.caption("🔒 위 추가하는 소재는 귀사의 전용 데이터로만 저장되며, 저장된 데이터는 철저히 보안 관리됩니다.")
                             n_sep = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Sep_01")
                             t_sep = st.number_input("두께 (μm)", value=16.0, key="n_sep_t") 
                             if st.button("저장", key="btn_save_sep"):
@@ -460,7 +465,8 @@ with col_main:
                 
                 porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
-                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
+                # ✅ 공극률 부족 시 우측 상단 가이드를 참조하라는 문구 추가
+                if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험! (우측 상단의 '💡 기술 가이드 보기' 참조)")
                     
             with p2:
                 st.markdown('<p class="sub-header-bold">(B) Anode & Balance</p>', unsafe_allow_html=True)
@@ -488,7 +494,6 @@ with col_main:
             with t3:
                 st.markdown('<p class="sub-header-bold">Cycle Life Goal</p>', unsafe_allow_html=True)
                 v_tl = st.slider("Cycle Goal", 500, 10000, 2000, label_visibility="collapsed")
-        # ✅ 4번 박스 하단 여유 공간 축소
         st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container(border=True):
@@ -555,15 +560,14 @@ with col_main:
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
                 df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
                 st.dataframe(df_history, use_container_width=True)
-        # ✅ 5번 박스 하단 여유 공간 축소
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ 신규 기능 적용)
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
-            st.markdown('<p class="main-header">6. Data Management & Export (Pro)</p>', unsafe_allow_html=True)
+            st.markdown('<p class="main-header">6. Data Management & Past Records (Pro)</p>', unsafe_allow_html=True)
             sp6, c_6 = st.columns([0.03, 0.97])
             with c_6:
                 btn1, btn2, btn3, btn4 = st.columns(4)
@@ -609,6 +613,21 @@ with col_main:
                     btn4.download_button(label="📑 전체 이력 PDF 출력", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf")
                 else:
                     btn3.warning("PDF 모듈 필요"); btn4.warning("PDF 모듈 필요")
+
+                # ✅ 과거 클라우드 저장 데이터를 보여주는 전용 패널 추가
+                st.markdown("---")
+                st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
+                
+                try:
+                    db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
+                    if not db_df_all.empty and 'Email' in db_df_all.columns:
+                        my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
+                        if not my_saved_data.empty:
+                            st.dataframe(my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore'), use_container_width=True)
+                        else:
+                            st.info("클라우드 DB에 이전에 저장된 시뮬레이션 데이터가 없습니다.")
+                except Exception:
+                    st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
 # 📖 우측 가이드 패널 렌더링 (Toggle On 시 표출)
