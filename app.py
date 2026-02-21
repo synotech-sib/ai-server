@@ -99,37 +99,47 @@ st.markdown("""
     }
 
     /* ==============================================================
-       🔥 강력한 Glossary & Details 디자인 제어 (강제 덮어쓰기)
+       🔥 디테일 UI 최적화 CSS (화살표 제거, 폰트 사이즈 동기화)
        ============================================================== */
-    /* 1. 용어사전 박스 (회색 배경) */
-    div[data-testid="stExpander"] details {
+       
+    /* [1] 1번 컬럼 (메인) 내의 "+ 소재 추가" 익스팬더 제목 크기 1단계 축소 (13px) */
+    div[data-testid="column"]:nth-of-type(1) div[data-testid="stExpander"] summary p {
+        font-size: 13px !important;
+    }
+
+    /* [2] 2번 컬럼 (Glossary) 박스 스타일 */
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stExpander"] details {
         background-color: #f0f2f6 !important; 
         border: 1px solid #d1d5db !important;
         border-radius: 6px !important;
     }
-    /* 2. 용어사전 제목: 볼드체 해제, 왼쪽 정렬 */
-    div[data-testid="stExpander"] summary p {
+    
+    /* [3] Glossary 제목: 볼드 해제, 왼쪽 정렬, 14px */
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stExpander"] summary p {
         font-size: 14px !important;
         font-weight: normal !important; 
         text-align: left !important;
         color: #333 !important;
     }
-    /* 3. 공간 확보를 위해 기본 화살표(>) 아이콘 삭제 */
-    div[data-testid="stExpander"] summary svg {
+    
+    /* [4] Glossary 기본 화살표(>) 렌더링 삭제 및 왼쪽 여백(Padding) 땡기기 */
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stExpander"] summary svg,
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stExpander"] summary div[data-testid="stIcon"] {
         display: none !important; 
     }
-    div[data-testid="stExpander"] summary {
-        padding-left: 10px !important;
-        padding-right: 10px !important;
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stExpander"] summary {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
-    /* 4. 용어사전 내용 텍스트 */
+    
+    /* [5] Glossary 내용 텍스트 크기 (14px) */
     div[data-testid="stExpanderDetails"] p {
         font-size: 14px !important;
         font-weight: normal !important;
         color: #333 !important;
     }
     
-    /* 5. "더 자세히>" 텍스트 링크 버튼 디자인 (마법의 ::after 적용) */
+    /* [6] "더 자세히>" 텍스트 링크 버튼 디자인 (밑줄 분리 마법) */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button {
         background: transparent !important;
         border: none !important;
@@ -160,15 +170,14 @@ st.markdown("""
         margin-left: 3px;
         font-weight: normal !important;
     }
-    /* 마우스 호버 시 오렌지색으로 변경 */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button:hover p,
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button:hover::after {
         color: #D35400 !important;
     }
     
-    /* 6. 우측 Details 글자체 동기화 (용어사전과 100% 일치) */
-    div[data-testid="column"]:nth-of-type(3) p, 
-    div[data-testid="column"]:nth-of-type(3) li {
+    /* [7] 우측 Details 폰트 크기 동기화 (14px, Glossary와 100% 일치) */
+    div[data-testid="column"]:nth-of-type(3) div[data-testid="stMarkdownContainer"] p, 
+    div[data-testid="column"]:nth-of-type(3) div[data-testid="stMarkdownContainer"] li {
         font-size: 14px !important;
         font-weight: normal !important;
         color: #333 !important;
@@ -550,7 +559,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 동적 레이아웃 70:13:17 제어 로직 적용)
+# 5. 시뮬레이터 본문 (✅ 동적 레이아웃 제어 로직 적용)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
     # '더 자세히' 클릭 상태에 따라 레이아웃 비율 동적 변경 (평상시: 87:13, 클릭시: 70:13:17)
@@ -797,7 +806,8 @@ with col_main:
         with c_5:
             col_btn, col_msg = st.columns([1, 3])
             with col_btn:
-                run_clicked = st.button("🚀 RUN DESIGN SIMULATION", key="btn_run_m", use_container_width=True)
+                # ✅ 버튼 텍스트 변경
+                run_clicked = st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True)
             with col_msg:
                 if not st.session_state.history:
                     st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
