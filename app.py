@@ -245,7 +245,7 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 (✅ admin_view 상태 추가)
+# 4. 세션 초기화 및 헤더 모듈
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
@@ -313,14 +313,13 @@ with h_r:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드] 인라인 에디터(Web CMS) 반영
+# 👑 [최고 관리자 전용 대시보드] 인라인 에디터 (✅ 로그 DB 컬럼 재배치 적용)
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     with st.container(border=True):
         st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
         a1, a2, a3, a4 = st.columns(4)
         
-        # 버튼 토글 로직 (동일 버튼 누르면 닫힘)
         if a1.button("👥 유저 관리 DB", use_container_width=True):
             if st.session_state.admin_view == 'users': st.session_state.admin_view = None
             else: st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'
@@ -338,12 +337,10 @@ if is_pro and st.session_state.get('is_admin', False):
             else: st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'
             st.rerun()
 
-        # 인라인 에디터 표시 영역
         if st.session_state.admin_view:
             st.markdown("---")
             st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
             
-            # 선택된 DB에 따른 URL 및 탭 목록 세팅
             if st.session_state.admin_view == 'users':
                 target_url = URL_USERS
                 ws_options = ["Users", "VIPs"]
@@ -357,32 +354,52 @@ if is_pro and st.session_state.get('is_admin', False):
                 target_url = URL_LOGS
                 ws_options = ["myData"]
             
-            # 서브 탭 선택기 (탭이 여러개일 경우)
             if len(ws_options) > 1:
                 sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
                 if sel_ws_admin != st.session_state.admin_ws:
                     st.session_state.admin_ws = sel_ws_admin
                     st.rerun()
             
-            # 데이터 불러오기 및 에디터 렌더링
             conn = st.connection("gsheets", type=GSheetsConnection)
             try:
                 df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=0)
                 st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
                 
-                # 데이터 에디터 (수정, 추가, 삭제 허용)
-                edited_df = st.data_editor(df_admin, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
+                # ✅ 로그 DB 뷰 전용 최적화 (Workspace, Email, Time 앞으로 땡기고 최신순 정렬)
+                original_cols = df_admin.columns.tolist()
+                df_display = df_admin.copy()
+                is_log_view = (st.session_state.admin_view == 'logs')
+                
+                if is_log_view and not df_display.empty:
+                    front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
+                    other_cols = [c for c in original_cols if c not in front_cols]
+                    df_display = df_display[front_cols + other_cols]
+                    # 최신순 (아래에서부터 위로 역순 정렬)
+                    df_display = df_display.iloc[::-1].reset_index(drop=True)
+                
+                edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
                 
                 if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                     try:
-                        edited_df_safe = edited_df.fillna("") # gspread 직렬화 에러 방지
+                        save_df = edited_df.copy()
+                        
+                        # ✅ 로그 뷰일 경우 물리적 DB 무결성을 위해 저장 전 원래 순서로 원상복구
+                        if is_log_view and not save_df.empty:
+                            save_df = save_df.iloc[::-1].reset_index(drop=True) # 다시 시간순(오래된 순) 복원
+                        
+                        # 원래 구글 시트의 컬럼 순서대로 복구
+                        if set(original_cols) == set(save_df.columns):
+                            save_df = save_df[original_cols]
+                            
+                        edited_df_safe = save_df.fillna("")
                         conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
                         st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                        load_cloud_data.clear() # 수정 후 캐시 초기화
+                        load_cloud_data.clear()
                     except Exception as e:
                         st.error(f"저장 중 오류 발생: {e}")
             except Exception as e:
-                st.error("데이터를 불러올 수 없습니다.")
+                st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {e})")
+                st.info("💡 **해결 체크리스트**\n1. 해당 구글 시트 파일 우측 상단 [공유] 버튼을 눌러 서비스 계정 이메일이 **편집자**로 추가되어 있는지 확인하세요.\n2. 구글 시트 하단의 실제 탭(Worksheet) 이름이 코드상에 설정된 이름(`" + st.session_state.admin_ws + "`)과 띄어쓰기까지 정확히 일치하는지 확인하세요. ('시트1' 처럼 한글로 되어 있으면 에러가 발생합니다.)")
         
         st.markdown("---")
         vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
@@ -723,7 +740,7 @@ with col_main:
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 (체크박스 다중 선택 기능 추가)
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
@@ -779,7 +796,6 @@ with col_main:
 
                 st.markdown("---")
                 
-                # 체크박스 삭제를 위한 데이터그리드
                 try:
                     db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
                     if not db_df_all.empty and 'Email' in db_df_all.columns:
