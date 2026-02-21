@@ -662,7 +662,7 @@ with col_main:
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ 선택 이력 삭제 기능 추가)
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 (✅ 다중 체크박스 삭제 UI)
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
@@ -716,42 +716,49 @@ with col_main:
                 else:
                     btn3.warning("PDF 모듈 필요"); btn4.warning("PDF 모듈 필요")
 
+                # ✅ 체크박스를 통한 클라우드 데이터 일괄 삭제 기능 구현
                 st.markdown("---")
-                st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
+                col_title, col_btn_del = st.columns([0.8, 0.2])
+                with col_title:
+                    st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                 
                 try:
                     db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
                     if not db_df_all.empty and 'Email' in db_df_all.columns:
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                         if not my_saved_data.empty:
-                            # 1. 데이터프레임 렌더링
-                            st.dataframe(my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore'), use_container_width=True)
                             
-                            st.markdown("<br>", unsafe_allow_html=True)
+                            # 데이터프레임 복사 및 맨 앞에 '선택' 열(Checkbox) 추가
+                            df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
+                            df_display.insert(0, "선택", False)
                             
-                            # 2. 선택 삭제 UI
-                            del_opts = my_saved_data['Time'].astype(str) + " | " + my_saved_data['Cathode'].astype(str) + " (" + my_saved_data['Wh/kg'].astype(str) + " Wh/kg)"
-                            del_opts_list = del_opts.tolist()
+                            # st.data_editor를 통해 인터랙티브 표 렌더링 ('선택' 열만 수정 가능하도록 잠금 설정)
+                            edited_df = st.data_editor(
+                                df_display, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                disabled=[col for col in df_display.columns if col != "선택"]
+                            )
                             
-                            c_del_sel, c_del_btn = st.columns([3, 1])
-                            with c_del_sel:
-                                to_delete_idx = st.selectbox("🗑️ 삭제할 항목 선택", range(len(del_opts_list)), format_func=lambda x: del_opts_list[x])
-                            with c_del_btn:
-                                st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-                                if st.button("선택 이력 삭제", type="primary", use_container_width=True):
-                                    target_time = my_saved_data.iloc[to_delete_idx]['Time']
-                                    
-                                    # 삭제 타겟을 제외한 나머지 데이터 필터링
-                                    mask = ~((db_df_all['Email'] == st.session_state.user_email) & 
-                                             (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & 
-                                             (db_df_all['Time'] == target_time))
-                                    updated_db = db_df_all[mask]
-                                    
-                                    # DB 업데이트 및 새로고침
-                                    conn = st.connection("gsheets", type=GSheetsConnection)
-                                    conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
-                                    st.success(f"[{target_time}] 이력이 성공적으로 삭제되었습니다.")
-                                    st.rerun()
+                            with col_btn_del:
+                                # 선택된 행들의 Time 값 추출
+                                selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
+                                
+                                if st.button("🗑️ 선택 항목 삭제", type="primary", use_container_width=True):
+                                    if not selected_times:
+                                        st.warning("삭제할 항목을 체크해 주세요.")
+                                    else:
+                                        # 선택된 항목을 제외한 데이터만 필터링하여 DB 업데이트
+                                        mask = ~((db_df_all['Email'] == st.session_state.user_email) & 
+                                                 (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & 
+                                                 (db_df_all['Time'].isin(selected_times)))
+                                        updated_db = db_df_all[mask]
+                                        
+                                        conn = st.connection("gsheets", type=GSheetsConnection)
+                                        conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
+                                        
+                                        st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
+                                        st.rerun()
                         else:
                             st.info("클라우드 DB에 이전에 저장된 시뮬레이션 데이터가 없습니다.")
                 except Exception:
