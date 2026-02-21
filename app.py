@@ -153,7 +153,6 @@ st.markdown("""
         align-items: center !important;
         margin-top: 5px !important;
     }
-    /* "더 자세히" 글자에만 밑줄 적용 */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button p {
         text-decoration: underline !important;
         margin: 0 !important;
@@ -161,7 +160,6 @@ st.markdown("""
         font-size: 14px !important;
         font-weight: normal !important;
     }
-    /* 버튼 뒤에 밑줄 없는 ">" 기호 동적 추가 */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button::after {
         content: ' >';
         text-decoration: none !important;
@@ -182,6 +180,22 @@ st.markdown("""
         font-weight: normal !important;
         color: #333 !important;
         line-height: 1.6 !important;
+    }
+
+    /* [8] Details 닫기 버튼 크기 2단계 축소 및 미니멀라이즈 */
+    div[data-testid="column"]:nth-of-type(3) div[data-testid="stButton"] > button {
+        font-size: 12px !important;
+        font-weight: normal !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        background-color: #e0e0e0 !important;
+        color: #333 !important;
+        padding: 0px 10px !important;
+        margin-top: 5px !important;
+    }
+    div[data-testid="column"]:nth-of-type(3) div[data-testid="stButton"] > button:hover {
+        background-color: #d0d0d0 !important;
+        color: #000 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -496,15 +510,17 @@ if is_pro and st.session_state.get('is_admin', False):
                     st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
                 else:
                     st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
-                    st.info("💡 **해결 체크리스트**\n1. 해당 구글 시트 파일 우측 상단 [공유] 버튼을 눌러 서비스 계정 이메일이 **편집자**로 추가되어 있는지 확인하세요.\n2. 구글 시트 하단의 실제 탭(Worksheet) 이름이 코드상에 설정된 이름과 일치하는지 확인하세요.")
-        
-        st.markdown("---")
-        vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
-        sel_ws = st.selectbox("**🔒 관리자 접속 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
-        if sel_ws != st.session_state.workspace:
-            st.session_state.workspace = sel_ws
-            st.session_state.history = load_user_history(st.session_state.user_email, sel_ws)
-            st.rerun()
+            
+            # ✅ 추가된 로직: 워크스페이스 선택을 메뉴가 활성화되었을 때만 하단에 노출
+            st.markdown("---")
+            st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
+            st.caption("ℹ️ 위에서 수정한 DB가 하단의 시뮬레이터에 잘 적용되었는지 특정 VIP의 시점으로 테스트할 수 있습니다.")
+            vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
+            sel_ws = st.selectbox("**🔒 테스트 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
+            if sel_ws != st.session_state.workspace:
+                st.session_state.workspace = sel_ws
+                st.session_state.history = load_user_history(st.session_state.user_email, sel_ws)
+                st.rerun()
 
 # -----------------------------------------------------------------------------
 # 계정 가입 및 My 계정 관리
@@ -559,14 +575,14 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 동적 레이아웃 제어 로직 적용)
+# 5. 시뮬레이터 본문 (✅ 66:17:17 동적 레이아웃 적용)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
-    # '더 자세히' 클릭 상태에 따라 레이아웃 비율 동적 변경 (평상시: 87:13, 클릭시: 70:13:17)
+    # '더 자세히' 클릭 상태에 따라 레이아웃 비율 동적 변경 (평상시: 83:17, 클릭시: 66:17:17)
     if st.session_state.get('selected_term'):
-        col_main, col_glossary, col_deep = st.columns([0.70, 0.13, 0.17])
+        col_main, col_glossary, col_deep = st.columns([0.66, 0.17, 0.17])
     else:
-        col_main, col_glossary = st.columns([0.87, 0.13])
+        col_main, col_glossary = st.columns([0.83, 0.17])
         col_deep = None
 else:
     col_main = st.container()
@@ -991,7 +1007,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 📖 7. 우측 가이드 패널 렌더링 (심층 지식 DB 보강 및 LaTeX 적용)
+# 📖 7. 우측 가이드 패널 렌더링
 # -----------------------------------------------------------------------------
 GLOSSARY_DB = {
     "Active Ratio (%)": {
