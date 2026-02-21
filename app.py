@@ -114,12 +114,11 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# ✅ 함수 데코레이터(@st.cache_data) 삭제: 에러 시 빈 값을 영구 캐시하는 '캐시 덫' 방지
+@st.cache_data(ttl=600)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        # ✅ conn.read 내부에 직접 ttl=600을 부여하여 정상 데이터만 스마트하게 캐시
         df = conn.read(spreadsheet=url, worksheet=ws, ttl=600)
         if df is not None and not df.empty:
             df.columns = [str(c).split('(')[0].strip() for c in df.columns]
@@ -246,13 +245,13 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈
+# 4. 세션 초기화 및 헤더 모듈 (✅ selected_term 추가)
 # -----------------------------------------------------------------------------
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'show_guide': False, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None
+    'admin_view': None, 'admin_ws': None, 'selected_term': None
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -280,14 +279,16 @@ with h_r:
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
+                        # ✅ 로그인 성공 시 자동으로 가이드 열기 ('show_guide': True)
+                        st.session_state.update({'logged_in': True, 'show_guide': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
                         st.session_state.history = load_user_history(u_id_clean, 'material_overall')
                         st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                         if not valid.empty:
                             domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                            st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
+                            # ✅ 로그인 성공 시 자동으로 가이드 열기 ('show_guide': True)
+                            st.session_state.update({'logged_in': True, 'show_guide': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
                             st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
                             st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
@@ -848,19 +849,51 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 📖 우측 가이드 패널 렌더링 (Toggle On 시 표출)
+# 📖 7. 우측 가이드 패널 렌더링 (A-Z 용어 사전 및 동적 Deep Dive 연동)
 # -----------------------------------------------------------------------------
+GLOSSARY_DB = {
+    "Active Ratio (%)": {"brief": "셀 내 전체 소재 중 실제 용량을 발현하는 활물질의 비중입니다.", "deep": "활물질 비중이 높을수록 에너지 밀도는 상승하지만, 상대적으로 도전재와 바인더가 줄어들어 전자 전도도 저하 및 전극 탈리가 발생할 수 있습니다. 수명과 출력 성능의 Trade-off를 고려한 최적 설계가 필수적입니다."},
+    "Anode (음극)": {"brief": "배터리 충전 시 양극에서 넘어온 리튬 이온을 받아들이는 소재입니다.", "deep": "주로 흑연, 하드카본, 실리콘 등이 사용되며, 양극(Cathode)의 가역 용량보다 더 큰 용량을 수용할 수 있도록 설계되어야 리튬 금속 석출(Li-Plating)을 방지할 수 있습니다."},
+    "Binder & Conductive Agent": {"brief": "바인더는 소재를 결착시키고, 도전재는 전자의 이동 통로를 제공합니다.", "deep": "바인더(예: PVDF, SBR) 함량이 높으면 전하 전달 저항이 커집니다. 반면 도전재(예: Carbon Black, CNT)는 소량으로도 3차원 네트워크를 형성하여 배터리의 율속(Rate) 특성과 급속 충전 성능을 획기적으로 개선합니다."},
+    "C-rate": {"brief": "배터리의 충전 및 방전 속도를 나타내는 기준 단위입니다.", "deep": "1C는 배터리를 1시간 만에 완전히 충/방전하는 속도를 의미합니다. C-rate가 높아질수록(급속 방전) 내부 저항(IR Drop)에 의해 실제 작동 전압 강하(Overpotential)가 커져, 최종적으로 뽑아낼 수 있는 에너지 밀도(Wh/kg)가 현저히 감소합니다."},
+    "Capacity (mAh/g)": {"brief": "소재 1g당 저장하고 낼 수 있는 전하량(용량)입니다.", "deep": "양/음극재 고유의 물리화학적 특성이며 전이금속의 산화환원 반응에 기인합니다. 실제 셀 단위에서는 전극의 로딩량(Loading), 작동 전압(Voltage), 활물질 비중과 결합하여 배터리 전체의 에너지 밀도를 결정하는 핵심 변수입니다."},
+    "Cathode (양극)": {"brief": "배터리의 작동 전압과 전체 에너지를 결정하는 핵심 소재입니다.", "deep": "NCM, LFP, NCA 등 다양한 조성이 있으며, 배터리의 원가 비중의 40% 이상을 차지합니다. 양극재의 평균 방전 전압과 가역 용량이 셀 단위 에너지 밀도(Wh/kg)의 한계치를 가장 크게 좌우합니다."},
+    "E/C Ratio (g/Ah)": {"brief": "셀 용량(Ah) 대비 주입된 전해액(Electrolyte)의 무게 비율입니다.", "deep": "E/C Ratio가 너무 낮으면 셀 내부의 전해액 고갈(Depletion)로 인해 수명(Cycle Life)이 급감합니다. 반대로 너무 높으면 셀의 총 무게가 증가하여 중량당 에너지 밀도(Wh/kg)가 크게 하락하고 원가가 상승하므로, 통상 2.0 ~ 4.0 수준에서 최적화합니다."},
+    "Loading (mg/cm2)": {"brief": "전극 집전체 단위 면적당 코팅된 슬러리의 무게입니다.", "deep": "전극 로딩을 높이면 셀 내 비활성 소재(집전체, 분리막 등)의 공간 비율이 줄어들어 에너지 밀도(Wh/kg, Wh/L)가 크게 상승합니다. 그러나 두꺼운 전극은 이온 확산 거리를 늘려 고출력(C-rate) 및 급속 충전 성능을 심각하게 저하시킵니다."},
+    "N/P Ratio": {"brief": "양극(Cathode)의 가역 용량 대비 음극(Anode)의 설계 용량 비율입니다.", "deep": "통상 1.05 ~ 1.20 사이로 안전 마진을 두고 설정합니다. 1.0 미만일 경우 충전 시 음극에 수용되지 못한 리튬 이온이 표면에 금속 형태로 석출(Li-Plating)되어 분리막을 관통하는 수지상(Dendrite)을 형성, 내부 단락 및 화재의 치명적 원인이 됩니다."},
+    "Porosity (공극률)": {"brief": "전극 합제 내부에 존재하는 빈 공간의 비율(%)입니다.", "deep": "리튬 이온이 이동하는 전해액의 필수 침투 경로입니다. 공극률이 20% 미만으로 너무 낮으면 전해액 함침이 불량해지고 이온 전도도가 낮아져 수명이 급감합니다. 너무 높으면 반대로 체적 에너지 밀도(Wh/L)가 떨어지고 입자 간 접촉이 끊어질 수 있습니다."},
+    "Press Density (합제 밀도)": {"brief": "전극 슬러리를 롤 프레스(Press) 공정으로 압축한 밀도(g/cc)입니다.", "deep": "합제 밀도를 한계점까지 높이면 부피당 에너지 밀도(Wh/L)가 극대화됩니다. 하지만 지나치게 압연할 경우 소재 입자가 깨져(Cracking) 부반응을 일으키고, 내부 공극률(Porosity)이 소실되어 율속(Rate) 특성이 급락하는 Trade-off가 존재합니다."},
+    "Separator (분리막)": {"brief": "양극과 음극의 물리적 접촉을 막아 단락을 방지하는 다공성 막입니다.", "deep": "두께가 얇을수록(예: 16μm -> 9μm) 동일한 부피의 셀 내에 더 많은 전극을 감아 넣을 수 있어 에너지 밀도가 오릅니다. 그러나 기계적 강도와 내열성이 약해져 열폭주나 덴드라이트 관통에 의한 폭발 위험(Safety)이 급격히 증가합니다."},
+    "True Density (진밀도)": {"brief": "소재 입자 자체의 내부 빈 공간을 제외한 순수 뼈대의 밀도입니다.", "deep": "진밀도는 합성된 소재 고유의 물성이며 변하지 않습니다. 엔지니어는 이 진밀도 값과 실제 압연 밀도(Press Density) 값을 바탕으로 전극 내부의 빈 공간인 공극률(Porosity)을 계산(1 - 합제밀도/진밀도)하여 셀 설계를 확정합니다."},
+    "Voltage (V)": {"brief": "배터리의 작동 전압으로, 양극과 음극의 전위차로 결정됩니다.", "deep": "평균 방전 전압(Average Voltage)은 '전압 × 용량 = 에너지' 공식에 따라 에너지 밀도 계산의 핵심 요소입니다. 하이니켈 단결정 양극재나 고전압 전해액 시스템을 사용하여 충전 컷오프 전압을 올리면 더 높은 에너지를 얻을 수 있습니다."}
+}
+
 if col_glossary and col_deep:
     with col_glossary:
         st.markdown(f"#### 📖 Glossary (용어 사전)")
-        with st.expander("N/P Ratio"): st.write("양극 대비 음극의 설계 용량 비율입니다. 리튬 석출 방지를 위해 통상 1.1~1.2 수준으로 세팅합니다.")
-        with st.expander("C-rate"): st.write("배터리 충방전 속도입니다. 1C는 1시간 만에 배터리를 완전 충전/방전하는 속도입니다.")
-        with st.expander("Porosity (공극률)"): st.write("전극 내 빈 공간의 비율입니다. 전해액이 침투할 수 있는 필수 공간입니다.")
+        
+        # A-Z 알파벳 순 정렬
+        sorted_terms = sorted(GLOSSARY_DB.keys())
+        
+        for term in sorted_terms:
+            with st.expander(term):
+                st.write(GLOSSARY_DB[term]["brief"])
+                # 🔍 더 자세히 버튼 (클릭 시 우측 Deep Dive 업데이트)
+                if st.button("🔍 더 자세히", key=f"btn_deep_{term}", use_container_width=True):
+                    st.session_state.selected_term = term
+                    st.rerun()
             
     with col_deep:
         st.markdown(f"#### 🎓 Deep Dive Insight")
-        st.info("**[Trade-off Insight]**\n합제 밀도(Press Density)를 과도하게 높이면 부피 에너지 밀도(Wh/L)는 좋아지지만, 공극률(Porosity)이 20% 이하로 떨어져 내부 저항이 급증하고 수명이 치명적으로 단축됩니다.")
-        st.info("**[C-rate & Overpotential]**\n출력(C-rate)을 높일수록 배터리 내부 저항(IR Drop)으로 인해 실제 작동 전압이 낮아지며, 이는 곧 최종 에너지 밀도(Wh/kg)의 하락으로 직결됩니다.")
+        
+        # 상태 변수 확인 후 해당 용어의 Deep 내용 표출
+        if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
+            current_term = st.session_state.selected_term
+            st.markdown(f"**[{current_term}]**")
+            st.info(GLOSSARY_DB[current_term]["deep"])
+        else:
+            # 초기 상태 메시지
+            st.info("👈 좌측 용어 사전에서 **'🔍 더 자세히'** 버튼을 클릭하시면, 해당 파라미터가 배터리 설계에 미치는 심층 실무 인사이트가 표출됩니다.")
 
 # 7. 푸터 (저작권 표시)
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
