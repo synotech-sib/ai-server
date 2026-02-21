@@ -43,7 +43,17 @@ st.markdown("""
     .syno-title { color: #1A729A; font-size: 46px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #000; font-size: 22px; font-weight: normal; padding-top: 14px; }
     
-    div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px; }
+    /* 지표 박스(stMetric) 높이 통일 */
+    div[data-testid="stMetric"] { 
+        background-color: #f8f9fa; 
+        border: 1px solid #dee2e6; 
+        border-radius: 10px; 
+        padding: 15px; 
+        height: 125px; 
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
     div[data-testid="stMetricValue"] { font-size: 28px !important; color: #1A729A !important; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; }
     
@@ -55,7 +65,7 @@ st.markdown("""
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 및 다운로드 오렌지 색상 */
+    /* PDF 다운로드 버튼 색상 */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; 
@@ -77,30 +87,66 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     
-    /* 모바일 스크롤 오작동 방지 슬라이더 패딩 */
-    div[data-testid="stSlider"] {
-        padding-bottom: 10px;
-    }
+    div[data-testid="stSlider"] { padding-bottom: 10px; }
     
-    /* 가이드 토글 박스화 */
+    /* 상단 기술 가이드 토글 */
     div[data-testid="stToggle"] {
-        background-color: #F4CE14; 
-        border: 1px solid #D4AC0D;
-        padding: 0px 15px;
-        border-radius: 4px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-top: 10px;
+        background-color: #F4CE14; border: 1px solid #D4AC0D; padding: 0px 15px;
+        border-radius: 4px; height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 10px;
     }
     div[data-testid="stToggle"] > label {
-        margin-bottom: 0px !important; 
-        font-size: 15px !important;
+        margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
+    }
+
+    /* ==============================================================
+       ✅ 신규 추가: Glossary(용어 사전) 및 Details 디자인 커스텀 CSS
+       ============================================================== */
+    /* 1. 용어사전 박스 (회색 배경) */
+    div[data-testid="stExpander"] {
+        background-color: #f0f2f6 !important; 
+        border: 1px solid #d1d5db !important;
+        border-radius: 6px !important;
+    }
+    /* 2. 용어사전 제목 (14px 볼드, 왼쪽 정렬) */
+    div[data-testid="stExpander"] summary p {
+        font-size: 14px !important;
+        font-weight: bold !important;
+        text-align: left !important;
         color: #333 !important;
-        width: 100%;
-        display: flex;
-        justify-content: center;
+    }
+    /* 3. 용어사전 내용 (14px 노멀) */
+    div[data-testid="stExpanderDetails"] p {
+        font-size: 14px !important;
+        font-weight: normal !important;
+        color: #333 !important;
+    }
+    /* 4. "더 자세히" 버튼을 텍스트 링크형으로 변환 */
+    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button {
+        background: transparent !important;
+        border: none !important;
+        color: #1A729A !important;
+        text-decoration: underline !important;
+        padding: 0 !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        box-shadow: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        width: auto !important;
+        justify-content: flex-start !important;
+        margin-top: 5px !important;
+    }
+    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button:hover {
+        color: #D35400 !important;
+        background: transparent !important;
+    }
+    /* 5. 우측 Details(3번째 열) 글자체 동기화 (14px 노멀) */
+    div[data-testid="column"]:nth-of-type(3) p, 
+    div[data-testid="column"]:nth-of-type(3) li {
+        font-size: 14px !important;
+        font-weight: normal !important;
+        color: #333 !important;
+        line-height: 1.6 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -254,7 +300,7 @@ default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'show_guide': False, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None, 'selected_term': None, 'active_glossary': None
+    'admin_view': None, 'admin_ws': None, 'selected_term': None
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -478,10 +524,10 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (60:20:20 레이아웃)
+# 5. 시뮬레이터 본문 (✅ 70:10:20 레이아웃 변경)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
-    col_main, col_glossary, col_deep = st.columns([0.6, 0.2, 0.2])
+    col_main, col_glossary, col_deep = st.columns([0.7, 0.1, 0.2])
 else:
     col_main = st.container()
     col_glossary, col_deep = None, None
@@ -704,7 +750,6 @@ with col_main:
         with c_4:
             t1, t2, t3 = st.columns(3)
             with t1:
-                # ✅ 수정: Energy Density (Wh/kg)
                 st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
                 v_te = st.slider("Energy Density", 100, 350, 250, label_visibility="collapsed")
             with t2:
@@ -763,17 +808,36 @@ with col_main:
                 r3.metric("Cell Voltage", f"{res['Cell_V']} V")
                 r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=res['Life(Cyc)'] - v_tl)
                 
-                g1, g2 = st.columns([1, 1])
+                g1, g2, g3 = st.columns(3)
                 with g1:
                     st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
                     fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
-                    fig1.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
+                    fig1.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="DOD (%)", yaxis_title="Voltage (V)")
                     st.plotly_chart(fig1, use_container_width=True)
                 with g2:
                     st.markdown('<p class="sub-header-bold">dQ/dV Profile</p>', unsafe_allow_html=True)
                     fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-                    fig2.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
+                    fig2.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", xaxis_title="Voltage (V)", yaxis_title="dQ/dV")
                     st.plotly_chart(fig2, use_container_width=True)
+                with g3:
+                    st.markdown('<p class="sub-header-bold">Cell Performance Radar</p>', unsafe_allow_html=True)
+                    categories = ['Energy(Wh/kg)', 'Power(C-rate)', 'Life(Cycle)', 'Voltage(V)', 'Loading(mg)']
+                    r_vals = [
+                        min(100, res.get('Wh/kg', 0) / 250 * 100),
+                        min(100, res.get('C-rate', 1) / 5.0 * 100),
+                        min(100, res.get('Life(Cyc)', 0) / 5000 * 100),
+                        min(100, res.get('Cell_V', 0) / 4.0 * 100),
+                        min(100, res.get('Load(mg)', 0) / 25.0 * 100)
+                    ]
+                    fig3 = go.Figure()
+                    fig3.add_trace(go.Scatterpolar(
+                        r=r_vals, theta=categories, fill='toself', line=dict(color='#E4B526', width=2)
+                    ))
+                    fig3.update_layout(
+                        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                        showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10), template="plotly_white"
+                    )
+                    st.plotly_chart(fig3, use_container_width=True)
 
                 st.markdown("---")
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
@@ -1029,6 +1093,10 @@ SIB의 에너지 밀도 한계를 돌파하기 위한 가장 중요한 열쇠가
 * **압축 과다 시 치명적 결함:** 하지만 수치를 극대화하기 위해 진밀도(True Density)에 가깝게 너무 꽉 눌러버리면 다음과 같은 현상이 일어납니다.
   1. **입자 파괴 (Particle Cracking):** 양극재 입자가 부서지며 새로운 표면이 드러나 부반응이 가속화됩니다.
   2. **전해액 함침 불가 (Zero Porosity):** 나트륨 이온이 헤엄쳐 다닐 전해액(수영장)이 들어갈 틈이 없어져, 셀 내부 저항이 무한대로 치솟아 배터리가 사망(Dead)합니다. (현재 시뮬레이터에 적용된 경고 로직의 핵심입니다.)
+
+**[Volumetric Energy Density (부피당 에너지 밀도) 환산식]**
+본 시뮬레이터는 합제 밀도를 바탕으로 부피당 에너지를 역산합니다.
+$$ Energy\ Density\ (Wh/L) = Energy\ Density\ (Wh/kg) \times Press\ Density\ (g/cc) \times Packing\ Factor $$
 """
     },
     "Cycle Life": {
@@ -1043,7 +1111,8 @@ SIB의 에너지 밀도 한계를 돌파하기 위한 가장 중요한 열쇠가
   2. **양극재 상전이 (Phase Transition):** 깊은 충방전 구간에서 층상 산화물 양극재의 결정 구조가 뒤틀려 다시 돌아오지 않는 비가역적 손상이 누적됩니다.
   3. **체적 팽창에 의한 미세 균열 (Micro-cracking):** 입자의 수축/팽창이 반복되며 입자가 깨지고 전해액과 부반응을 일으킵니다.
 
-* **시뮬레이션 연산 한계:** 현재 시뮬레이터는 입력된 Base 수명에 가혹 조건(높은 C-rate) 패널티를 부여하는 물리 수식을 적용 중입니다. 향후 AI 예측 모델(Surrogate Model)이 도입되면 수천 건의 실제 열화 곡선 데이터를 바탕으로 완벽한 역추적 수명 계산이 가능해집니다.
+* **시뮬레이션 연산 한계:** 현재 시뮬레이터는 입력된 Base 수명에 가혹 조건(높은 C-rate) 패널티를 부여하는 물리 수식을 적용 중입니다.
+$$ Expected\ Life = Base\ Life \times (0.95)^{C\_rate} $$
 """
     },
     "E/C Ratio (g/Ah)": {
@@ -1124,26 +1193,16 @@ $$ Energy\ (Wh) = Capacity\ (Ah) \times Average\ Voltage\ (V) $$
     }
 }
 
-# 사용자 정의 아코디언 UI (Auto-Close 로직)
+# 사용자 정의 아코디언 UI (Auto-Close 로직 적용)
 if col_glossary and col_deep:
     with col_glossary:
         st.markdown(f"#### 📖 Glossary")
         sorted_terms = sorted(GLOSSARY_DB.keys())
         
         for term in sorted_terms:
-            # 현재 이 용어가 활성화된 상태인지 확인
-            is_active = (st.session_state.active_glossary == term)
-            icon = "▼" if is_active else "▶"
-            
-            # 버튼 클릭 시 세션 상태 토글
-            if st.button(f"{icon} {term}", key=f"btn_glos_{term}", use_container_width=True):
-                st.session_state.active_glossary = None if is_active else term
-                st.rerun()
-            
-            # 활성화된 용어만 설명 및 '더 자세히' 버튼 노출
-            if is_active:
-                st.info(GLOSSARY_DB[term]["brief"])
-                if st.button("🔍 더 자세히", key=f"btn_deep_{term}", use_container_width=True):
+            with st.expander(term):
+                st.write(GLOSSARY_DB[term]["brief"])
+                if st.button("더 자세히 〉", key=f"btn_deep_{term}"):
                     st.session_state.selected_term = term
                     st.rerun()
             
@@ -1152,11 +1211,12 @@ if col_glossary and col_deep:
         
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
             current_term = st.session_state.selected_term
-            st.markdown(f"**[{current_term}]**")
-            # 80% 화면을 꽉 채울 심층 지식(수식 포함) 렌더링
-            st.info(GLOSSARY_DB[current_term]["deep"])
+            with st.container(border=True):
+                st.markdown(f"**[{current_term}]**")
+                st.markdown(GLOSSARY_DB[current_term]["deep"])
         else:
-            st.info("👈 좌측 용어 사전에서 **'🔍 더 자세히'** 버튼을 클릭하시면, 해당 파라미터가 배터리 설계에 미치는 심층 실무 지식과 계산 수식이 표출됩니다.")
+            with st.container(border=True):
+                st.markdown("👈 좌측 용어 사전에서 **'더 자세히 〉'** 버튼을 클릭하시면, 해당 파라미터가 배터리 설계에 미치는 심층 실무 지식과 계산 수식이 표출됩니다.")
 
 # 7. 푸터 (저작권 표시)
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
