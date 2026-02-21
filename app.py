@@ -82,7 +82,6 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # 2. 클라우드 DB 연동 설정 및 마스터 계정 세팅
 # -----------------------------------------------------------------------------
-# ✅ 마스터 계정 리스트 및 이름 적용
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
 ADMIN_PW = "synotech0773!"
 
@@ -134,7 +133,7 @@ def get_user_db():
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     sender_email = "wschoi@synotech.co.kr"
-    sender_password = "여기에_16자리_앱비밀번호를_입력하세요" # ⚠️ 비밀번호 기입 필요
+    sender_password = "여기에_16자리_앱비밀번호를_입력하세요"
     try:
         if "EMAIL_PASSWORD" in st.secrets: sender_password = st.secrets["EMAIL_PASSWORD"]
     except: pass
@@ -154,7 +153,6 @@ def send_verification_email(to_email, code):
         server.quit()
         return True
     except Exception as e:
-        print(f"이메일 발송 에러: {e}")
         return False
 
 # -----------------------------------------------------------------------------
@@ -217,10 +215,16 @@ def create_pdf(data_list, title="Simulation Report"):
     return pdf.output(dest="S").encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# 4. 세션 초기화 및 헤더 모듈 
+# 4. 세션 초기화 및 헤더 모듈 (✅ 완벽한 정석 Dictionary 초기화 적용)
 # -----------------------------------------------------------------------------
-for key in ['logged_in', 'show_reg', 'reg_stage', 'v_code', 'temp_email', 'history', 'sim_result', 'user_name', 'user_email', 'show_profile', 'workspace', 'user_vip_name', 'show_guide', 'is_admin']:
-    if key not in st.session_state: st.session_state[key] = False if isinstance(default:=False, bool) else [] if key == 'history' else "material_list" if key == 'workspace' else ""
+default_vars = {
+    'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
+    'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
+    'workspace': 'material_list', 'user_vip_name': None, 'show_guide': False, 'is_admin': False
+}
+for key, val in default_vars.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
 
 h_l, h_r = st.columns([1.2, 1]) 
 
@@ -241,7 +245,6 @@ with h_r:
                     u_id_clean = u_id.strip().lower()
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
-                    # ✅ 마스터 계정 다중 로그인 적용 (대표님 + 서연님)
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_list'})
                         st.session_state.history = load_user_history(u_id_clean, 'material_list')
@@ -262,12 +265,12 @@ with h_r:
         r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
-            for k in ['logged_in', 'history', 'is_admin']: st.session_state[k] = False if type(st.session_state[k])==bool else []
+            for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
 
 is_pro = st.session_state.logged_in
 
-# ✅ 가이드 토글 버튼을 우측 (로그인 아래쪽)으로 배치
+# ✅ 가이드 토글 버튼을 우측 (로그인 영역 아래쪽)으로 정렬 배치
 if is_pro:
     t_spacer, t_tog = st.columns([0.83, 0.17])
     with t_tog:
@@ -369,7 +372,7 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ 섹션 1: 텍스트 볼드체 적용
+                # ✅ 1. 소재 선택: 라벨 볼드체 적용
                 cat_sel = m1.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
                 ano_sel = m2.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
                 m3.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
@@ -404,7 +407,7 @@ with col_main:
             expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
             
             s1, s2, s3, s4 = st.columns(4)
-            # ✅ 섹션 2: 텍스트 볼드체 적용
+            # ✅ 2. 정밀 조정: 라벨 볼드체 적용
             v_cap = s1.slider("**Capacity (mAh/g)**", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
             v_volt = s2.slider("**Voltage (V)**", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
             v_den = s3.slider("**True Density (g/cc)**", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
@@ -420,7 +423,7 @@ with col_main:
             p1, p2, p3 = st.columns(3)
             with p1:
                 st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-                # ✅ 섹션 3: 텍스트 볼드체 적용
+                # ✅ 3. 공정 파라미터: 라벨 볼드체 적용
                 v_load = st.slider("**Loading (mg/cm2)**", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
                 v_press = st.slider("**Cathode Press Density**", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
                 st.slider("**Conductive Agent %**", 0.5, 10.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
@@ -456,8 +459,8 @@ with col_main:
             with t3:
                 st.markdown('<p class="sub-header-bold">Cycle Life Goal</p>', unsafe_allow_html=True)
                 v_tl = st.slider("Cycle Goal", 500, 10000, 2000, label_visibility="collapsed")
-        # ✅ 여유 공간 확보
-        st.markdown("<br>", unsafe_allow_html=True)
+        # ✅ 4번 박스 하단 여유 공간 추가
+        st.markdown("<br><br>", unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
@@ -523,8 +526,8 @@ with col_main:
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
                 df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
                 st.dataframe(df_history, use_container_width=True)
-        # ✅ 여유 공간 확보
-        st.markdown("<br>", unsafe_allow_html=True)
+        # ✅ 5번 박스 하단 여유 공간 추가
+        st.markdown("<br><br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
     # 6. 내 데이터 관리
