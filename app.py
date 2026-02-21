@@ -114,7 +114,8 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 def hash_password(password):
     return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=5)
+# ✅ 모든 DB Read에 10분(600초) 캐시 적용 -> 구글 API Rate Limit(429 에러) 원천 차단
+@st.cache_data(ttl=600)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -131,7 +132,6 @@ def get_vip_list_exact():
     return [str(x).strip() for x in df['Company'].dropna().tolist() if str(x).strip()] if not df.empty and 'Company' in df.columns else []
 
 mat_df_public = load_cloud_data(URL_MATS, "material_list")
-# ✅ Sheet1에서 param_config로 탭 이름 수정
 param_df = load_cloud_data(URL_PARAM, "param_config")
 
 sys_params = {}
@@ -146,7 +146,7 @@ def get_user_db():
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=5).astype(str)
+        return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600) # ✅ 캐시 적용
     except Exception:
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
 
@@ -206,7 +206,7 @@ def load_user_history(email, workspace="material_list"):
     if GSheetsConnection is None: return []
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
+        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600) # ✅ 캐시 적용
         if db_df.empty or 'Email' not in db_df.columns: return []
         my_logs = db_df[(db_df['Email'] == email) & (db_df.get('Workspace', 'material_list') == workspace)]
         hist = []
@@ -331,7 +331,6 @@ if is_pro and st.session_state.get('is_admin', False):
             st.rerun()
         if a3.button("⚙️ 파라미터 DB", use_container_width=True):
             if st.session_state.admin_view == 'param': st.session_state.admin_view = None
-            # ✅ Sheet1에서 param_config로 탭 이름 수정
             else: st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'
             st.rerun()
         if a4.button("💾 로그 DB", use_container_width=True):
@@ -351,7 +350,6 @@ if is_pro and st.session_state.get('is_admin', False):
                 ws_options = ["material_list"] + get_vip_list_exact()
             elif st.session_state.admin_view == 'param':
                 target_url = URL_PARAM
-                # ✅ Sheet1에서 param_config로 드롭다운 옵션 수정
                 ws_options = ["param_config"]
             elif st.session_state.admin_view == 'logs':
                 target_url = URL_LOGS
@@ -365,7 +363,7 @@ if is_pro and st.session_state.get('is_admin', False):
             
             conn = st.connection("gsheets", type=GSheetsConnection)
             try:
-                df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=0)
+                df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) # ✅ 캐시 적용
                 st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
                 
                 original_cols = df_admin.columns.tolist()
@@ -392,13 +390,18 @@ if is_pro and st.session_state.get('is_admin', False):
                             
                         edited_df_safe = save_df.fillna("")
                         conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                        st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                         st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                        load_cloud_data.clear()
                     except Exception as e:
                         st.error(f"저장 중 오류 발생: {e}")
             except Exception as e:
-                st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {e})")
-                st.info("💡 **해결 체크리스트**\n1. 해당 구글 시트 파일 우측 상단 [공유] 버튼을 눌러 서비스 계정 이메일이 **편집자**로 추가되어 있는지 확인하세요.\n2. 구글 시트 하단의 실제 탭(Worksheet) 이름이 코드상에 설정된 이름(`" + st.session_state.admin_ws + "`)과 띄어쓰기까지 정확히 일치하는지 확인하세요. ('시트1' 처럼 한글로 되어 있으면 에러가 발생합니다.)")
+                err_msg = str(e)
+                # ✅ 429 에러(Rate Limit) 전용 안내 메시지 추가
+                if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
+                    st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
+                else:
+                    st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
+                    st.info("💡 **해결 체크리스트**\n1. 해당 구글 시트 파일 우측 상단 [공유] 버튼을 눌러 서비스 계정 이메일이 **편집자**로 추가되어 있는지 확인하세요.\n2. 구글 시트 하단의 실제 탭(Worksheet) 이름이 코드상에 설정된 이름과 일치하는지 확인하세요.")
         
         st.markdown("---")
         vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
@@ -434,9 +437,10 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             p1, p2 = st.columns(2); pw1 = p1.text_input("2. Password", type="password"); pw2 = p2.text_input("2-1. Password 확인", type="password")
             n_name = st.text_input("3. 이름"); n_comp = st.text_input("4. Company")
             if st.button("최종 가입신청", disabled=not (pw1==pw2 and n_name)):
-                conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=5)
+                conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
+                st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                 st.success("가입신청 완료! 로그인 해주세요."); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
 
 if st.session_state.get('show_profile') and st.session_state.logged_in:
@@ -451,11 +455,13 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
             m_comp = p1.text_input("Company", value=u_row.get('Company', '')); m_dept = p2.text_input("부서", value=u_row.get('Dept', ''))
             m_job = p1.text_input("담당업무", value=u_row.get('Job', '')); m_phone = p2.text_input("연락처", value=u_row.get('Phone', ''))
             if st.button("개인정보 수정 완료"):
-                conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=5)
+                conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
                 if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
                 df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept; df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone
-                conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); 
+                st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
+                st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
 # 5. 시뮬레이터 본문 (60:20:20 레이아웃)
@@ -515,8 +521,8 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
@@ -535,8 +541,8 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
@@ -554,8 +560,8 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
@@ -573,8 +579,8 @@ with col_main:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     updated_data = pd.concat([df_vip, new_row], ignore_index=True).fillna("")
                                     conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=updated_data)
+                                    st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                                     st.success("소재가 저장되었습니다.")
-                                    load_cloud_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error("DB 업데이트 오류. 구글 시트 권한을 확인하세요.")
@@ -751,7 +757,7 @@ with col_main:
                 if btn1.button("💾 내 계정에 저장하기", key="btn_save_my"):
                     try:
                         conn = st.connection("gsheets", type=GSheetsConnection)
-                        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
+                        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
                         is_duplicate = False
                         
                         if not db_df.empty and 'Email' in db_df.columns and 'Time' in db_df.columns:
@@ -768,6 +774,7 @@ with col_main:
                         if is_duplicate:
                             st.warning("이미 저장된 시뮬레이션 결과입니다.")
                         else:
+                            st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                             st.success("내 계정에 저장하기가 완료되었습니다.")
                     except Exception as e: 
                         st.error(f"저장 오류: {e}")
@@ -796,7 +803,8 @@ with col_main:
                 st.markdown("---")
                 
                 try:
-                    db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=0)
+                    # ✅ ttl=600 캐시 적용 완료
+                    db_df_all = st.connection("gsheets", type=GSheetsConnection).read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
                     if not db_df_all.empty and 'Email' in db_df_all.columns:
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                         
@@ -828,13 +836,18 @@ with col_main:
                                         
                                         conn = st.connection("gsheets", type=GSheetsConnection)
                                         conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
+                                        st.cache_data.clear() # ✅ 저장 직후 캐시 강제 무효화
                                         st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
                                         st.rerun()
                         else:
                             st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                             st.info("클라우드 DB에 이전에 저장된 시뮬레이션 데이터가 없습니다.")
-                except Exception:
-                    st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
+                except Exception as e:
+                    err_msg = str(e)
+                    if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
+                        st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
+                    else:
+                        st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
 # 📖 우측 가이드 패널 렌더링 (Toggle On 시 표출)
