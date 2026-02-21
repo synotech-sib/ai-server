@@ -99,48 +99,74 @@ st.markdown("""
     }
 
     /* ==============================================================
-       ✅ 신규 추가: Glossary(용어 사전) 및 Details 디자인 커스텀 CSS
+       🔥 강력한 Glossary & Details 디자인 제어 (강제 덮어쓰기)
        ============================================================== */
     /* 1. 용어사전 박스 (회색 배경) */
-    div[data-testid="stExpander"] {
+    div[data-testid="stExpander"] details {
         background-color: #f0f2f6 !important; 
         border: 1px solid #d1d5db !important;
         border-radius: 6px !important;
     }
-    /* 2. 용어사전 제목 (14px 볼드, 왼쪽 정렬) */
+    /* 2. 용어사전 제목: 볼드체 해제, 왼쪽 정렬 */
     div[data-testid="stExpander"] summary p {
         font-size: 14px !important;
-        font-weight: bold !important;
+        font-weight: normal !important; 
         text-align: left !important;
         color: #333 !important;
     }
-    /* 3. 용어사전 내용 (14px 노멀) */
+    /* 3. 공간 확보를 위해 기본 화살표(>) 아이콘 삭제 */
+    div[data-testid="stExpander"] summary svg {
+        display: none !important; 
+    }
+    div[data-testid="stExpander"] summary {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    /* 4. 용어사전 내용 텍스트 */
     div[data-testid="stExpanderDetails"] p {
         font-size: 14px !important;
         font-weight: normal !important;
         color: #333 !important;
     }
-    /* 4. "더 자세히" 버튼을 텍스트 링크형으로 변환 */
+    
+    /* 5. "더 자세히>" 텍스트 링크 버튼 디자인 (마법의 ::after 적용) */
     div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button {
         background: transparent !important;
         border: none !important;
         color: #1A729A !important;
-        text-decoration: underline !important;
         padding: 0 !important;
-        font-size: 14px !important;
-        font-weight: bold !important;
         box-shadow: none !important;
         height: auto !important;
         min-height: 0 !important;
         width: auto !important;
-        justify-content: flex-start !important;
+        display: inline-flex !important;
+        align-items: center !important;
         margin-top: 5px !important;
     }
-    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button:hover {
-        color: #D35400 !important;
-        background: transparent !important;
+    /* "더 자세히" 글자에만 밑줄 적용 */
+    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button p {
+        text-decoration: underline !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 14px !important;
+        font-weight: normal !important;
     }
-    /* 5. 우측 Details(3번째 열) 글자체 동기화 (14px 노멀) */
+    /* 버튼 뒤에 밑줄 없는 ">" 기호 동적 추가 */
+    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button::after {
+        content: ' >';
+        text-decoration: none !important;
+        color: #1A729A !important;
+        font-size: 14px !important;
+        margin-left: 3px;
+        font-weight: normal !important;
+    }
+    /* 마우스 호버 시 오렌지색으로 변경 */
+    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button:hover p,
+    div[data-testid="stExpanderDetails"] div[data-testid="stButton"] > button:hover::after {
+        color: #D35400 !important;
+    }
+    
+    /* 6. 우측 Details 글자체 동기화 (용어사전과 100% 일치) */
     div[data-testid="column"]:nth-of-type(3) p, 
     div[data-testid="column"]:nth-of-type(3) li {
         font-size: 14px !important;
@@ -524,10 +550,15 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 70:10:20 레이아웃 변경)
+# 5. 시뮬레이터 본문 (✅ 동적 레이아웃 70:13:17 제어 로직 적용)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_guide', False):
-    col_main, col_glossary, col_deep = st.columns([0.7, 0.1, 0.2])
+    # '더 자세히' 클릭 상태에 따라 레이아웃 비율 동적 변경 (평상시: 87:13, 클릭시: 70:13:17)
+    if st.session_state.get('selected_term'):
+        col_main, col_glossary, col_deep = st.columns([0.70, 0.13, 0.17])
+    else:
+        col_main, col_glossary = st.columns([0.87, 0.13])
+        col_deep = None
 else:
     col_main = st.container()
     col_glossary, col_deep = None, None
@@ -1193,30 +1224,30 @@ $$ Energy\ (Wh) = Capacity\ (Ah) \times Average\ Voltage\ (V) $$
     }
 }
 
-# 사용자 정의 아코디언 UI (Auto-Close 로직 적용)
-if col_glossary and col_deep:
+if col_glossary:
     with col_glossary:
         st.markdown(f"#### 📖 Glossary")
         sorted_terms = sorted(GLOSSARY_DB.keys())
-        
         for term in sorted_terms:
             with st.expander(term):
                 st.write(GLOSSARY_DB[term]["brief"])
-                if st.button("더 자세히 〉", key=f"btn_deep_{term}"):
+                if st.button("더 자세히", key=f"btn_deep_{term}"):
                     st.session_state.selected_term = term
                     st.rerun()
             
+if col_deep:
     with col_deep:
-        st.markdown(f"#### 🎓 Details")
-        
+        c_title, c_btn = st.columns([0.7, 0.3])
+        c_title.markdown(f"#### 🎓 Details")
+        if c_btn.button("✖ 닫기", use_container_width=True):
+            st.session_state.selected_term = None
+            st.rerun()
+            
         if st.session_state.selected_term and st.session_state.selected_term in GLOSSARY_DB:
             current_term = st.session_state.selected_term
             with st.container(border=True):
                 st.markdown(f"**[{current_term}]**")
                 st.markdown(GLOSSARY_DB[current_term]["deep"])
-        else:
-            with st.container(border=True):
-                st.markdown("👈 좌측 용어 사전에서 **'더 자세히 〉'** 버튼을 클릭하시면, 해당 파라미터가 배터리 설계에 미치는 심층 실무 지식과 계산 수식이 표출됩니다.")
 
 # 7. 푸터 (저작권 표시)
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
