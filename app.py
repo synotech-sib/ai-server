@@ -234,7 +234,7 @@ with h_l:
 with h_r:
     if not st.session_state.logged_in:
         c1, c2 = st.columns([1, 1])
-        with c1.popover("Login"):
+        with c1.popover("Login", use_container_width=True): # ✅ 버튼 폭 맞춤
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -372,22 +372,53 @@ with col_main:
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ 1. 소재 선택: 라벨 볼드체 적용
-                cat_sel = m1.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
-                ano_sel = m2.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
-                m3.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
-                m4.selectbox("**Separator**", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
-                
-                if is_pro and st.session_state.workspace != "material_list":
-                    with st.expander("➕ 내 전용 소재 추가하기"):
-                        new_cat_name = st.text_input("새로운 양극재 이름 (예: Altris_PW_Gen2)")
-                        new_cap = st.number_input("용량 (mAh/g)", value=160.0)
-                        if st.button("내 워크스페이스에 저장"):
-                            conn = st.connection("gsheets", type=GSheetsConnection)
-                            new_row = pd.DataFrame([{"Name": new_cat_name, "Category": "Cathode", "Cap_Def": new_cap, "Volt_Def": 3.2, "Den_Def": 2.2}])
-                            conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
-                            st.success("내 전용 소재가 저장되었습니다!"); st.rerun()
+                # ✅ 1. 소재 선택 및 최적화된 소재 추가 폼
+                with m1:
+                    cat_sel = st.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], key="sel_cat_m")
+                    if is_pro and st.session_state.workspace != "material_list":
+                        with st.expander("➕ 양극재 추가"):
+                            n_cat = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Cat_01")
+                            c_cat = st.number_input("용량 (mAh/g)", value=160.0, key="n_cat_c")
+                            v_cat = st.number_input("전압 (V)", value=3.2, key="n_cat_v")
+                            if st.button("저장", key="btn_save_cat"):
+                                new_row = pd.DataFrame([{"Name": n_cat, "Category": "Cathode", "Cap_Def": c_cat, "Volt_Def": v_cat, "Den_Def": 2.2}])
+                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
+                                st.rerun()
 
+                with m2:
+                    ano_sel = st.selectbox("**Anode**", ano_list if ano_list else ["Sample Anode"], key="sel_ano_m")
+                    if is_pro and st.session_state.workspace != "material_list":
+                        with st.expander("➕ 음극재 추가"):
+                            n_ano = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Ano_01")
+                            c_ano = st.number_input("용량 (mAh/g)", value=360.0, key="n_ano_c")
+                            v_ano = st.number_input("전압 (V)", value=0.1, key="n_ano_v")
+                            if st.button("저장", key="btn_save_ano"):
+                                new_row = pd.DataFrame([{"Name": n_ano, "Category": "Anode", "Cap_Def": c_ano, "Volt_Def": v_ano, "Den_Def": 1.1}])
+                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
+                                st.rerun()
+
+                with m3:
+                    st.selectbox("**Electrolyte**", ele_list if ele_list else ["Sample Elec"], key="sel_ele_m")
+                    if is_pro and st.session_state.workspace != "material_list":
+                        with st.expander("➕ 전해액 추가"):
+                            n_ele = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Elec_01")
+                            d_ele = st.number_input("밀도 (g/cc)", value=1.2, key="n_ele_d")
+                            if st.button("저장", key="btn_save_ele"):
+                                new_row = pd.DataFrame([{"Name": n_ele, "Category": "Electrolyte", "Den_Def": d_ele}])
+                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
+                                st.rerun()
+
+                with m4:
+                    st.selectbox("**Separator**", sep_list if sep_list else ["Sample Sep"], key="sel_sep_m")
+                    if is_pro and st.session_state.workspace != "material_list":
+                        with st.expander("➕ 분리막 추가"):
+                            n_sep = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Sep_01")
+                            t_sep = st.number_input("두께 (μm)", value=16.0, key="n_sep_t") 
+                            if st.button("저장", key="btn_save_sep"):
+                                new_row = pd.DataFrame([{"Name": n_sep, "Category": "Separator", "Load_Def": t_sep}])
+                                st.connection("gsheets", type=GSheetsConnection).update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True))
+                                st.rerun()
+                
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
                 def_cap_min, def_cap_max, def_cap_val = float(row.get('Cap_Min', 100)), float(row.get('Cap_Max', 250)), float(row.get('Cap_Def', 160))
                 def_vlt_min, def_vlt_max, def_vlt_val = float(row.get('Volt_Min', 2.0)), float(row.get('Volt_Max', 4.5)), float(row.get('Volt_Def', 3.05))
@@ -407,7 +438,6 @@ with col_main:
             expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
             
             s1, s2, s3, s4 = st.columns(4)
-            # ✅ 2. 정밀 조정: 라벨 볼드체 적용
             v_cap = s1.slider("**Capacity (mAh/g)**", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
             v_volt = s2.slider("**Voltage (V)**", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
             v_den = s3.slider("**True Density (g/cc)**", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
@@ -423,7 +453,6 @@ with col_main:
             p1, p2, p3 = st.columns(3)
             with p1:
                 st.markdown('<p class="sub-header-bold">(A) Cathode Settings</p>', unsafe_allow_html=True)
-                # ✅ 3. 공정 파라미터: 라벨 볼드체 적용
                 v_load = st.slider("**Loading (mg/cm2)**", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
                 v_press = st.slider("**Cathode Press Density**", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
                 st.slider("**Conductive Agent %**", 0.5, 10.0, 2.0, key="ad_c_con_m", disabled=not show_adv)
@@ -459,8 +488,8 @@ with col_main:
             with t3:
                 st.markdown('<p class="sub-header-bold">Cycle Life Goal</p>', unsafe_allow_html=True)
                 v_tl = st.slider("Cycle Goal", 500, 10000, 2000, label_visibility="collapsed")
-        # ✅ 4번 박스 하단 여유 공간 추가
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        # ✅ 4번 박스 하단 여유 공간 축소
+        st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
@@ -526,8 +555,8 @@ with col_main:
                 st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
                 df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
                 st.dataframe(df_history, use_container_width=True)
-        # ✅ 5번 박스 하단 여유 공간 추가
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        # ✅ 5번 박스 하단 여유 공간 축소
+        st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
     # 6. 내 데이터 관리
