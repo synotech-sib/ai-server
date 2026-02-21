@@ -19,24 +19,27 @@ except ImportError: GSheetsConnection = None
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 다국어 사전 (English / Korean)
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore V1.46 Pro", layout="wide")
+st.set_page_config(page_title="SynoCore V1.5 Pro", layout="wide")
 
 LANG = {
     "en": {
-        "title": "SynoCore V1.46 Pro", "login": "Login", "logout": "Logout", "id": "Email", "pw": "Password", "reg": "Sign Up",
+        "title": "SynoCore V1.5 Pro", "login": "Login", "logout": "Logout", "id": "Email", "pw": "Password", "reg": "Sign Up",
         "guide_on": "💡 Show Technical Guide", "guide_off": "Hide Guide",
         "sec1": "1. Material Selection", "sec2": "2. Material Specs Expert Mode",
         "sec3": "3. Process Parameters", "sec4": "4. Target Settings",
         "sec5": "5. Simulation Control & Analysis", "sec6": "6. Data Management",
         "add_custom": "➕ Add Custom Material", "run_sim": "🚀 RUN DESIGN SIMULATION",
-        "energy_goal": "Energy Goal (Wh/kg)", "cycle_goal": "Cycle Life Goal", "crate": "C-rate",
+        "energy_goal": "Energy Goal (Wh/kg)", "cycle_goal": "Cycle Life Goal", "crate": "Simulation C-rate",
         "sub_a": "(A) Cathode Settings", "sub_b": "(B) Anode & Balance", "sub_c": "(C) Cell",
-        "porosity": "Porosity", "warn_porosity": "⚠️ Low Porosity: Risk of poor wetting!",
+        "porosity": "Expected Porosity", "warn_porosity": "⚠️ Low Porosity: Risk of poor electrolyte wetting & Li-plating!",
+        "loading": "Loading (mg/cm2)", "press_den": "Press Density (g/cc)", "cond_agent": "Conductive Agent (%)", "binder": "Binder (%)",
+        "np_ratio": "N/P Ratio", "a_press": "Anode Press (g/cc)", "a_act": "Anode Active (%)",
+        "c_act": "Cathode Active Ratio (%)", "ec_ratio": "E/C Ratio (g/Ah)", "sep_thick": "Separator Thick (μm)",
         "save_cloud": "💾 Save to Cloud", "del_cloud": "🗑️ Delete Record",
         "glossary": "📖 Glossary", "deep_dive": "🎓 Deep Dive Insight"
     },
     "ko": {
-        "title": "시노코어 V1.46 프로", "login": "로그인", "logout": "로그아웃", "id": "이메일", "pw": "비밀번호", "reg": "계정 신청",
+        "title": "시노코어 V1.5 프로", "login": "로그인", "logout": "로그아웃", "id": "이메일", "pw": "비밀번호", "reg": "계정 신청",
         "guide_on": "💡 기술 가이드 켜기", "guide_off": "가이드 숨기기",
         "sec1": "1. 소재 선택", "sec2": "2. 소재 스펙 정밀 설정",
         "sec3": "3. 공정 파라미터", "sec4": "4. 목표 수치 설정",
@@ -44,7 +47,10 @@ LANG = {
         "add_custom": "➕ 내 전용 소재 추가", "run_sim": "🚀 설계 시뮬레이션 실행",
         "energy_goal": "목표 에너지밀도 (Wh/kg)", "cycle_goal": "목표 수명(Cycle)", "crate": "충방전 속도(C-rate)",
         "sub_a": "(A) 양극재 설정", "sub_b": "(B) 음극재 및 밸런스", "sub_c": "(C) 셀 구성",
-        "porosity": "예상 공극률", "warn_porosity": "⚠️ 공극률 부족: 전해액 함침 불량 위험!",
+        "porosity": "예상 공극률", "warn_porosity": "⚠️ 공극률 부족: 전해액 함침 불량 및 리튬 석출 위험!",
+        "loading": "로딩량 (mg/cm2)", "press_den": "합제 밀도 (g/cc)", "cond_agent": "도전재 비율 (%)", "binder": "바인더 비율 (%)",
+        "np_ratio": "N/P 비율", "a_press": "음극 합제 밀도 (g/cc)", "a_act": "음극 활물질 (%)",
+        "c_act": "양극 활물질 (%)", "ec_ratio": "전해액 주액량 (E/C Ratio)", "sep_thick": "분리막 두께 (μm)",
         "save_cloud": "💾 내 계정에 저장", "del_cloud": "🗑️ 선택 기록 삭제",
         "glossary": "📖 용어 사전", "deep_dive": "🎓 기술 인사이트"
     }
@@ -79,7 +85,8 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 
 def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=60)
+# ⚠️ 최신 데이터를 즉각 반영하기 위해 캐시 유지 시간(ttl)을 5초로 대폭 단축
+@st.cache_data(ttl=5)
 def load_cloud_data(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
@@ -96,7 +103,7 @@ def get_vip_list_exact():
     return [str(x).strip() for x in df['Company'].dropna().tolist() if str(x).strip()] if not df.empty and 'Company' in df.columns else []
 
 # -----------------------------------------------------------------------------
-# 3. 유틸리티 엔진
+# 3. 유틸리티 엔진 (물리 시뮬레이터)
 # -----------------------------------------------------------------------------
 def get_dqdv(cat_sel, v_tc, m_df=None):
     v_axis = np.linspace(2.0, 4.2, 150); dqdv = np.zeros_like(v_axis); p1, p2 = 3.15, 0.0 
@@ -133,11 +140,11 @@ def load_user_history(email, workspace):
 # 4. 세션 초기화 및 헤더 UI
 # -----------------------------------------------------------------------------
 for k in ['logged_in', 'show_reg', 'history', 'lang', 'show_guide', 'user_email', 'user_name', 'is_admin', 'workspace', 'user_vip_name']:
-    if k not in st.session_state: st.session_state[k] = "en" if k == 'lang' else False if isinstance(default:=False, bool) else [] if k == 'history' else "material_list" if k=='workspace' else ""
+    if k not in st.session_state: st.session_state[k] = "ko" if k == 'lang' else False if isinstance(default:=False, bool) else [] if k == 'history' else "material_list" if k=='workspace' else ""
 
 t1, t2, t3 = st.columns([5, 2, 3])
-with t1: st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span style="font-size:20px; color:gray;">V1.46 Global Pro</span></div>', unsafe_allow_html=True)
-with t2: st.session_state.lang = st.radio("Lang", ["en", "ko"], horizontal=True, label_visibility="collapsed")
+with t1: st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span style="font-size:20px; color:gray;">V1.5 Global Pro</span></div>', unsafe_allow_html=True)
+with t2: st.session_state.lang = st.radio("Lang", ["en", "ko"], index=1, horizontal=True, label_visibility="collapsed")
 t = LANG[st.session_state.lang]
 
 with t3:
@@ -155,10 +162,10 @@ with t3:
                     if not valid.empty:
                         domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
                         st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': u_id_clean, 'user_vip_name': vip_map.get(domain), 'workspace': 'material_list'}); st.rerun()
-                    else: st.error("Fail")
+                    else: st.error("Login Failed")
         if c2.button(t["reg"]): st.session_state.show_reg = not st.session_state.show_reg; st.rerun()
     else:
-        c1, c2 = st.columns([2, 1]); c1.markdown(f"**{st.session_state.user_name}** (Pro)")
+        c1, c2 = st.columns([2, 1]); c1.markdown(f'<div class="user-greeting">{st.session_state.user_name} 님 (Pro)</div>', unsafe_allow_html=True)
         if c2.button(t["logout"]): 
             for k in ['logged_in', 'is_admin', 'history']: st.session_state[k] = False if type(st.session_state[k])==bool else []
             st.rerun()
@@ -190,48 +197,66 @@ with col_main:
         ele_sel = c3.selectbox("Electrolyte", mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist())
         sep_sel = c4.selectbox("Separator", mat_df[mat_df['Category']=='Separator']['Name'].tolist())
         
+        # VIP 전용 탭에 소재 직접 추가
         if is_pro and st.session_state.workspace != "material_list":
             with st.expander(t["add_custom"]):
                 new_cat = st.text_input("New Cathode Name"); new_cap = st.number_input("Capacity (mAh/g)", 160)
                 if st.button("Save to My Workspace"):
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     new_row = pd.DataFrame([{"Name": new_cat, "Category": "Cathode", "Cap_Def": new_cap, "Volt_Def": 3.2, "Den_Def": 2.2}])
-                    conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True)); st.rerun()
+                    conn.update(spreadsheet=URL_MATS, worksheet=st.session_state.workspace, data=pd.concat([df_vip, new_row], ignore_index=True)); st.success("추가되었습니다!"); st.rerun()
 
         row = mat_df[mat_df['Name']==cat_sel].iloc[0] if cat_sel in cat_list else pd.Series()
-        d_cap, d_vlt, d_den, d_lif, d_lod = float(row.get('Cap_Def', 160)), float(row.get('Volt_Def', 3.05)), float(row.get('Den_Def', 2.2)), int(row.get('Life_Def', 4000)), float(row.get('Load_Def', 14.0))
-    else: st.error("DB Load Error"); d_cap, d_vlt, d_den, d_lif, d_lod = 160, 3.05, 2.2, 4000, 14
+        # ⚠️ 공극률 마이너스 에러 방지를 위해 진밀도(d_den)의 기본값을 4.5로 상향 조정
+        d_cap, d_vlt, d_den, d_lif, d_lod = float(row.get('Cap_Def', 160)), float(row.get('Volt_Def', 3.05)), float(row.get('Den_Def', 4.5)), int(row.get('Life_Def', 4000)), float(row.get('Load_Def', 14.0))
+    else: 
+        st.warning("⚠️ 데이터를 불러오지 못했습니다. 앱이 기본값으로 작동합니다.")
+        d_cap, d_vlt, d_den, d_lif, d_lod = 160.0, 3.05, 4.5, 4000, 14.0
 
-    # --- [섹션 2~4: 스펙, 파라미터, 목표] ---
+    # --- [섹션 2: 스펙 정밀 조정] ---
     with st.container(border=True):
         st.markdown(f'<p class="main-header">{t["sec2"]}</p>', unsafe_allow_html=True)
+        expert = True if is_pro else st.checkbox("Expert Mode (Pro)", disabled=True)
         s1, s2, s3, s4 = st.columns(4)
         v_cap = s1.slider("Capacity (mAh/g)", 100.0, 300.0, d_cap); v_vlt = s2.slider("Voltage (V)", 2.0, 5.0, d_vlt)
-        v_den = s3.slider("Density (g/cc)", 1.0, 5.0, d_den, disabled=not is_pro); v_lif = s4.slider("Base Life", 500, 10000, d_lif, disabled=not is_pro)
+        v_den = s3.slider("True Density (g/cc)", 1.0, 5.0, d_den, disabled=not expert); v_lif = s4.slider("Base Life", 500, 10000, d_lif, disabled=not expert)
 
+    # --- [섹션 3: 공정 파라미터 (✅ 누락 항목 완벽 복구)] ---
     with st.container(border=True):
         st.markdown(f'<p class="main-header">{t["sec3"]}</p>', unsafe_allow_html=True)
+        adv = True if is_pro else st.checkbox("Adv Mode (Pro)", disabled=True)
         p1, p2, p3 = st.columns(3)
         with p1:
             st.markdown(f'<p class="sub-header-bold">{t["sub_a"]}</p>', unsafe_allow_html=True)
-            v_load = st.slider("Loading (mg/cm2)", 5.0, 50.0, d_lod)
-            v_press = st.slider("Press Density", 1.5, 4.0, 2.5, disabled=not is_pro)
+            v_load = st.slider(t["loading"], 5.0, 50.0, d_lod)
+            v_press = st.slider(t["press_den"], 1.5, 4.0, 2.5, disabled=not adv)
+            v_con = st.slider(t["cond_agent"], 0.5, 10.0, 2.0, disabled=not adv)
+            v_bin = st.slider(t["binder"], 0.5, 10.0, 3.0, disabled=not adv)
+            
+            # 공극률 계산 로직
             porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
             st.caption(f"**{t['porosity']}: {porosity:.1f}%**")
             if porosity < 20.0: st.error(t["warn_porosity"])
+            
         with p2:
             st.markdown(f'<p class="sub-header-bold">{t["sub_b"]}</p>', unsafe_allow_html=True)
-            v_np = st.slider("N/P Ratio", 1.0, 1.5, 1.15, step=0.01)
+            v_np = st.slider(t["np_ratio"], 1.0, 1.5, 1.15, step=0.01)
+            v_a_press = st.slider(t["a_press"], 0.5, 2.5, 1.1, disabled=not adv)
+            v_a_act = st.slider(t["a_act"], 80.0, 99.0, 95.0, disabled=not adv)
+            
         with p3:
             st.markdown(f'<p class="sub-header-bold">{t["sub_c"]}</p>', unsafe_allow_html=True)
-            v_act = st.slider("Active Ratio (%)", 80.0, 99.0, 92.0)
+            v_act = st.slider(t["c_act"], 80.0, 99.0, 92.0)
+            v_ec = st.slider(t["ec_ratio"], 1.0, 8.0, 3.5, disabled=not adv)
+            v_sep = st.slider(t["sep_thick"], 5, 30, 16, disabled=not adv)
 
+    # --- [섹션 4: 목표 설정] ---
     with st.container(border=True):
         st.markdown(f'<p class="main-header">{t["sec4"]}</p>', unsafe_allow_html=True)
         t1, t2, t3 = st.columns(3)
         v_te = t1.slider(t["energy_goal"], 100, 400, 250); v_tc = t2.slider(t["crate"], 0.1, 10.0, 1.0); v_tl = t3.slider(t["cycle_goal"], 500, 10000, 2000)
 
-    # --- [섹션 5: 시뮬레이션 실행] ---
+    # --- [섹션 5: 시뮬레이션 제어 및 분석] ---
     with st.container(border=True):
         st.markdown(f'<p class="main-header">{t["sec5"]}</p>', unsafe_allow_html=True)
         if st.button(t["run_sim"], use_container_width=True):
@@ -268,15 +293,18 @@ with col_main:
                 conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df[~((db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == curr['Time']))])
                 st.session_state.history = [h for h in st.session_state.history if h['Time'] != curr['Time']]; st.rerun()
 
-# --- [사이드 가이드 패널 렌더링] ---
+# --- [사이드 가이드 패널 렌더링 (Toggle On)] ---
 if col_glossary and col_deep:
     with col_glossary:
         st.markdown(f"#### {t['glossary']}")
-        with st.expander("N/P Ratio"): st.write("양극 대비 음극의 용량 비율. 리튬 석출 방지를 위해 1.1~1.2로 설계합니다." if st.session_state.lang=="ko" else "Anode to Cathode capacity ratio. >1.0 to prevent plating.")
-        with st.expander("C-rate"): st.write("충방전 속도. 1C는 1시간 완충/완방을 의미합니다." if st.session_state.lang=="ko" else "Charge/Discharge rate.")
-        with st.expander("Porosity"): st.write("전극 내 빈 공간. 전해액 함침에 필수적입니다." if st.session_state.lang=="ko" else "Empty space inside electrode, crucial for wetting.")
+        with st.expander("N/P Ratio"): st.write("양극 대비 음극의 용량 비율. 리튬 석출 방지를 위해 통상 1.1~1.2로 설계합니다." if st.session_state.lang=="ko" else "Anode to Cathode capacity ratio. Designed >1.0 to prevent lithium plating.")
+        with st.expander("C-rate"): st.write("충방전 속도. 1C는 1시간 만에 배터리를 완전히 충전/방전함을 의미합니다." if st.session_state.lang=="ko" else "Charge/Discharge rate. 1C means full charge/discharge in 1 hour.")
+        with st.expander("Porosity (공극률)"): st.write("전극 내 빈 공간의 비율. 전해액이 스며들 수 있는 필수적인 공간입니다." if st.session_state.lang=="ko" else "Empty space inside the electrode. Essential for electrolyte wetting and ion mobility.")
+        with st.expander("E/C Ratio"): st.write("전해액(E)과 셀 용량(C)의 비율입니다." if st.session_state.lang=="ko" else "Ratio of Electrolyte volume to Cell capacity.")
+
     with col_deep:
         st.markdown(f"#### {t['deep_dive']}")
-        st.info("**[Trade-off Insight]**\n합제 밀도(Press Density)를 과하게 높이면 부피 에너지 밀도(Wh/L)는 상승하지만, 공극률(Porosity)이 20% 이하로 떨어져 저항이 급증하고 수명이 단축됩니다." if st.session_state.lang=="ko" else "High Press Density increases Wh/L but reduces Porosity. Below 20%, resistance spikes and cycle life drops.")
+        st.info("**[Trade-off Insight 1]**\n합제 밀도(Press Density)를 높이면 부피당 에너지 밀도(Wh/L)는 좋아지지만, 공극률(Porosity)이 20% 이하로 떨어지면 저항이 급증하여 급속충전 성능과 수명이 치명적으로 악화됩니다." if st.session_state.lang=="ko" else "Higher Press Density increases Wh/L but reduces Porosity. If Porosity drops below 20%, resistance spikes, degrading fast-charging capabilities and cycle life.")
+        st.info("**[Trade-off Insight 2]**\nC-rate(출력)를 높이면 내부 저항(IR Drop)으로 인해 실제 셀 작동 전압이 낮아지며, 이는 곧 최종 에너지 밀도(Wh/kg)의 하락으로 직결됩니다." if st.session_state.lang=="ko" else "Higher C-rate induces IR Drop, lowering operational Cell Voltage. This directly results in a penalty to the final Energy Density (Wh/kg).")
 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px;'>ⓒ 2019–2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
