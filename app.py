@@ -31,9 +31,9 @@ except ImportError:
     OpenAI = None
 
 # -----------------------------------------------------------------------------
-# 1. 페이지 설정 및 디자인
+# 1. 페이지 설정 및 디자인 (사이드바 기본 열림 설정)
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -66,7 +66,7 @@ st.markdown("""
         cursor: pointer !important;
     }
     
-    /* 지표 박스(stMetric) 높이 통일 및 상단 정렬 */
+    /* ✅ 지표 박스(stMetric) 4개 윗선 칼각 정렬 및 높이 유지 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; 
         border: 1px solid #dee2e6; 
@@ -75,7 +75,7 @@ st.markdown("""
         height: 120px; 
         display: flex;
         flex-direction: column;
-        justify-content: flex-start; 
+        justify-content: flex-start; /* 상단 기준 정렬 */
     }
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
@@ -123,29 +123,7 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 🔥 [진짜 반응형 플로팅(Sticky) 완벽 해결] 🔥 */
-    /* 1. Streamlit 특유의 양쪽 컬럼 높이 맞춤(Stretch) 성질 강제 해제 (플로팅 실패의 주범 타파) */
-    div[data-testid="stHorizontalBlock"]:has(#bot-sticky-anchor) {
-        align-items: flex-start !important;
-    }
-
-    /* 2. PC 화면(768px 이상)에서만 플로팅 작동 (모바일은 자연스럽게 하단 스크롤) */
-    @media (min-width: 768px) {
-        div[data-testid="column"]:has(#bot-sticky-anchor) {
-            position: -webkit-sticky !important;
-            position: sticky !important;
-            top: 20px !important; /* 화면 최상단에서 20px 띄운 위치에 고정 */
-            height: calc(100vh - 40px) !important; /* 봇 컬럼의 높이를 화면 높이에 맞게 고정 */
-            overflow-y: auto !important; /* 챗봇 대화가 길어지면 내부에서만 스크롤되도록 설정 */
-            padding-bottom: 20px !important;
-            z-index: 999; /* 다른 요소들 위로 올라오게 설정 */
-        }
-        
-        /* 봇 영역 내부 미니 스크롤바 디자인 */
-        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar { width: 5px; }
-        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb { background-color: #bbb; border-radius: 5px; }
-    }
-    
+    /* 시노봇 채팅창 하단 여백 확보 */
     .stChatInput { padding-bottom: 20px !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -579,13 +557,9 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문
+# 5. 시뮬레이터 본문 (✅ 사이드바 적용으로 레이아웃 전면 개편)
 # -----------------------------------------------------------------------------
-if st.session_state.get('show_bot', True):
-    col_main, col_bot = st.columns([0.75, 0.25])
-else:
-    col_main = st.container()
-    col_bot = None
+col_main = st.container()
 
 with col_main:
     with st.container(border=True):
@@ -875,6 +849,7 @@ with col_main:
                 
                 st.markdown("---")
                 
+                # ✅ [핵심 유지] 결과값 4개 윗선 정렬 및 Delta(차이값) 상시 노출 적용
                 r1, r2, r3, r4 = st.columns(4)
                 
                 delta_e = round(res['Wh/kg'] - v_te, 1)
@@ -1104,7 +1079,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 
+# 🤖 시노봇 (SynoBot) AI 패널 - 공식 사이드바(Sidebar) 완벽 적용
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1123,16 +1098,15 @@ Answer questions accurately and professionally in Korean based on the following 
 - Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
 """
 
-GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
+GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 우측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
 
-if col_bot:
-    with col_bot:
-        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심 타겟)
-        st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
-        st.markdown("#### 🤖 SynoBot (Beta)")
+# ✅ 우측 컬럼에서 좌측 "사이드바"로 시노봇 UI 이동 (플로팅 + 모바일 최적화 완벽 보장)
+if st.session_state.show_bot:
+    with st.sidebar:
+        st.markdown("### 🤖 SynoBot (Beta)")
         
         if OpenAI is None:
-            st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 `openai`를 추가 후 앱을 Reboot 해주세요.")
+            st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt` 업데이트 후 앱을 Reboot 해주세요.")
         elif "OPENAI_API_KEY" not in st.secrets:
             st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
         else:
