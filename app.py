@@ -66,19 +66,19 @@ st.markdown("""
         cursor: pointer !important;
     }
     
-    /* 지표 박스(stMetric) 높이 통일 */
+    /* ✅ [핵심] 지표 박스(stMetric) 높이 통일 및 상단 정렬 완벽화 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; 
         border: 1px solid #dee2e6; 
         border-radius: 10px; 
-        padding: 15px; 
-        height: 125px; 
+        padding: 15px 15px 10px 15px; 
+        height: 120px; 
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start; /* 상단 기준 정렬 */
     }
-    div[data-testid="stMetricValue"] { font-size: 28px !important; color: #1A729A !important; } 
-    div[data-testid="stMetricDelta"] { font-size: 14px !important; }
+    div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
+    div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
     div[data-testid="stTextInput"] input { height: 40px !important; font-size: 16px !important; }
     
@@ -123,7 +123,24 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 시노봇 채팅창 하단 여백 확보 */
+    /* ✅ [핵심] 시노봇 채팅창 컬럼을 화면 스크롤 시 따라오게 만드는 Sticky CSS */
+    div[data-testid="column"]:has(#bot-sticky-anchor) {
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        top: 2rem !important; /* 상단에서 2rem 띄운 상태로 고정 */
+        height: calc(100vh - 4rem) !important; /* 화면 높이에 맞춰 꽉 차게 */
+        overflow-y: auto !important; /* 내용이 길면 자체 스크롤 */
+        padding-right: 10px;
+    }
+    /* 봇 영역의 스크롤바 디자인 깔끔하게 (웹킷 브라우저 전용) */
+    div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar {
+        width: 4px;
+    }
+    div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb {
+        background-color: #ccc;
+        border-radius: 4px;
+    }
+    
     .stChatInput { padding-bottom: 20px !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -279,7 +296,7 @@ default_vars = {
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True,
-    'trigger_auto_bot': False # ✅ 자동 봇 실행 트리거 
+    'trigger_auto_bot': False 
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -840,7 +857,6 @@ with col_main:
                         time.sleep(0.6) 
                         st.session_state.history.insert(0, log_data)
                         st.session_state.sim_result = log_data
-                        # ✅ 시뮬레이션 성공 시 OpenAI 자동 브리핑 트리거 ON
                         st.session_state.trigger_auto_bot = True 
                         st.rerun()
 
@@ -853,11 +869,22 @@ with col_main:
                 res = st.session_state.history[sel_idx]
                 
                 st.markdown("---")
+                
+                # ✅ [핵심] 결과값 4개 윗선 정렬 및 Delta(차이값) 상시 노출 적용
                 r1, r2, r3, r4 = st.columns(4)
-                r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=round(res['Wh/kg'] - v_te, 1))
-                r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L")
-                r3.metric("Cell Voltage", f"{res['Cell_V']} V")
-                r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=res['Life(Cyc)'] - v_tl)
+                
+                delta_e = round(res['Wh/kg'] - v_te, 1)
+                r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{delta_e:+} Wh/kg (vs Target)")
+                
+                # 체적당 에너지 밀도는 타겟이 없으므로 빈칸 Delta로 높이만 유지
+                r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L", delta=" - ", delta_color="off")
+                
+                # 셀 전압은 기준 전압 대비 IR Drop(저항 손실)을 Delta로 표시
+                delta_v = round(res['Cell_V'] - v_volt, 2)
+                r3.metric("Cell Voltage", f"{res['Cell_V']} V", delta=f"{delta_v:+} V (IR Drop)", delta_color="inverse")
+                
+                delta_l = res['Life(Cyc)'] - v_tl
+                r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{delta_l:+} Cyc (vs Target)")
                 
                 g1, g2, g3 = st.columns(3)
                 with g1:
@@ -1098,6 +1125,8 @@ GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 
 
 if col_bot:
     with col_bot:
+        # ✅ 시노봇 앵커 생성 (플로팅 고정 마법의 핵심)
+        st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
         if OpenAI is None:
@@ -1110,14 +1139,11 @@ if col_bot:
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
-            # 화면에 기존 대화 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
-            # 🚀 [🔥핵심] RUN SIMULATION 버튼 클릭 시 발동하는 "자동 분석 로직"
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
-                # 무한 루프 방지를 위해 플래그 즉시 초기화
                 st.session_state.trigger_auto_bot = False 
                 
                 auto_prompt = "방금 사용자가 새로운 파라미터로 시뮬레이션을 실행했습니다. 위 제공된 [현재 유저의 시뮬레이션 상태] 데이터를 스캔해서, SIB 엔지니어 관점에서 잘된 점이나 개선해야 할 위험 요소(예: N/P 비율, 공극률, 에너지 밀도 등)를 2~3줄 이내로 짧고 명확하게 핵심만 진단 브리핑해줘."
@@ -1126,7 +1152,6 @@ if col_bot:
                 sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                 
                 api_messages = [{"role": "system", "content": sys_prompt}]
-                # 자동 트리거용 임시 메시지 주입
                 api_messages.append({"role": "user", "content": auto_prompt})
                 
                 with st.chat_message("assistant"):
@@ -1138,12 +1163,10 @@ if col_bot:
                             )
                             bot_reply = "📊 **[AI 실시간 진단]**\n\n" + response.choices[0].message.content
                             st.markdown(bot_reply)
-                            # 세션에 저장
                             st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                         except Exception as e:
                             st.error(f"자동 분석 중 오류가 발생했습니다: {str(e)}")
 
-            # 3️⃣ 유저가 직접 입력하는 일반 채팅 로직
             if prompt := st.chat_input("시노봇에게 질문하기..."):
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
@@ -1152,7 +1175,6 @@ if col_bot:
                 if st.session_state.sim_result:
                     sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                 
-                # API로 보낼 규격화된 메시지 리스트 생성
                 api_messages = [{"role": "system", "content": sys_prompt}]
                 for msg in st.session_state.chat_messages:
                     api_messages.append({"role": msg["role"], "content": msg["content"]})
