@@ -33,7 +33,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
 
 st.markdown("""
     <style>
@@ -93,7 +93,7 @@ st.markdown("""
     }
     div[data-testid="stToggle"] > label { margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center; }
     
-    /* 🔥 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
+    /* 🔥 [핵심 1] 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
         scrollbar-width: none !important; /* Firefox */
         -ms-overflow-style: none !important;  /* IE and Edge */
@@ -102,19 +102,19 @@ st.markdown("""
         display: none !important; /* Chrome, Safari */
     }
 
-    /* 🔥 챗봇 들여쓰기 제거 (아바타 아래로 텍스트 분리) 🔥 */
+    /* 🔥 [핵심 2] 챗봇 들여쓰기 제거 (아바타 아래로 텍스트 분리) 🔥 */
     div[data-testid="stChatMessage"] {
         display: flex !important;
-        flex-direction: column !important;
+        flex-direction: column !important; /* 가로 배치를 세로 배치로 강제 변경 */
         align-items: flex-start !important;
         gap: 5px !important;
         padding: 10px !important;
     }
     div[data-testid="stChatMessage"] > div:first-child { margin-bottom: 5px !important; }
     div[data-testid="stChatMessage"] > div:nth-child(2) {
-        margin-left: 0px !important;
+        margin-left: 0px !important; /* 들여쓰기 0 */
         padding-left: 0px !important;
-        width: 100% !important; 
+        width: 100% !important; /* 폭을 100% 활용 */
     }
     
     </style>
@@ -271,71 +271,70 @@ default_vars = {
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True,
-    'trigger_auto_bot': False 
+    'trigger_auto_bot': False,
+    'trigger_bot_reply': False
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# 🔥 [수정 1] 상/하단 폭 완벽 동기화를 위해 Header를 3분할로 변경 (0.02 : 0.70 : 0.28) 🔥
-h_empty, h_main, h_bot = st.columns([0.02, 0.70, 0.28], gap="large")
+# ✅ 상단 헤더 박스는 [0.72 : 0.28] 비율로 수정하여 하단 봇(0.28)과 우측 폭을 완벽히 일치 (gap="small")
+h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
-with h_main:
-    # 타이틀과 로그인 버튼을 메인 패널(0.70) 안에서 분할
-    hc_title, hc_login = st.columns([0.85, 0.15])
-    with hc_title:
-        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
-        if st.button("홈으로", key="btn_home_overlay"):
-            st.session_state.show_reg = False
-            st.session_state.show_profile = False
-            st.session_state.admin_view = None
-            st.session_state.admin_ws = None
-            st.rerun()
-    with hc_login:
-        is_pro = st.session_state.logged_in
-        if not is_pro:
-            with st.popover("Login", use_container_width=True):
-                with st.form("login_form", border=False):
-                    u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
-                    u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
-                    submit_login = st.form_submit_button("로그인", use_container_width=True)
-                    
-                    if submit_login:
-                        df_u = get_user_db()
-                        u_id_clean = u_id.strip().lower()
-                        hashed_pw = hash_password(u_pw) if u_pw else ""
-                        
-                        if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                            st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
-                            st.session_state.history = load_user_history(u_id_clean, 'material_overall')
-                            st.rerun()
-                        else:
-                            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
-                            if not valid.empty:
-                                domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                                st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
-                                st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
-                                st.rerun()
-                            else: st.error("아이디 또는 비밀번호를 확인해주세요.")
-        else:
-            st.markdown(f'<div class="user-greeting" style="padding-top:10px;">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+with h_l:
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
+    if st.button("홈으로", key="btn_home_overlay"):
+        st.session_state.show_reg = False
+        st.session_state.show_profile = False
+        st.session_state.admin_view = None
+        st.session_state.admin_ws = None
+        st.rerun()
 
-with h_bot:
-    # 우측 패널(0.28)에 가입/프로필 버튼과 토글을 배치하여 하단 시노봇(0.28)과 폭을 완전히 일치시킴
+with h_r:
+    is_pro = st.session_state.logged_in
+    
     if not is_pro:
-        if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
+        c1, c2 = st.columns([1, 1])
+        with c1.popover("Login", use_container_width=True):
+            with st.form("login_form", border=False):
+                u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
+                u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
+                submit_login = st.form_submit_button("로그인", use_container_width=True)
+                
+                if submit_login:
+                    df_u = get_user_db()
+                    u_id_clean = u_id.strip().lower()
+                    hashed_pw = hash_password(u_pw) if u_pw else ""
+                    
+                    if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
+                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
+                        st.session_state.history = load_user_history(u_id_clean, 'material_overall')
+                        st.rerun()
+                    else:
+                        valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
+                        if not valid.empty:
+                            domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
+                            st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
+                            st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
+                            st.rerun()
+                        else: st.error("아이디 또는 비밀번호를 확인해주세요.")
+        
+        if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
-        r_my, r_out = st.columns(2)
+        r_name, r_my, r_out = st.columns([2, 1, 1])
+        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
             for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
-            
-    bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
-    if bot_active != st.session_state.show_bot:
-        st.session_state.show_bot = bot_active
-        st.rerun()
+
+    t1, t2 = st.columns([1, 1])
+    with t2:
+        bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
+        if bot_active != st.session_state.show_bot:
+            st.session_state.show_bot = bot_active
+            st.rerun()
 
 st.markdown("---")
 
@@ -452,20 +451,18 @@ if is_pro and st.session_state.get('is_admin', False):
                     st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (🔥 상단 헤더와 동일하게 0.02 : 0.70 : 0.28 적용 🔥)
+# 5. 시뮬레이터 본문 (🔥 [수정] 메인 패널 우측폭 70% 근접 확대 & 여백 축소 gap="small" 🔥)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
-    col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="large")
+    col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 else:
-    col_left, col_main = st.columns([0.02, 0.98], gap="large")
+    col_left, col_main = st.columns([0.02, 0.98], gap="small")
     col_bot = None
 
 with col_left:
-    # 🔥 [수정 2] "SynoCore" 텍스트 삭제 및 왼쪽 폭 0.05 -> 0.02 축소 반영 완료
     st.empty() 
 
 with col_main:
-    # 🔥 [수정 3] 계정 가입 및 정보 수정 폼을 메인 패널(70% 폭) 안으로 이동 🔥
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode) <span style="font-size:15px; color:#666; font-weight:normal; letter-spacing:0px; margin-left:10px;">아래 사항 모두 기입해 주시면 감사하겠습니다.</span></p>', unsafe_allow_html=True)
@@ -563,7 +560,7 @@ with col_main:
                     st.cache_data.clear() 
                     st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
-    # 시뮬레이터를 독립 스크롤 컨테이너에 넣습니다.
+    # 시뮬레이터를 독립 스크롤 컨테이너에 넣습니다. (가장 안정적인 방식 유지)
     with st.container(height=900, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
@@ -863,7 +860,6 @@ with col_main:
                     delta_l = res['Life(Cyc)'] - v_tl
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{delta_l:+} Cyc (vs Target)")
                     
-                    # ✅ [핵심 3] 결과값 하단 한 줄 여유 추가 (답답함 해소)
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     
                     g1, g2, g3 = st.columns(3)
@@ -898,7 +894,6 @@ with col_main:
                         """, unsafe_allow_html=True)
                         
                     with g3:
-                        # ✅ [핵심 4] 레이더 차트 이름 변경 (Radar 단어 삭제)
                         st.markdown('<p class="sub-header-bold" style="text-align: center;">Cell Performance</p>', unsafe_allow_html=True)
                         categories = ['Energy(Wh/kg)', 'Power(C-rate)', 'Life(Cycle)', 'Voltage(V)', 'Loading(mg)']
                         r_vals = [
@@ -1082,7 +1077,6 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
-# 🔥 [핵심 5] 엔지니어 스타일 브리핑 시스템 프롬프트 업데이트 🔥
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on the following SIB knowledge:
@@ -1110,7 +1104,16 @@ if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        chat_container = st.container(height=800, border=True) 
+        # 🔥 [핵심 3] 대화 입력창을 봇 패널 최상단으로 끌어올림 🔥
+        with st.form("chat_input_form", clear_on_submit=True):
+            c_in1, c_in2 = st.columns([0.75, 0.25])
+            user_q = c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...")
+            if c_in2.form_submit_button("전송", use_container_width=True) and user_q:
+                st.session_state.chat_messages.append({"role": "user", "content": user_q})
+                st.session_state.trigger_bot_reply = True
+                st.rerun()
+        
+        chat_container = st.container(height=730, border=True) 
         
         with chat_container:
             if OpenAI is None:
@@ -1123,65 +1126,56 @@ if col_bot:
                 if not st.session_state.chat_messages:
                     st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
-                for message in st.session_state.chat_messages:
-                    with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
-
-                # 🚀 RUN SIMULATION 자동 분석 로직
+                # 자동 분석 브리핑 트리거
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
                     
                     auto_prompt = "방금 사용자가 새로운 파라미터로 시뮬레이션을 실행했습니다. 제공된 데이터를 분석하여 잘된 점, 개선점, 위험 요소를 도트 블릿('- ') 형태로 3~4줄 이내로 짧고 명확하게 브리핑해 주십시오."
+                    sys_prompt = SYSTEM_KNOWLEDGE + f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                     
-                    sys_prompt = SYSTEM_KNOWLEDGE
-                    sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
-                    
-                    api_messages = [{"role": "system", "content": sys_prompt}]
-                    api_messages.append({"role": "user", "content": auto_prompt})
+                    api_messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": auto_prompt}]
                     
                     with st.chat_message("assistant"):
                         with st.spinner("📊 실시간 데이터 분석 중..."):
                             try:
-                                response = client.chat.completions.create(
-                                    model="gpt-4o-mini",
-                                    messages=api_messages
-                                )
+                                response = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages)
                                 bot_reply = "📊 **[실시간 AI 진단]**\n\n" + response.choices[0].message.content
-                                st.markdown(bot_reply)
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                             except Exception as e:
                                 st.error(f"자동 분석 오류: {str(e)}")
+                    st.rerun()
 
-        # 채팅 입력창
-        if prompt := st.chat_input("시노봇에게 질문하기..."):
-            st.session_state.chat_messages.append({"role": "user", "content": prompt})
-            st.rerun() 
-            
-        if len(st.session_state.chat_messages) > 0 and st.session_state.chat_messages[-1]["role"] == "user":
-            prompt = st.session_state.chat_messages[-1]["content"]
-            
-            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            sys_prompt = SYSTEM_KNOWLEDGE
-            if st.session_state.sim_result:
-                sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
-            
-            api_messages = [{"role": "system", "content": sys_prompt}]
-            for msg in st.session_state.chat_messages:
-                api_messages.append({"role": msg["role"], "content": msg["content"]})
-            
-            with chat_container:
-                with st.chat_message("assistant"):
-                    with st.spinner("분석 답변 작성 중..."):
-                        try:
-                            response = client.chat.completions.create(
-                                model="gpt-4o-mini",
-                                messages=api_messages
-                            )
-                            bot_reply = response.choices[0].message.content
-                            st.markdown(bot_reply)
-                            st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                        except Exception as e:
-                            st.error(f"AI 연산 오류: {str(e)}")
+                # 사용자 질문에 대한 응답 트리거
+                if st.session_state.get('trigger_bot_reply'):
+                    st.session_state.trigger_bot_reply = False
+                    
+                    sys_prompt = SYSTEM_KNOWLEDGE
+                    if st.session_state.sim_result:
+                        sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
+                    
+                    api_messages = [{"role": "system", "content": sys_prompt}]
+                    for msg in st.session_state.chat_messages:
+                        api_messages.append({"role": msg["role"], "content": msg["content"]})
+                    
+                    with st.chat_message("assistant"):
+                        with st.spinner("분석 답변 작성 중..."):
+                            try:
+                                response = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages)
+                                bot_reply = response.choices[0].message.content
+                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                            except Exception as e:
+                                st.error(f"AI 연산 오류: {str(e)}")
+                    st.rerun()
+
+                # 🔥 [핵심 4, 5] 메시지 최신순(역순) 렌더링 및 마크다운 블릿 이스케이프(\-) 처리 🔥
+                for message in reversed(st.session_state.chat_messages):
+                    with st.chat_message(message["role"]):
+                        # 줄바꿈 후 '- '를 '\- '로 치환하고, 맨 첫 글자가 '- '인 경우에도 치환
+                        display_content = message["content"].replace("\n- ", "\n\- ")
+                        if display_content.startswith("- "): 
+                            display_content = "\- " + display_content[2:]
+                            
+                        st.markdown(display_content)
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
