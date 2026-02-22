@@ -407,7 +407,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.rerun()
 
 # -----------------------------------------------------------------------------
-# 계정 가입 및 My 계정 관리 (✅ 동의란 및 폼 전면 보강)
+# 계정 가입 및 My 계정 관리 (✅ 동의란 및 폼 전문화/고도화)
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -429,7 +429,6 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
                 else: st.error("인증번호가 일치하지 않습니다.")
         elif st.session_state.reg_stage == 2:
-            # 넓은 입력창 2열 구성 복원
             p1, p2 = st.columns(2)
             pw1 = p1.text_input("2. Password", type="password")
             pw2 = p2.text_input("Password 확인", type="password")
@@ -444,19 +443,23 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             
             c5, c6 = st.columns(2)
             n_phone = c5.text_input("7. 연락처")
-            # ✅ 사용용도 입력란 및 워터마크 추가
             n_purpose = c6.text_input("8. 사용용도", placeholder="시뮬레이션, 교육 및 정보습득 등 사용목적 기입")
 
-            # ✅ 보안 동의 체크박스 추가
+            # ✅ 보안 및 개인정보 동의 약관 전문화
             st.markdown("---")
-            st.markdown(
-                "<span style='font-size:14px; font-weight:bold; color:#D35400;'>[보안 및 기밀유지 동의]</span><br>"
-                "<span style='font-size:13px; color:#555;'>본 플랫폼의 모든 데이터 및 시뮬레이션 결과는 대외비 및 영업비밀에 해당하며, 무단 캡처, 유출 및 외부 공유를 엄격히 금지합니다.</span>", 
-                unsafe_allow_html=True
-            )
-            agree_sec = st.checkbox("위 보안 및 기밀유지 사항을 숙지하였으며 이에 동의합니다.")
+            st.markdown("""
+            <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6; margin-bottom: 15px;'>
+                <span style='font-size:14px; font-weight:bold; color:#D35400;'>[보안 및 개인정보 처리 방침 동의]</span><br>
+                <ul style='font-size:13px; color:#555; margin-top:5px; padding-left:20px; margin-bottom:0px;'>
+                    <li>본 플랫폼의 시뮬레이션 결과는 R&D 참조용으로만 제공되며, 실제 양산 기대값 및 상세 스펙은 당사 전문가와의 별도 협의가 필요합니다.</li>
+                    <li>본 플랫폼 내의 모든 데이터, 연산 알고리즘 및 도출된 시뮬레이션 결과는 당사의 엄격한 대외비 및 영업비밀에 해당합니다.</li>
+                    <li>본 플랫폼에서 도출된 결과값을 바탕으로 한 의사결정에 대하여 당사는 법적 책임을 지지 않습니다.</li>
+                    <li>소재 특성의 최대 활용 지원, 테스트 피드백 및 원활한 플랫폼 사용 안내를 위해 가입 시 등록된 계정 연락처로 당사 담당자가 연락을 취할 수 있습니다.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            agree_sec = st.checkbox("위 보안 및 개인정보 처리 사항에 동의합니다.")
 
-            # ✅ 체크박스 조건 연동 및 버튼 텍스트 변경
             if st.button("가입신청", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                 conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 new_user = pd.DataFrame([{
@@ -541,7 +544,6 @@ with st.container():
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ VIP 전용 소재 포맷팅: 텍스트 간소화 (💎 만 표시)
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist()
                 def format_mat_name(name):
                     return f"💎 {name}" if name in vip_names else name
@@ -737,12 +739,9 @@ with st.container():
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
         sp5, c_5 = st.columns([0.03, 0.97])
         with c_5:
-            col_btn, col_msg = st.columns([1, 3])
-            with col_btn:
-                run_clicked = st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True)
-            with col_msg:
-                if not st.session_state.history:
-                    st.markdown('<div style="padding-top: 12px; color: #666; font-weight: bold;">아직 시뮬레이션 이력이 없습니다. 좌측 실행 버튼을 눌러주세요.</div>', unsafe_allow_html=True)
+            # ✅ 버튼 통폐합 및 동적 텍스트 적용 (가로 폭 100% 사용)
+            btn_text = "🚀 RUN SIMULATION" if st.session_state.history else "🚀 RUN SIMULATION ㅡ 아직 시뮬레이션 이력이 없습니다. 실행 버튼을 눌러 주세요."
+            run_clicked = st.button(btn_text, key="btn_run_m", use_container_width=True)
                     
             if run_clicked:
                 ir_drop = 0.1 + (v_tc * 0.02)
@@ -1009,5 +1008,5 @@ with st.container():
                     else:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
-# 7. 푸터 
+# 7. 푸터
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
