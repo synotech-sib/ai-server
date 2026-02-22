@@ -144,7 +144,9 @@ st.markdown("""
 # 2. 클라우드 DB 연동 설정
 # -----------------------------------------------------------------------------
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
-ADMIN_PW = "synotech0773!"
+
+# 🔥 [핵심 추가] 최고 관리자 비밀번호를 st.secrets에서 연동 (안전 보안) 🔥
+ADMIN_PW = st.secrets.get("ADMIN_PW", "synotech0773!")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
@@ -219,7 +221,6 @@ def send_verification_email(to_email, code):
     except Exception as e:
         return False
 
-# 🔥 [핵심 추가] 가입 완료 환영 이메일 발송 함수 🔥
 def send_welcome_email(to_email, user_name):
     sender_email = "wschoi@synotech.co.kr"
     sender_password = "여기에_16자리_앱비밀번호를_입력하세요"
@@ -274,7 +275,6 @@ def load_user_history(email, workspace="material_list"):
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
                 
-                # 🔥 [핵심 추가] 기존 DB 빈 날짜(Time) 자동 처리 🔥
                 time_str = str(row_dict.get('Time', '')).strip()
                 if not time_str or time_str == "nan":
                     time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
@@ -540,7 +540,6 @@ with col_main:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode) <span style="font-size:15px; color:#666; font-weight:normal; letter-spacing:0px; margin-left:10px;">아래 사항 모두 기입해 주시면 감사하겠습니다.</span></p>', unsafe_allow_html=True)
             
-            # 🔥 [핵심 추가] 엔터키(Enter) 입력 지원을 위한 form 래핑 적용 🔥
             if st.session_state.reg_stage == 0:
                 with st.form("form_reg_email", border=False):
                     e_in = st.text_input("1. 회사 이메일 주소")
@@ -559,7 +558,6 @@ with col_main:
                                     
             elif st.session_state.reg_stage == 1:
                 st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
-                # 🔥 [핵심 추가] 엔터키(Enter) 입력 지원을 위한 form 래핑 적용 🔥
                 with st.form("form_reg_code", border=False):
                     v_in = st.text_input("인증번호 6자리 입력")
                     submit_code = st.form_submit_button("인증 확인", use_container_width=True)
@@ -595,7 +593,6 @@ with col_main:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # 🔥 [핵심 추가] 빨간색 강조 텍스트 적용 🔥
                 is_vip_request = st.checkbox(":red[Pro Max Mode] 가입합니다.")
 
                 st.markdown("---")
@@ -629,7 +626,6 @@ with col_main:
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                     st.cache_data.clear() 
                     
-                    # 🔥 [핵심 추가] 가입 완료 후 Welcome 메일 발송 로직 추가 🔥
                     send_welcome_email(st.session_state.temp_email, n_name)
                     
                     st.success("가입신청 완료! 환영 이메일이 발송되었습니다. 로그인 해주세요.")
@@ -1069,7 +1065,6 @@ with col_main:
                         
                         if not db_df_all.empty and 'Email' in db_df_all.columns:
                             
-                            # 🔥 [핵심 추가] 전체 DB의 Time 컬럼 누락분 일괄 보정 (현재 시간 주입) 🔥
                             today_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                             if 'Time' in db_df_all.columns:
                                 db_df_all['Time'] = db_df_all['Time'].replace("", today_str).fillna(today_str)
