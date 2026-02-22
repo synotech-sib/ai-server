@@ -32,7 +32,6 @@ st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
 
 st.markdown("""
     <style>
-    /* 🔥 [핵심 추가] Streamlit 로고, 푸터 및 헤더 완벽 숨김 처리 🔥 */
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden !important; display: none !important;} 
     header {visibility: hidden !important; display: none !important;}
@@ -152,7 +151,6 @@ st.markdown("""
 # 2. 클라우드 DB 연동 설정
 # -----------------------------------------------------------------------------
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
-
 ADMIN_PW = st.secrets.get("ADMIN_PW", "Please_Set_Password_In_Secrets")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
@@ -206,11 +204,7 @@ def safe_int(val, default):
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     sender_email = "wschoi@synotech.co.kr"
-    sender_password = "여기에_16자리_앱비밀번호를_입력하세요"
-    try:
-        if "EMAIL_PASSWORD" in st.secrets: sender_password = st.secrets["EMAIL_PASSWORD"]
-    except: pass
-
+    sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
         msg['From'] = f"SynoCore Admin <{sender_email}>"
@@ -230,11 +224,7 @@ def send_verification_email(to_email, code):
 
 def send_welcome_email(to_email, user_name):
     sender_email = "wschoi@synotech.co.kr"
-    sender_password = "여기에_16자리_앱비밀번호를_입력하세요"
-    try:
-        if "EMAIL_PASSWORD" in st.secrets: sender_password = st.secrets["EMAIL_PASSWORD"]
-    except: pass
-
+    sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
         msg['From'] = f"SynoCore Admin <{sender_email}>"
@@ -1208,8 +1198,6 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
-
-# 🔥 [핵심 수정] 시노봇의 프롬프트를 정중한 사무적 합쇼체(~입니다, ~합니다)로 변경 🔥
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on the following SIB knowledge:
@@ -1247,6 +1235,7 @@ if col_bot:
         chat_container = st.container(height=730, border=True) 
         
         with chat_container:
+            # 🔥 [핵심 수정] 첫 줄 가림 방지를 위해 투명한 스페이스(Spacer)만 부여 (가벼운 방식) 🔥
             st.markdown("<div id='chat-top-anchor' style='height: 15px; width: 100%;'></div>", unsafe_allow_html=True)
             
             if OpenAI is None:
@@ -1305,24 +1294,28 @@ if col_bot:
                             display_content = "\- " + display_content[2:]
                         st.markdown(display_content)
             
+            # 🔥 [핵심 수정] 무겁고 간헐적으로 충돌하던 JS 강제 스크롤 로직 완전 삭제 🔥
             components.html("""
-                <script>
-                    setTimeout(function() {
-                        const doc = window.parent.document;
-                        const anchor = doc.getElementById('chat-top-anchor');
-                        if (anchor) {
-                            let parent = anchor.parentElement;
-                            while (parent) {
-                                const style = window.parent.getComputedStyle(parent);
-                                if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-                                    parent.scrollTop = 0;
-                                    break;
-                                }
-                                parent = parent.parentElement;
+            <script>
+                let attempts = 0;
+                let scrollInterval = setInterval(() => {
+                    let doc = window.parent.document;
+                    let anchor = doc.getElementById('chat-top-anchor');
+                    if (anchor) {
+                        let parent = anchor.parentElement;
+                        while (parent) {
+                            let style = window.parent.getComputedStyle(parent);
+                            if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                                parent.scrollTop = 0;
+                                break;
                             }
+                            parent = parent.parentElement;
                         }
-                    }, 100);
-                </script>
+                    }
+                    attempts++;
+                    if (attempts > 8) clearInterval(scrollInterval);
+                }, 100);
+            </script>
             """, height=0)
 
 # 7. 푸터 
