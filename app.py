@@ -140,7 +140,7 @@ def get_user_db():
         conn = st.connection("gsheets", type=GSheetsConnection)
         return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
     except Exception:
-        return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "RegDate"])
+        return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "Purpose", "RegDate"])
 
 def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
@@ -407,7 +407,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.rerun()
 
 # -----------------------------------------------------------------------------
-# 계정 가입 및 My 계정 관리 (✅ 가입폼 복원 및 수정)
+# 계정 가입 및 My 계정 관리 (✅ 동의란 및 폼 전면 보강)
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -429,7 +429,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
                 else: st.error("인증번호가 일치하지 않습니다.")
         elif st.session_state.reg_stage == 2:
-            # ✅ 가입 양식 전체 복원 및 텍스트 간소화
+            # 넓은 입력창 2열 구성 복원
             p1, p2 = st.columns(2)
             pw1 = p1.text_input("2. Password", type="password")
             pw2 = p2.text_input("Password 확인", type="password")
@@ -442,9 +442,22 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             n_dept = c3.text_input("5. 부서")
             n_job = c4.text_input("6. 직책/담당업무")
             
-            n_phone = st.text_input("7. 연락처")
+            c5, c6 = st.columns(2)
+            n_phone = c5.text_input("7. 연락처")
+            # ✅ 사용용도 입력란 및 워터마크 추가
+            n_purpose = c6.text_input("8. 사용용도", placeholder="시뮬레이션, 교육 및 정보습득 등 사용목적 기입")
 
-            if st.button("가입신청", disabled=not (pw1==pw2 and n_name), use_container_width=True):
+            # ✅ 보안 동의 체크박스 추가
+            st.markdown("---")
+            st.markdown(
+                "<span style='font-size:14px; font-weight:bold; color:#D35400;'>[보안 및 기밀유지 동의]</span><br>"
+                "<span style='font-size:13px; color:#555;'>본 플랫폼의 모든 데이터 및 시뮬레이션 결과는 대외비 및 영업비밀에 해당하며, 무단 캡처, 유출 및 외부 공유를 엄격히 금지합니다.</span>", 
+                unsafe_allow_html=True
+            )
+            agree_sec = st.checkbox("위 보안 및 기밀유지 사항을 숙지하였으며 이에 동의합니다.")
+
+            # ✅ 체크박스 조건 연동 및 버튼 텍스트 변경
+            if st.button("가입신청", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                 conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 new_user = pd.DataFrame([{
                     "Email": st.session_state.temp_email, 
@@ -454,6 +467,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     "Dept": n_dept,
                     "Job": n_job,
                     "Phone": n_phone,
+                    "Purpose": n_purpose,
                     "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
                 }])
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
@@ -527,7 +541,7 @@ with st.container():
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ VIP 전용 소재 포맷팅: [전용] 글자 삭제, 다이아몬드 아이콘만 유지
+                # ✅ VIP 전용 소재 포맷팅: 텍스트 간소화 (💎 만 표시)
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist()
                 def format_mat_name(name):
                     return f"💎 {name}" if name in vip_names else name
@@ -782,7 +796,6 @@ with st.container():
                 
                 g1, g2, g3 = st.columns(3)
                 with g1:
-                    # ✅ 그래프 제목 중앙 정렬
                     st.markdown('<p class="sub-header-bold" style="text-align: center;">Discharge Profile</p>', unsafe_allow_html=True)
                     fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
                     fig1.update_layout(
@@ -848,14 +861,13 @@ with st.container():
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력
+    # 6. 내 데이터 관리 및 클라우드 과거 이력 
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
             st.markdown('<p class="main-header">6. Data Management & Past Records (Pro)</p>', unsafe_allow_html=True)
             sp6, c_6 = st.columns([0.03, 0.97])
             with c_6:
-                # ✅ 버튼을 4등분 컬럼으로 배치하고 use_container_width를 적용하여 모바일 비율 통일
                 btn1, btn2, btn3, btn4 = st.columns(4)
                 
                 if btn1.button("💾 계정에 저장", key="btn_save_my", use_container_width=True):
@@ -951,7 +963,7 @@ with st.container():
                             )
                             
                             with col_btn_save:
-                                if st.button("💾 코멘트 저장", type="secondary", use_container_width=True):
+                                if st.button("💾 사용자 코멘트 저장", type="secondary", use_container_width=True):
                                     current_comments = edited_df['User Comment'].tolist()
                                     
                                     if current_comments == original_comments:
