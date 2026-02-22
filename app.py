@@ -55,7 +55,27 @@ st.markdown("""
     }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* 🔥 지표(stMetric) 텍스트 굵게 및 중앙 정렬 */
+    /* 🔥 좌측 패널 로고 꽉 채우기 강제화 */
+    div[data-testid="column"]:nth-of-type(1) div[data-testid="stImage"] { width: 100% !important; }
+    div[data-testid="column"]:nth-of-type(1) div[data-testid="stImage"] img { width: 100% !important; object-fit: contain !important; }
+
+    /* 🔥 텍스트 입력칸 공통 디자인 (입력 태그가 아닌 baseweb 래퍼에 테두리를 주어 아이콘까지 포함) */
+    div[data-testid="stTextInput"] > div[data-baseweb="input"] { 
+        border: 2px solid #1A729A !important; border-radius: 6px !important; overflow: hidden; background-color: transparent !important;
+    }
+    div[data-testid="stTextInput"] input { 
+        height: 45px !important; font-size: 15px !important; border: none !important; outline: none !important; box-shadow: none !important;
+    }
+    
+    /* 🔥 로그인 영역(stForm 내부) 진한 그레이 테두리 적용 */
+    div[data-testid="stForm"] div[data-testid="stTextInput"] > div[data-baseweb="input"] {
+        border: 2px solid #555555 !important;
+    }
+    div[data-testid="stForm"] div[data-testid="stTextInput"] input {
+        height: 40px !important; /* 로그인 팝오버 내부 높이 조절 */
+    }
+
+    /* 지표(stMetric) 텍스트 굵게 및 중앙 정렬 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; 
         padding: 15px 15px 10px 15px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -70,7 +90,7 @@ st.markdown("""
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: none !important;
     }
     
-    /* 🔥 실행 버튼 높이 20% 증가 (48px) */
+    /* 실행 버튼 높이 20% 증가 (48px) */
     div[data-testid="stButton"] > button:active { transform: scale(0.98); }
     div.st-key-btn_run_m > button { height: 48px !important; font-size: 18px !important; background-color: #D35400 !important; }
     div.st-key-btn_run_m > button:hover { background-color: #E67E22 !important; }
@@ -92,7 +112,6 @@ st.markdown("""
         border-radius: 8px; margin-bottom: 10px; box-shadow: 0px 2px 5px rgba(0,0,0,0.02);
     }
     div[data-testid="stChatMessageContent"] { width: 100% !important; margin-left: 0px !important; padding-left: 0px !important; }
-    div[data-testid="stTextInput"] input { height: 45px !important; font-size: 15px !important; border-radius: 6px; border: 2px solid #1A729A !important; }
 
     /* 사용자 코멘트 컬럼 헤더 텍스트 색상 강제 지정 */
     [data-testid="stTable"] th { color: #000000 !important; font-weight: bold !important; }
@@ -169,7 +188,7 @@ def load_user_history(email, workspace="material_list"):
         db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
         if db_df.empty or 'Email' not in db_df.columns: return []
         my_logs = db_df[(db_df['Email'] == email) & (db_df.get('Workspace', 'material_list') == workspace)]
-        my_logs = my_logs.sort_values(by='Time', ascending=False) # 🔥 최신순 정렬 강제 적용
+        my_logs = my_logs.sort_values(by='Time', ascending=False)
         hist = []
         for _, row in my_logs.iterrows():
             row_dict = row.to_dict(); row_dict.pop('Email', None); row_dict.pop('Workspace', None)
@@ -194,7 +213,8 @@ default_vars = {
 for key, val in default_vars.items():
     if key not in st.session_state: st.session_state[key] = val
 
-h_l, h_r = st.columns([1, 1]) 
+# 🔥 헤더의 비율을 본문 비율(0.75 : 0.25)과 완벽하게 일치시켜 계정 박스와 시노봇의 가로축을 정렬합니다.
+h_l, h_r = st.columns([0.75, 0.25], gap="large") 
 
 with h_l:
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.8 (beta)</span></div>', unsafe_allow_html=True)
@@ -233,7 +253,6 @@ with h_r:
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
         r_name, r_my, r_out = st.columns([2, 1, 1])
-        # 🔥 유저 로그인 상태 명확히 표기 (Pro vs Pro Max)
         tier_label = "Pro Max" if st.session_state.is_promax else "Pro"
         r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({tier_label} User)</div>', unsafe_allow_html=True)
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
@@ -249,11 +268,10 @@ with h_r:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드] - 메인 폭과 맞춤 + 상단 작업
+# 👑 [최고 관리자 전용 대시보드]
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
-        # 🔥 관리자 패널은 화면 전체폭에 맞추되 내부 컨텐츠는 중앙 정렬 유도
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             a1, a2, a3, a4, a5 = st.columns(5)
@@ -289,7 +307,6 @@ if is_pro and st.session_state.get('is_admin', False):
                     conn = st.connection("gsheets", type=GSheetsConnection)
                     if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
                         st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 뷰입니다.")
-                        # (생략: 병합 로직 동일하게 적용 가능)
                     else:
                         try:
                             df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600)
@@ -310,25 +327,22 @@ if is_pro and st.session_state.get('is_admin', False):
                 if sel_ws != st.session_state.workspace: st.session_state.workspace = sel_ws; st.session_state.history = load_user_history(st.session_state.user_email, sel_ws); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문
+# 5. 시뮬레이터 본문 (헤더와 동일한 폭 분배로 칼각 정렬)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
-    # 🔥 시노봇 폭을 우측 계정 박스와 일치하도록 비율 조정
     col_left, col_main, col_bot = st.columns([0.05, 0.70, 0.25], gap="large")
 else:
     col_left, col_main = st.columns([0.05, 0.95], gap="large")
     col_bot = None
 
 with col_left:
-    # 🔥 좌측 상단 로고 삽입
+    # 🔥 좌측 패널 상단 로고 삽입 (글자 삭제, 꽉 채우기 적용)
     try:
         st.image("image_7.png", use_container_width=True)
     except:
-        pass # 파일이 없으면 패스
-    st.markdown("<div style='text-align: center; color: #bbb; font-weight: bold; margin-top: 10px; font-size: 13px; letter-spacing: 1px;'>SynoCore</div>", unsafe_allow_html=True)
+        pass 
 
 with col_main:
-    # 메인 패널의 높이를 넉넉하게 지정하거나 동적으로 늘어나게 처리
     with st.container(border=False):
         with st.container(border=True):
             ws_badge = f" [Workspace: {st.session_state.workspace}]" if is_pro else ""
@@ -375,7 +389,6 @@ with col_main:
                 expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
                 
                 s1, s2, s3, s4 = st.columns(4)
-                # 🔥 터치 민감도 조절을 위해 step 파라미터 적용
                 v_cap = s1.slider("**Capacity (mAh/g)**", def_cap_min, def_cap_max, def_cap_val, step=1.0, key=f"cap_{cat_sel}")
                 v_volt = s2.slider("**Voltage (V)**", def_vlt_min, def_vlt_max, def_vlt_val, step=0.01, key=f"volt_{cat_sel}")
                 v_den = s3.slider("**True Density (g/cc)**", def_den_min, def_den_max, def_den_val, step=0.1, key=f"dens_{cat_sel}", disabled=not expert)
@@ -457,7 +470,6 @@ with col_main:
                         "dq_x": v_axis, "dq_y": dqdv
                     }
                     
-                    # 🔥 중복 실행 철저 방지 로직 보강
                     is_dup = False
                     if st.session_state.history:
                         last_run = st.session_state.history[0]
@@ -494,7 +506,6 @@ with col_main:
                     delta_l = res['Life(Cyc)'] - v_tl
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{delta_l:+} Cyc (vs Target)")
                     
-                    # 🔥 그래프 하단 한 줄 여유
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     
                     g1, g2, g3 = st.columns(3)
@@ -518,12 +529,10 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10), template="plotly_white")
                         st.plotly_chart(fig3, use_container_width=True)
 
-                    # 🔥 차트와 데이터 프레임 사이 여유 간격 추가
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     st.markdown("---")
                     st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
                     df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
-                    # 🔥 최신순 정렬
                     st.dataframe(df_history.sort_values(by="Time", ascending=False), use_container_width=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -552,7 +561,6 @@ with col_main:
                     btn2.download_button(label="📥 CSV 다운로드", data=csv_data, file_name=f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv", mime="text/csv", use_container_width=True)
 
                     with btn3:
-                        # 🔥 PDF 저장 기능을 브라우저 자체 인쇄로 연결
                         components.html("""
                             <button onclick="window.parent.print()" style="height:40px; width:100%; background-color:#FFCA28; color:#222; font-weight:bold; font-size:16px; border-radius:4px; border:1px solid #E4B526; cursor:pointer;">📄 화면 PDF 인쇄</button>
                             <script>
@@ -571,7 +579,6 @@ with col_main:
                             my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                             
                             if not my_saved_data.empty:
-                                # 🔥 최신순 정렬
                                 my_saved_data = my_saved_data.sort_values(by='Time', ascending=False).reset_index(drop=True)
                                 
                                 col_title, col_btn_del = st.columns([0.8, 0.2])
@@ -588,7 +595,6 @@ with col_main:
                                 
                                 disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 
-                                # 🔥 코멘트 입력 시 자동 저장을 위한 data_editor
                                 edited_df = st.data_editor(
                                     df_display, use_container_width=True, hide_index=True,
                                     disabled=disabled_cols, key="my_logs_editor",
@@ -600,13 +606,11 @@ with col_main:
                                     }
                                 )
                                 
-                                # 자동 저장 로직
                                 if "prev_logs" not in st.session_state:
                                     st.session_state.prev_logs = df_display['User Comment'].tolist()
                                     
                                 current_comments = edited_df['User Comment'].tolist()
                                 if current_comments != st.session_state.prev_logs:
-                                    # 변경 감지
                                     for idx, row in edited_df.iterrows():
                                         mask = (db_df_all['Email'] == st.session_state.user_email) & \
                                                (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
@@ -630,7 +634,7 @@ with col_main:
                     except: st.warning("과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 🔥 역방향 피드형 & 부드러운 엔지니어 톤 🔥
+# 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -653,7 +657,6 @@ if col_bot:
             def handle_bot_input():
                 user_val = st.session_state.get("bot_user_input", "").strip()
                 if user_val:
-                    # 🔥 무료 유저 사용 제한 로직
                     if not st.session_state.logged_in and st.session_state.bot_chat_count >= 3:
                         st.session_state.chat_messages.append({"role": "user", "content": user_val})
                         st.session_state.chat_messages.append({"role": "assistant", "content": "⚠️ **안내**\n\n무료 사용자의 챗봇 이용 횟수를 초과했습니다. 더 깊이 있는 정보와 무제한 데이터 보안 관리를 원하신다면 상단의 **[계정 가입 ㅣ Pro Mode]**를 통해 전환해 주시기 바랍니다."})
@@ -663,7 +666,6 @@ if col_bot:
                         st.session_state.process_ai = True
                     st.session_state.bot_user_input = "" 
 
-            # 🔥 질문 입력란 윗쪽 배열
             st.text_input("💬 시노봇에게 질문 (Enter로 전송)", key="bot_user_input", on_change=handle_bot_input, placeholder="결과를 분석해줘")
 
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
@@ -684,7 +686,6 @@ if col_bot:
                 if st.session_state.sim_result: sys_prompt += f"\n\n[Current Data]\n{st.session_state.sim_result}"
                 
                 api_messages = [{"role": "system", "content": sys_prompt}]
-                # 최근 문맥 10개만 유지
                 for msg in st.session_state.chat_messages[-10:]:
                     api_messages.append({"role": msg["role"], "content": msg["content"]})
                 
@@ -694,7 +695,6 @@ if col_bot:
                         st.session_state.chat_messages.append({"role": "assistant", "content": response.choices[0].message.content})
                     except Exception as e: st.error(f"연산 오류: {e}")
 
-            # 🔥 메인 컨테이너에 맞춰 늘어나게 flex-grow처럼 적용하거나 충분한 height 확보, 최근 대화가 맨 위로.
             with st.container(height=800, border=True):
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
