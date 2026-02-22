@@ -61,21 +61,25 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
+    /* 🔥 [핵심 수정] 모든 버튼 텍스트 줄바꿈 방지 (어그러짐 해결) 🔥 */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
-        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: none !important;
+        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: none !important;
+        white-space: nowrap !important; /* 글자 잘림 방지 */
+        padding: 0 5px !important;
     }
 
     div.st-key-btn_excel > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
-        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #155A7A !important;
+        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: 1px solid #155A7A !important;
+        white-space: nowrap !important;
     }
     div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
 
-    /* 🔥 선택 삭제 버튼: 오렌지 칼라 🔥 */
     div.st-key-btn_del_sel > button {
         height: 40px !important; background-color: #D35400 !important; color: white !important; 
-        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
+        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
+        white-space: nowrap !important;
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
 
@@ -86,13 +90,24 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
-    .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     
+    /* 🔥 [핵심 수정] 유저 이름도 줄바꿈 방지 🔥 */
+    .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 15px; padding-right: 5px; white-space: nowrap; }
+    
+    /* 🔥 [핵심 수정] 토글 우측 정렬 및 배경 투명화 🔥 */
     div[data-testid="stToggle"] {
-        background-color: #F4CE14; border: 1px solid #D4AC0D; padding: 0px 15px;
-        border-radius: 4px; height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 10px;
+        display: flex !important;
+        justify-content: flex-end !important; /* 우측 끝으로 밀어내기 */
+        width: 100% !important;
+        padding: 0px !important;
+        background-color: transparent !important; /* 노란 배경 제거 */
+        border: none !important;
+        margin-top: 5px !important;
     }
-    div[data-testid="stToggle"] > label { margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center; }
+    div[data-testid="stToggle"] > label { 
+        margin-bottom: 0px !important; font-size: 14px !important; color: #333 !important; 
+        display: flex; justify-content: flex-end;
+    }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
         scrollbar-width: none !important; 
@@ -297,19 +312,22 @@ with h_r:
         if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
-        r_name, r_my, r_out = st.columns([2, 1, 1])
-        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
-        if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
-        if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
-            for key, val in default_vars.items(): st.session_state[key] = val
-            st.rerun()
+        # 🔥 [핵심 수정] 로그인 후 상단 버튼 비율 미세조정 (깨짐 방지) 🔥
+        r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
+        with r_name:
+            st.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+        with r_my:
+            if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
+        with r_out:
+            if st.button("Logout", key="btn_logout_m", use_container_width=True): 
+                for key, val in default_vars.items(): st.session_state[key] = val
+                st.rerun()
 
-    t1, t2 = st.columns([1, 1])
-    with t2:
-        bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
-        if bot_active != st.session_state.show_bot:
-            st.session_state.show_bot = bot_active
-            st.rerun()
+    # 🔥 [핵심 수정] 토글을 칼럼 없이 배치하여 flex-end CSS를 통해 완벽히 우측 끝으로 정렬 🔥
+    bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
+    if bot_active != st.session_state.show_bot:
+        st.session_state.show_bot = bot_active
+        st.rerun()
 
 st.markdown("---")
 
@@ -509,7 +527,6 @@ with col_main:
                         "Phone": n_phone,
                         "Purpose": n_purpose,
                         "ProMax_Req": "Y" if is_vip_request else "N",
-                        # 🔥 가입일자 KST 적용 🔥
                         "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")
                     }])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
@@ -788,7 +805,6 @@ with col_main:
                     whl = res_whkg * v_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
                     
-                    # 🔥 KST 한국 표준시 적용 🔥
                     cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
@@ -983,10 +999,8 @@ with col_main:
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # 🔥 [수정] 4개 버튼 순서 논리적 재배치 🔥
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
-                    # 1. 계정에 저장
                     if btn1.button("💾 계정에 저장", key="btn_save_my", use_container_width=True):
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection)
@@ -1014,7 +1028,6 @@ with col_main:
                         except Exception as e: 
                             st.error(f"저장 오류: {e}")
 
-                    # 2. 선택 삭제 (오렌지 박스 유지 - key="btn_del_sel"을 통해 스타일 매핑)
                     if btn2.button("🗑️ 선택 삭제", key="btn_del_sel", use_container_width=True):
                         if not selected_times:
                             st.warning("삭제할 항목을 체크해 주세요.")
@@ -1032,14 +1045,12 @@ with col_main:
                             except Exception as e:
                                 st.error(f"삭제 오류: {e}")
 
-                    # 3. 엑셀 다운로드 파일 준비
                     df_export = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
                     buffer = io.BytesIO()
                     try:
                         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                             df_export.to_excel(writer, index=False, sheet_name='Simulation_Logs')
                         file_data = buffer.getvalue()
-                        # 다운로드 파일 이름에도 KST 시간 적용
                         file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.xlsx"
                         mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     except ImportError:
@@ -1049,7 +1060,6 @@ with col_main:
 
                     btn3.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
-                    # 4. 화면 PDF 인쇄
                     print_clicked = btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True)
                     if print_clicked:
                         import streamlit.components.v1 as components
@@ -1145,16 +1155,11 @@ if col_bot:
                                 st.error(f"AI 연산 오류: {str(e)}")
                     st.rerun()
 
-                # 🔥 [수정] 시노봇의 마크다운 도트 블릿 간격 벌리기(줄바꿈) 적용 🔥
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
-                        # '- ' 기호가 나오면 앞에 강제로 엔터 두 개를 넣어 단락을 띄움
                         display_content = message["content"].replace("\n- ", "\n\n\- ")
-                        
-                        # 대화 내용의 가장 첫 줄이 '- '로 시작할 때도 치환
                         if display_content.startswith("- "): 
                             display_content = "\- " + display_content[2:]
-                            
                         st.markdown(display_content)
 
 # 7. 푸터 
