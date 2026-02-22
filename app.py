@@ -92,10 +92,12 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 15px; padding-right: 5px; white-space: nowrap; }
     
-    /* 🔥 토글 완벽 우측 정렬 및 디자인 처리 🔥 */
+    /* 🔥 토글 완벽 우측 정렬 (float 적용) 🔥 */
     div[data-testid="stToggle"] {
         display: flex !important;
-        justify-content: flex-end !important; /* 상위 컨테이너 우측 끝 밀착 */
+        justify-content: flex-end !important;
+        margin-left: auto !important;
+        float: right !important;
         width: 100% !important;
         padding: 0px !important;
         background-color: transparent !important; 
@@ -129,7 +131,6 @@ st.markdown("""
         width: 100% !important; 
     }
 
-    /* 🔥 [핵심 수정] 데이터 에디터 헤더 텍스트 완전 검정색 강제 지정 🔥 */
     div[data-testid="stDataEditor"] th, 
     div[data-testid="stDataEditor"] th span, 
     div[data-testid="stDataEditor"] th div {
@@ -261,7 +262,7 @@ def load_user_history(email, workspace="material_list"):
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
-    'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
+    'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True,
     'trigger_auto_bot': False,
@@ -287,7 +288,7 @@ with h_r:
     
     if not is_pro:
         c1, c2 = st.columns([1, 1])
-        with c1.popover("Login", use_container_width=True):
+        with c1.popover("🔑 Login"):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -299,14 +300,26 @@ with h_r:
                     hashed_pw = hash_password(u_pw) if u_pw else ""
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
+                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall', 'user_tier': 'Admin'})
                         st.session_state.history = load_user_history(u_id_clean, 'material_overall')
                         st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                         if not valid.empty:
                             domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                            st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
+                            
+                            # 🔥 [핵심 추가] DB의 ProMax_Req 값을 읽어 등급(Tier) 동적 할당 🔥
+                            promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
+                            tier_str = "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"
+                            
+                            st.session_state.update({
+                                'logged_in': True, 
+                                'user_name': str(valid['Name'].values[0]), 
+                                'user_email': str(valid['Email'].values[0]), 
+                                'user_vip_name': vip_map.get(domain), 
+                                'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
+                                'user_tier': tier_str
+                            });
                             st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
                             st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
@@ -316,7 +329,8 @@ with h_r:
     else:
         r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
         with r_name:
-            st.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+            # 🔥 [핵심 추가] 세션에 저장된 user_tier(Pro / Pro Max)를 노출 🔥
+            st.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({st.session_state.user_tier})</div>', unsafe_allow_html=True)
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
@@ -404,28 +418,74 @@ if is_pro and st.session_state.get('is_admin', False):
                         df_display = df_admin.copy()
                         is_log_view = (st.session_state.admin_view == 'logs')
                         
-                        if is_log_view and not df_display.empty:
+                        # 🔥 [핵심 추가] Admin Users DB 컬럼 가공 및 필터링 🔥
+                        if st.session_state.admin_view == 'users' and st.session_state.admin_ws == 'Users':
+                            df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else 'Pro')
+                            display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
+                            # 패스워드를 숨기고 새 순서 적용
+                            df_display = df_display[[c for c in display_order if c in df_display.columns]]
+                            
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
+                            
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    # 구분을 다시 ProMax_Req로 롤백
+                                    save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else 'N')
+                                    save_df = save_df.drop(columns=['구분'])
+                                    
+                                    # 원본 DB에서 패스워드 가져와 병합 (Password 보존)
+                                    merged = pd.merge(save_df, df_admin[['Email', 'Password']], on='Email', how='left')
+                                    final_cols = ['Email', 'Password', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'ProMax_Req', 'RegDate']
+                                    final_save = merged[[c for c in final_cols if c in merged.columns]].fillna("")
+                                    
+                                    conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=final_save)
+                                    st.cache_data.clear()
+                                    st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e:
+                                    st.error(f"저장 중 오류 발생: {e}")
+
+                        # 🔥 [핵심 추가] Admin Logs DB 워크스페이스 치환 처리 🔥
+                        elif is_log_view and not df_display.empty:
+                            df_display['Workspace'] = df_display['Workspace'].replace({'material_overall': 'admin', 'material_list': 'pro_user'})
                             front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
                             other_cols = [c for c in original_cols if c not in front_cols]
                             df_display = df_display[front_cols + other_cols]
                             df_display = df_display.iloc[::-1].reset_index(drop=True)
-                        
-                        edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
-                        
-                        if st.button("💾 변경사항 클라우드에 저장", type="primary"):
-                            try:
-                                save_df = edited_df.copy()
-                                if is_log_view and not save_df.empty:
+                            
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_logs")
+                            
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
                                     save_df = save_df.iloc[::-1].reset_index(drop=True)
-                                if set(original_cols) == set(save_df.columns):
-                                    save_df = save_df[original_cols]
+                                    # 치환했던 텍스트 롤백
+                                    save_df['Workspace'] = save_df['Workspace'].replace({'admin': 'material_overall', 'pro_user': 'material_list'})
                                     
-                                edited_df_safe = save_df.fillna("")
-                                conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
-                                st.cache_data.clear()
-                                st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                            except Exception as e:
-                                st.error(f"저장 중 오류 발생: {e}")
+                                    if set(original_cols) == set(save_df.columns):
+                                        save_df = save_df[original_cols]
+                                        
+                                    edited_df_safe = save_df.fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                                    st.cache_data.clear()
+                                    st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e:
+                                    st.error(f"저장 중 오류 발생: {e}")
+                        
+                        # 그 외 탭 (VIPs, param_config, material_overall 제외) 처리
+                        elif st.session_state.admin_view != 'users':
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_other")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    if set(original_cols) == set(save_df.columns):
+                                        save_df = save_df[original_cols]
+                                    edited_df_safe = save_df.fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                                    st.cache_data.clear()
+                                    st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e:
+                                    st.error(f"저장 중 오류 발생: {e}")
                 except Exception as e:
                     err_msg = str(e)
                     if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
@@ -540,18 +600,47 @@ with col_main:
             else:
                 df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u[df_u['Email'] == st.session_state.user_email].empty else {}
                 st.markdown(f"**이메일(ID):** {st.session_state.user_email} (변경 불가)")
-                p1, p2 = st.columns(2)
-                m_pw = p1.text_input("새 Password (변경 시에만 입력)", type="password"); m_name = p2.text_input("이름", value=u_row.get('Name', ''))
-                m_comp = p1.text_input("Company", value=u_row.get('Company', '')); m_dept = p2.text_input("부서", value=u_row.get('Dept', ''))
-                m_job = p1.text_input("담당업무", value=u_row.get('Job', '')); m_phone = p2.text_input("연락처", value=u_row.get('Phone', ''))
+                
+                # 🔥 [핵심 추가] 개인정보 수정란 UI 및 권한/사용용도 확장 🔥
+                c1, c2 = st.columns([1, 1])
+                m_pw = c1.text_input("새 Password (변경 시에만 입력)", type="password")
+                
+                current_tier = "Pro Max" if u_row.get('ProMax_Req', 'N') == 'Y' else "Pro"
+                m_tier = c2.radio("계정 권한 (Pro / Pro Max)", ["Pro", "Pro Max"], index=1 if current_tier == "Pro Max" else 0, horizontal=True)
+
+                c3, c4 = st.columns(2)
+                m_name = c3.text_input("이름", value=u_row.get('Name', ''))
+                m_comp = c4.text_input("Company", value=u_row.get('Company', ''))
+
+                c5, c6 = st.columns(2)
+                m_dept = c5.text_input("부서", value=u_row.get('Dept', ''))
+                m_job = c6.text_input("담당업무", value=u_row.get('Job', ''))
+
+                c7, c8 = st.columns(2)
+                m_phone = c7.text_input("연락처", value=u_row.get('Phone', ''))
+                m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
+                
                 if st.button("개인정보 수정 완료"):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
                     if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
-                    df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept; df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone
+                    
+                    df_update.at[idx, 'Name'] = m_name
+                    df_update.at[idx, 'Company'] = m_comp
+                    df_update.at[idx, 'Dept'] = m_dept
+                    df_update.at[idx, 'Job'] = m_job
+                    df_update.at[idx, 'Phone'] = m_phone
+                    df_update.at[idx, 'Purpose'] = m_purpose
+                    df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
+                    
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); 
                     st.cache_data.clear() 
-                    st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                    
+                    # 현재 세션 정보 최신화
+                    st.session_state.user_name = m_name
+                    st.session_state.user_tier = m_tier
+                    st.session_state.show_profile = False
+                    st.success("수정 완료!"); st.rerun()
 
     with st.container(height=900, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
@@ -770,7 +859,7 @@ with col_main:
                         st.warning("⚠️ N/P Ratio 과다: 잉여 음극 설계로 인한 초기 비가역 용량 증가 및 에너지 밀도 하락!")
                 with w3:
                     if show_adv and v_ec < 2.0:
-                        st.error("⚠️ E/C Ratio 부족: 전해액 고갈(Depletion)에 따른 수명 급감 위험!")
+                        st.error("⚠️ E/C Ratio 부족: 전해액 고갈(Depletion)에 따른 수명 급 급감 위험!")
                         
                 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -958,7 +1047,6 @@ with col_main:
                                 
                                 st.caption("💡 **Tip:** 아래 테이블의 `📝 코멘트 입력` 열을 더블클릭하여 메모를 남기고 `Enter`를 누르면 클라우드에 자동 저장됩니다.")
                                 
-                                # 🔥 [핵심 수정] column_config 네이밍 직관적으로 변경 🔥
                                 edited_df = st.data_editor(
                                     df_display, 
                                     use_container_width=True, 
@@ -1109,6 +1197,9 @@ if col_bot:
         chat_container = st.container(height=730, border=True) 
         
         with chat_container:
+            # 🔥 [핵심 수정] 첫 줄 가림 방지 Spacer 공간 삽입 🔥
+            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+            
             if OpenAI is None:
                 st.error("⚠️ `openai` 라이브러리 설치가 필요합니다. `requirements.txt`에 `openai`를 추가 후 앱을 재시작 해주세요.")
             elif "OPENAI_API_KEY" not in st.secrets:
