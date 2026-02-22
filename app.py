@@ -123,27 +123,27 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 🔥 [진짜 반응형 플로팅(Sticky)] PC 화면(768px 이상)에서만 플로팅 작동 🔥 */
+    /* 🔥 [진짜 반응형 플로팅(Sticky) 완벽 해결] 🔥 */
+    /* 1. Streamlit 특유의 양쪽 컬럼 높이 맞춤(Stretch) 성질 강제 해제 (플로팅 실패의 주범 타파) */
+    div[data-testid="stHorizontalBlock"]:has(#bot-sticky-anchor) {
+        align-items: flex-start !important;
+    }
+
+    /* 2. PC 화면(768px 이상)에서만 플로팅 작동 (모바일은 자연스럽게 하단 스크롤) */
     @media (min-width: 768px) {
         div[data-testid="column"]:has(#bot-sticky-anchor) {
             position: -webkit-sticky !important;
             position: sticky !important;
-            top: 2rem !important; /* 상단에서 2rem 띄운 상태로 화면에 고정 */
-            align-self: flex-start !important; /* 부모 높이만큼 늘어나지 않게 강제 제한 */
-            height: calc(100vh - 4rem) !important; /* 브라우저 창 높이에 맞게 제한 */
-            overflow-y: auto !important; /* 내용이 길면 봇 안에서 스크롤 가능하게 */
-            padding-right: 5px;
-            z-index: 99;
+            top: 20px !important; /* 화면 최상단에서 20px 띄운 위치에 고정 */
+            height: calc(100vh - 40px) !important; /* 봇 컬럼의 높이를 화면 높이에 맞게 고정 */
+            overflow-y: auto !important; /* 챗봇 대화가 길어지면 내부에서만 스크롤되도록 설정 */
+            padding-bottom: 20px !important;
+            z-index: 999; /* 다른 요소들 위로 올라오게 설정 */
         }
         
-        /* 봇 영역 미니 스크롤바 디자인 */
-        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar {
-            width: 6px;
-        }
-        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb {
-            background-color: #ccc;
-            border-radius: 4px;
-        }
+        /* 봇 영역 내부 미니 스크롤바 디자인 */
+        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar { width: 5px; }
+        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb { background-color: #bbb; border-radius: 5px; }
     }
     
     .stChatInput { padding-bottom: 20px !important; }
@@ -1104,7 +1104,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 반응형 플로팅 완벽 적용
+# 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1127,7 +1127,7 @@ GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 
 
 if col_bot:
     with col_bot:
-        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심)
+        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심 타겟)
         st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
