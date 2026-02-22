@@ -31,14 +31,26 @@ except ImportError:
     OpenAI = None
 
 # -----------------------------------------------------------------------------
-# 1. 페이지 설정 및 디자인 (불안정한 CSS 편법 모두 제거, 깔끔한 공식 UI만 남김)
+# 1. 페이지 설정 및 디자인 (전역 스크롤바 숨김 + 챗봇 들여쓰기 제거)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide")
 
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    /* 가로폭 컴팩트 제어 */
+    
+    /* 🔥 [핵심 1] 모든 스크롤바 트랙 숨기기 (스크롤 기능은 정상 작동) 🔥 */
+    ::-webkit-scrollbar {
+        width: 0px !important;
+        height: 0px !important;
+        background: transparent !important;
+    }
+    * {
+        scrollbar-width: none !important; /* Firefox */
+        -ms-overflow-style: none !important; /* IE/Edge */
+    }
+    
+    /* 화면 최대폭 (1400px) */
     .main .block-container {
         max-width: 1400px !important; 
         padding-top: 2rem;
@@ -46,12 +58,12 @@ st.markdown("""
         margin: auto; 
     }
             
-    /* 타이틀 디자인 */
+    /* 원래의 텍스트 타이틀 디자인 복원 */
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 60px; }
     .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
     
-    /* 타이틀 투명 홈 버튼 */
+    /* 타이틀 위를 덮는 투명 홈 버튼 */
     div.st-key-btn_home_overlay {
         margin-top: -60px !important;
         opacity: 0 !important;
@@ -70,7 +82,6 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 버튼 디자인 */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: none !important;
@@ -82,7 +93,6 @@ st.markdown("""
     }
     div[data-testid="stDownloadButton"] > button:hover { background-color: #FFB300 !important; border: 1px solid #DDA010 !important; }
 
-    /* 블록 테두리 */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
         border-radius: 12px !important; padding: 25px 25px 15px 25px !important; margin-bottom: 20px !important; 
@@ -98,6 +108,31 @@ st.markdown("""
     }
     div[data-testid="stToggle"] > label { margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center; }
     
+    /* 🔥 [핵심 2] 챗봇 들여쓰기 제거 및 위아래 배치(Column) 강제화 🔥 */
+    div[data-testid="stChatMessage"] {
+        display: flex !important;
+        flex-direction: column !important; /* 가로 배열을 세로 배열로 변경 (아이콘 밑에 텍스트) */
+        align-items: flex-start !important;
+        padding: 15px 10px !important;
+        background-color: #ffffff;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.02);
+    }
+    div[data-testid="stChatMessage"] > div[data-testid="stChatMessageAvatar"] {
+        margin-bottom: 8px !important; /* 아이콘과 텍스트 사이 간격 */
+    }
+    div[data-testid="stChatMessageContent"] {
+        width: 100% !important;
+        margin-left: 0px !important; /* 좌측 들여쓰기 완전 제거 */
+        padding-left: 0px !important;
+    }
+    
+    /* 질문 입력칸 디자인 */
+    div[data-testid="stTextInput"] input { 
+        height: 45px !important; font-size: 15px !important; border-radius: 6px; border: 2px solid #1A729A !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -252,7 +287,8 @@ default_vars = {
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True,
-    'trigger_auto_bot': False 
+    'trigger_auto_bot': False,
+    'process_ai': False # 챗봇 동작 처리를 위한 상태 변수
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -430,16 +466,19 @@ if is_pro and st.session_state.get('is_admin', False):
                     st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 75 : 25 독립 스크롤 레이아웃 적용)
+# 5. 시뮬레이터 본문 (✅ 5 : 70 : 25 비율 정렬)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
-    col_main, col_bot = st.columns([0.75, 0.25], gap="large")
+    col_left, col_main, col_bot = st.columns([0.05, 0.70, 0.25], gap="large")
 else:
-    col_main = st.container()
+    col_left, col_main = st.columns([0.05, 0.95], gap="large")
     col_bot = None
 
+with col_left:
+    st.markdown("<div style='text-align: center; color: #bbb; font-weight: bold; margin-top: 10px; font-size: 13px; letter-spacing: 1px;'>SynoCore</div>", unsafe_allow_html=True)
+
 with col_main:
-    # ✅ 시뮬레이터 본문을 고정된 높이의 컨테이너 안에 넣어서 "자체 스크롤"되도록 만듭니다!
+    # 스크롤바가 숨겨진 독립 컨테이너
     with st.container(height=900, border=False):
         with st.container(border=True):
             ws_badge = f" [Workspace: {st.session_state.workspace}]" if is_pro else ""
@@ -737,6 +776,9 @@ with col_main:
                     delta_l = res['Life(Cyc)'] - v_tl
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{delta_l:+} Cyc (vs Target)")
                     
+                    # 🔥 [핵심 3] 결과값 하단 여유 공간 확보 🔥
+                    st.markdown("<br><br>", unsafe_allow_html=True)
+                    
                     g1, g2, g3 = st.columns(3)
                     with g1:
                         st.markdown('<p class="sub-header-bold" style="text-align: center;">Discharge Profile</p>', unsafe_allow_html=True)
@@ -769,7 +811,8 @@ with col_main:
                         """, unsafe_allow_html=True)
                         
                     with g3:
-                        st.markdown('<p class="sub-header-bold" style="text-align: center;">Cell Performance Radar</p>', unsafe_allow_html=True)
+                        # 🔥 [핵심 3] Radar 네이밍 삭제 🔥
+                        st.markdown('<p class="sub-header-bold" style="text-align: center;">Cell Performance</p>', unsafe_allow_html=True)
                         categories = ['Energy(Wh/kg)', 'Power(C-rate)', 'Life(Cycle)', 'Voltage(V)', 'Loading(mg)']
                         r_vals = [
                             min(100, res.get('Wh/kg', 0) / 250 * 100),
@@ -950,8 +993,9 @@ with col_main:
                             st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - ✅ 독립 스크롤(정공법) 적용 
+# 🤖 시노봇 (SynoBot) AI 패널 - 🔥 역방향(Reverse) 피드형 아키텍처 🔥
 # -----------------------------------------------------------------------------
+# 🔥 [핵심 5] 엔지니어 스타일 브리핑을 위한 강력한 프롬프트 지침 🔥
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on the following SIB knowledge:
@@ -965,90 +1009,79 @@ Answer questions accurately and professionally in Korean based on the following 
 - E/C Ratio (g/Ah): High ratio improves cycle life but drops Wh/kg. Low ratio (<2.0) risks sudden death by electrolyte depletion.
 - N/P Ratio: Must be > 1.05 to prevent Na-Plating (dendrite short-circuit). >1.15 lowers energy density.
 - Porosity: Formula is (1 - Press Density / True Density) * 100. <20% causes poor wetting.
-- Separator Thick: Thinner (<16um) increases energy density but raises penetration risk.
-- Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
+
+[응답 스타일 필수 지침]
+- SIB 수석 연구원(엔지니어)의 간결한 브리핑 스타일로 작성하십시오.
+- 불필요한 서술형 문장(~~습니다, ~~해요)이나 인사말을 전면 배제하고 핵심 데이터만 즉시 나열하십시오.
+- 모든 답변은 반드시 도트 블릿('-')을 사용하여 리스트 형태로 작성하십시오.
+- 블릿 기호('-')와 텍스트 사이에 불필요한 공백을 주지 말고 바로 붙여서 작성하십시오. (예시: -나트륨 석출(Na-Plating) 위험이 감지됨)
 """
 
-GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
+GREETING_MSG = "-배터리 설계 전문 AI 시노봇 대기 중\n-좌측 시뮬레이터 결과 또는 SIB 설계 지식을 질문해 주십시오"
 
 if col_bot:
     with col_bot:
-        # ✅ 챗봇 컨텐츠를 "고정된 높이를 가진 독립 컨테이너" 안에 가둡니다. (마법의 핵심)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        chat_container = st.container(height=800, border=True) # 봇 전용 독립 스크롤 컨테이너
-        
-        with chat_container:
-            if OpenAI is None:
-                st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 `openai`를 추가 후 앱을 Reboot 해주세요.")
-            elif "OPENAI_API_KEY" not in st.secrets:
-                st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
-            else:
-                client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        if OpenAI is None:
+            st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 `openai`를 추가 후 앱을 Reboot 해주세요.")
+        elif "OPENAI_API_KEY" not in st.secrets:
+            st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
+        else:
+            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            
+            if not st.session_state.chat_messages:
+                st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
                 
-                if not st.session_state.chat_messages:
-                    st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
+            # 채팅 입력 제출 콜백 함수
+            def handle_bot_input():
+                user_val = st.session_state.get("bot_user_input", "").strip()
+                if user_val:
+                    st.session_state.chat_messages.append({"role": "user", "content": user_val})
+                    st.session_state.process_ai = True
+                    st.session_state.bot_user_input = "" 
 
-                for message in st.session_state.chat_messages:
+            # 🔥 [핵심 5] 대화 입력칸을 화면 가장 최상단에 배치 (사용성 극대화) 🔥
+            st.text_input("💬 시노봇에게 질문 (Enter로 전송)", key="bot_user_input", on_change=handle_bot_input, placeholder="시뮬레이션 결과를 분석해줘")
+
+            # AI 연산 로직 (자동 트리거 또는 사용자 직접 질문)
+            if st.session_state.trigger_auto_bot and st.session_state.sim_result:
+                st.session_state.trigger_auto_bot = False 
+                auto_prompt = "방금 시뮬레이션이 실행됨. 제공된 데이터를 분석하여 잘된 점, 개선점, 위험 요소를 3줄 이내 도트 블릿('-') 형태로 짧고 명확하게 브리핑할 것."
+                sys_prompt = SYSTEM_KNOWLEDGE + f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
+                api_messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": auto_prompt}]
+                
+                with st.spinner("📊 실시간 데이터 분석 중..."):
+                    try:
+                        response = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages)
+                        bot_reply = "📊 **[실시간 AI 진단]**\n" + response.choices[0].message.content
+                        st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                    except Exception as e:
+                        st.error(f"분석 오류: {str(e)}")
+
+            elif st.session_state.get("process_ai", False):
+                st.session_state.process_ai = False
+                sys_prompt = SYSTEM_KNOWLEDGE
+                if st.session_state.sim_result:
+                    sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
+                
+                api_messages = [{"role": "system", "content": sys_prompt}]
+                for msg in st.session_state.chat_messages:
+                    api_messages.append({"role": msg["role"], "content": msg["content"]})
+                
+                with st.spinner("답변 작성 중..."):
+                    try:
+                        response = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages)
+                        st.session_state.chat_messages.append({"role": "assistant", "content": response.choices[0].message.content})
+                    except Exception as e:
+                        st.error(f"연산 오류: {str(e)}")
+
+            # 🔥 [핵심 5] 최근 대화가 맨 위로 오도록 챗봇 히스토리를 역순(Reverse)으로 출력 🔥
+            chat_container = st.container(height=750, border=True) 
+            with chat_container:
+                for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
                         st.markdown(message["content"])
-
-                # 🚀 RUN SIMULATION 버튼 클릭 시 발동하는 "자동 분석 로직"
-                if st.session_state.trigger_auto_bot and st.session_state.sim_result:
-                    st.session_state.trigger_auto_bot = False 
-                    
-                    auto_prompt = "방금 사용자가 새로운 파라미터로 시뮬레이션을 실행했습니다. 위 제공된 [현재 유저의 시뮬레이션 상태] 데이터를 스캔해서, SIB 엔지니어 관점에서 잘된 점이나 개선해야 할 위험 요소(예: N/P 비율, 공극률, 에너지 밀도 등)를 2~3줄 이내로 짧고 명확하게 핵심만 진단 브리핑해줘."
-                    
-                    sys_prompt = SYSTEM_KNOWLEDGE
-                    sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
-                    
-                    api_messages = [{"role": "system", "content": sys_prompt}]
-                    api_messages.append({"role": "user", "content": auto_prompt})
-                    
-                    with st.chat_message("assistant"):
-                        with st.spinner("📊 시뮬레이션 결과를 실시간 분석 중입니다..."):
-                            try:
-                                response = client.chat.completions.create(
-                                    model="gpt-4o-mini",
-                                    messages=api_messages
-                                )
-                                bot_reply = "📊 **[AI 실시간 진단]**\n\n" + response.choices[0].message.content
-                                st.markdown(bot_reply)
-                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                            except Exception as e:
-                                st.error(f"자동 분석 중 오류가 발생했습니다: {str(e)}")
-
-        # 채팅 입력창은 컨테이너 바로 아래에 착 달라붙음
-        if prompt := st.chat_input("시노봇에게 질문하기..."):
-            st.session_state.chat_messages.append({"role": "user", "content": prompt})
-            st.rerun() # 입력을 받으면 즉시 화면을 리로드하여 스크롤 맨 밑으로 갱신
-            
-        # 리로드 후 입력받은 프롬프트 처리
-        if len(st.session_state.chat_messages) > 0 and st.session_state.chat_messages[-1]["role"] == "user":
-            prompt = st.session_state.chat_messages[-1]["content"]
-            
-            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            sys_prompt = SYSTEM_KNOWLEDGE
-            if st.session_state.sim_result:
-                sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
-            
-            api_messages = [{"role": "system", "content": sys_prompt}]
-            for msg in st.session_state.chat_messages:
-                api_messages.append({"role": msg["role"], "content": msg["content"]})
-            
-            with chat_container:
-                with st.chat_message("assistant"):
-                    with st.spinner("답변을 작성 중입니다..."):
-                        try:
-                            response = client.chat.completions.create(
-                                model="gpt-4o-mini",
-                                messages=api_messages
-                            )
-                            bot_reply = response.choices[0].message.content
-                            st.markdown(bot_reply)
-                            st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                        except Exception as e:
-                            st.error(f"AI 연산 중 오류가 발생했습니다. (상세 내역: {str(e)})")
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
