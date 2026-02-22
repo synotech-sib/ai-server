@@ -66,14 +66,12 @@ st.markdown("""
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: none !important;
     }
 
-    /* 🔥 [수정] 엑셀 다운로드 버튼: 계정에 저장과 동일한 브랜드 칼라 🔥 */
     div.st-key-btn_excel > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #155A7A !important;
     }
     div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
 
-    /* 🔥 [수정] 선택항목 삭제 버튼: 오렌지 칼라 🔥 */
     div.st-key-btn_del_sel > button {
         height: 40px !important; background-color: #D35400 !important; color: white !important; 
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
@@ -95,16 +93,14 @@ st.markdown("""
     }
     div[data-testid="stToggle"] > label { margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center; }
     
-    /* 🔥 [핵심] 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
-        scrollbar-width: none !important; /* Firefox */
-        -ms-overflow-style: none !important;  /* IE and Edge */
+        scrollbar-width: none !important; 
+        -ms-overflow-style: none !important;  
     }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar {
-        display: none !important; /* Chrome, Safari */
+        display: none !important; 
     }
 
-    /* 🔥 [핵심] 챗봇 들여쓰기 제거 🔥 */
     div[data-testid="stChatMessage"] {
         display: flex !important;
         flex-direction: column !important; 
@@ -119,7 +115,6 @@ st.markdown("""
         width: 100% !important; 
     }
 
-    /* 🔥 [수정] 데이터 에디터 테이블 헤더 텍스트 색상 검정색 강제 지정 🔥 */
     div[data-testid="stDataEditor"] th {
         color: black !important;
     }
@@ -235,6 +230,7 @@ def load_user_history(email, workspace="material_list"):
             try:
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
+                row_dict['Time'] = str(row_dict.get('Time', '')) # Time 문자열 강제 변환
             except: pass
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0), pd.DataFrame())
             row_dict['dq_x'], row_dict['dq_y'] = v_x, v_y; hist.append(row_dict)
@@ -790,7 +786,6 @@ with col_main:
                     whl = res_whkg * v_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
                     
-                    # 🔥 [수정] Time을 월-일 시:분 형태로 변경 🔥
                     cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
@@ -903,7 +898,10 @@ with col_main:
                     st.markdown("---")
                     st.markdown('<p class="sub-header-bold">📋 Simulation Detailed Logs</p>', unsafe_allow_html=True)
                     df_history = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
-                    st.dataframe(df_history, use_container_width=True)
+                    if not df_history.empty and 'Time' in df_history.columns:
+                        df_history['Time'] = df_history['Time'].astype(str)
+                    
+                    st.dataframe(df_history, use_container_width=True, column_config={"Time": st.column_config.TextColumn("Time")})
             st.markdown("<br>", unsafe_allow_html=True)
 
         if is_pro and st.session_state.history:
@@ -912,7 +910,6 @@ with col_main:
                 sp6, c_6 = st.columns([0.03, 0.97])
                 with c_6:
                     
-                    # 🔥 [핵심] 클라우드 데이터를 가장 먼저 불러오고, 상단에 데이터 에디터 테이블부터 배치 🔥
                     db_df_all = pd.DataFrame()
                     selected_times = []
                     
@@ -930,6 +927,7 @@ with col_main:
                                 if 'User Comment' not in df_display.columns:
                                     df_display['User Comment'] = ""
                                 df_display['User Comment'] = df_display['User Comment'].fillna("")
+                                df_display['Time'] = df_display['Time'].astype(str)
                                 
                                 core_cols = ['Time', 'User Comment', 'Cathode', 'Anode']
                                 other_cols = [c for c in df_display.columns if c not in core_cols]
@@ -937,16 +935,15 @@ with col_main:
                                 df_display.insert(0, "선택", False)
                                 
                                 original_comments = df_display['User Comment'].tolist()
-                                
                                 disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 
-                                # 데이터 에디터 출력
                                 edited_df = st.data_editor(
                                     df_display, 
                                     use_container_width=True, 
                                     hide_index=True,
                                     disabled=disabled_cols,
                                     column_config={
+                                        "Time": st.column_config.TextColumn("Time"),
                                         "User Comment": st.column_config.TextColumn(
                                             "💬 사용자 코멘트 (더블클릭)", 
                                             help="실제 실험 결과(Real Wh/kg)나 개선사항 등을 자유롭게 기재하여 데이터 품질을 높여주세요.",
@@ -956,7 +953,6 @@ with col_main:
                                     }
                                 )
                                 
-                                # 자동 저장 로직 (코멘트가 변경되었다면 즉시 DB 업데이트)
                                 current_comments = edited_df['User Comment'].tolist()
                                 if current_comments != original_comments:
                                     if 'User Comment' not in db_df_all.columns:
@@ -982,7 +978,6 @@ with col_main:
                         else:
                             st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
-                    # 테이블 바로 아래 4열 버튼 배치
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
@@ -1009,7 +1004,7 @@ with col_main:
                             else:
                                 st.cache_data.clear() 
                                 st.success("내 계정에 저장하기가 완료되었습니다.")
-                                st.rerun() # 저장 직후 테이블 리프레쉬
+                                st.rerun() 
                         except Exception as e: 
                             st.error(f"저장 오류: {e}")
 
@@ -1026,17 +1021,14 @@ with col_main:
                         file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%m%d_%H%M')}.csv"
                         mime_type = "text/csv"
 
-                    # 엑셀 다운로드 (btn_excel 키를 통해 CSS로 파란색 처리)
                     btn2.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
-                    # 현재화면 PDF 인쇄 (window.print 자바스크립트 호출)
-                    print_clicked = btn3.button("📄 화면 인쇄 (PDF)", key="btn_print_pdf", use_container_width=True)
+                    print_clicked = btn3.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True)
                     if print_clicked:
                         import streamlit.components.v1 as components
                         components.html("<script>window.parent.print();</script>", height=0)
 
-                    # 선택항목 삭제 (btn_del_sel 키를 통해 CSS로 오렌지색 처리)
-                    if btn4.button("🗑️ 선택항목 삭제", key="btn_del_sel", use_container_width=True):
+                    if btn4.button("🗑️ 선택 삭제", key="btn_del_sel", use_container_width=True):
                         if not selected_times:
                             st.warning("삭제할 항목을 체크해 주세요.")
                         elif not db_df_all.empty:
@@ -1095,9 +1087,9 @@ if col_bot:
         
         with chat_container:
             if OpenAI is None:
-                st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 `openai`를 추가 후 앱을 Reboot 해주세요.")
+                st.error("⚠️ `openai` 라이브러 설치가 필요합니다. `requirements.txt`에 `openai`를 추가 후 앱을 재시작 해주세요.")
             elif "OPENAI_API_KEY" not in st.secrets:
-                st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
+                st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 대기 중입니다.")
             else:
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 
