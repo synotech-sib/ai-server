@@ -278,31 +278,39 @@ def load_user_history(email, workspace="material_list"):
         return hist[::-1]
     except: return []
 
-# 🔥 [옵션 B 추가] 시노봇 채팅 로그 클라우드 저장 헬퍼 함수 🔥
+# 🔥 [수정된 챗봇 로그 저장 함수] 비로그인(Guest) 기록 저장 허용 및 캐시 무력화 🔥
 def save_chat_log(email, workspace, role, content):
-    if GSheetsConnection is None or not email: return
+    if GSheetsConnection is None: return
+    
+    # 이메일이 없으면(비로그인 상태면) 'Guest'로 강제 할당
+    safe_email = email if email else "Guest"
+    safe_ws = workspace if workspace else "None"
+    
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         try:
-            chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=600)
+            # ttl=0 으로 설정하여 이전 빈 시트의 캐시를 무시하고 실시간으로 읽어옴
+            chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=0)
         except Exception:
             chat_df = pd.DataFrame(columns=["Time", "Email", "Workspace", "Role", "Message"])
             
         new_row = pd.DataFrame([{
             "Time": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
-            "Email": email,
-            "Workspace": workspace,
+            "Email": safe_email,
+            "Workspace": safe_ws,
             "Role": role,
             "Message": content
         }])
         
-        if chat_df.empty:
+        if chat_df.empty or 'Email' not in chat_df.columns:
             conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=new_row)
         else:
             updated_df = pd.concat([chat_df, new_row], ignore_index=True)
             conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=updated_df)
+            
         st.cache_data.clear()
-    except Exception: pass
+    except Exception: 
+        pass
 
 # -----------------------------------------------------------------------------
 # 4. 세션 초기화 및 헤더 모듈 
@@ -385,7 +393,6 @@ if is_pro and st.session_state.get('is_admin', False):
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
-            # 🔥 [옵션 B 추가] 챗봇 로그 DB 버튼 신설 (5열 배치) 🔥
             a1, a2, a3, a4, a5 = st.columns(5)
             
             if a1.button("👥 유저 관리 DB", use_container_width=True):
@@ -407,7 +414,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 elif st.session_state.admin_view == 'mats': target_url = URL_MATS; ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
                 elif st.session_state.admin_view == 'param': target_url = URL_PARAM; ws_options = ["param_config"]
                 elif st.session_state.admin_view == 'logs': target_url = URL_LOGS; ws_options = ["myData"]
-                elif st.session_state.admin_view == 'chat': target_url = URL_LOGS; ws_options = ["ChatLogs"] # 🔥 옵션 B 맵핑
+                elif st.session_state.admin_view == 'chat': target_url = URL_LOGS; ws_options = ["ChatLogs"] 
                 
                 if len(ws_options) > 1:
                     sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
@@ -756,7 +763,6 @@ with col_main:
                     cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
-                    # 🔥 [옵션 A 추가] AI_Briefing 저장을 위한 빈 값 추가 🔥
                     log_data = {"Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel, "Cap(mAh/g)": round(v_cap, 1), "Volt(V)": round(v_volt, 2), "Load(mg)": round(v_load, 1), "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc, "Wh/kg": round(res_whkg, 1), "Wh/L": round(whl, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Briefing": ""}
                     
                     is_dup = False
@@ -854,7 +860,6 @@ with col_main:
                                 st.warning("이미 저장된 결과입니다.")
                             else:
                                 save_record = res.copy(); save_record['Email'] = st.session_state.user_email; save_record['Workspace'] = st.session_state.workspace; save_record['User Comment'] = ""; save_record.pop('dq_x', None); save_record.pop('dq_y', None)
-                                # 🔥 [옵션 A 작동] AI_Briefing이 포함된 채로 db_df에 병합 및 저장 완료 🔥
                                 conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True)); st.cache_data.clear(); st.success("저장 완료!"); st.rerun() 
                         except Exception as e: st.error("저장 오류")
 
@@ -874,7 +879,7 @@ with col_main:
                     btn3.download_button("📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
-                        st.markdown("<script>window.parent.print();</script>", unsafe_allow_html=True)
+                        components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
@@ -890,10 +895,7 @@ def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
     if user_input.strip():
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
-        
-        # 🔥 [옵션 B 작동] 유저 질문 클라우드 저장 🔥
         save_chat_log(st.session_state.user_email, st.session_state.workspace, "User", user_input)
-        
         st.session_state.trigger_bot_reply = True
         st.session_state.bot_user_input = "" 
 
@@ -923,12 +925,7 @@ if col_bot:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
                                 bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                
-                                # 🔥 [옵션 A 작동] 방금 시뮬레이션 히스토리(history[0])에 AI 브리핑 내용 즉시 매핑 🔥
-                                if st.session_state.history:
-                                    st.session_state.history[0]["AI_Briefing"] = bot_reply
-                                
-                                # 🔥 [옵션 B 작동] 시노봇 자동 브리핑 내역 클라우드 저장 🔥
+                                if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_Auto", bot_reply)
                             except Exception: pass
                     st.rerun()
@@ -942,8 +939,6 @@ if col_bot:
                             try:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                
-                                # 🔥 [옵션 B 작동] 시노봇 일반 답변 내역 클라우드 저장 🔥
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                             except Exception: pass
                     st.rerun()
@@ -953,3 +948,6 @@ if col_bot:
                         content = message["content"].replace("\n- ", "\n\n\- ")
                         if content.startswith("- "): content = "\- " + content[2:]
                         st.markdown(content)
+
+# 7. 푸터 
+st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
