@@ -252,7 +252,6 @@ for key, val in default_vars.items():
 h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
-    # ✅ 네이밍 변경 적용
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
 
 with h_r:
@@ -310,7 +309,7 @@ if is_pro and st.session_state.get('is_admin', False):
             st.rerun()
         if a2.button("🔋 소재 DB", use_container_width=True):
             if st.session_state.admin_view == 'mats': st.session_state.admin_view = None
-            else: st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'material_overall' # ✅ 기본 설정
+            else: st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'material_overall'
             st.rerun()
         if a3.button("⚙️ 파라미터 DB", use_container_width=True):
             if st.session_state.admin_view == 'param': st.session_state.admin_view = None
@@ -397,7 +396,6 @@ if is_pro and st.session_state.get('is_admin', False):
                 else:
                     st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
             
-            # 관리자 패널 하단 테스트용 워크스페이스 변경 (숨김 제어 적용 완료)
             st.markdown("---")
             st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
             st.caption("ℹ️ 위에서 수정한 DB가 하단의 시뮬레이터에 잘 적용되었는지 특정 VIP의 시점으로 테스트할 수 있습니다.")
@@ -409,7 +407,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.rerun()
 
 # -----------------------------------------------------------------------------
-# 계정 가입 및 My 계정 관리
+# 계정 가입 및 My 계정 관리 (✅ 가입폼 복원 및 수정)
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
@@ -431,11 +429,33 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                 if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
                 else: st.error("인증번호가 일치하지 않습니다.")
         elif st.session_state.reg_stage == 2:
-            p1, p2 = st.columns(2); pw1 = p1.text_input("2. Password", type="password"); pw2 = p2.text_input("2-1. Password 확인", type="password")
-            n_name = st.text_input("3. 이름"); n_comp = st.text_input("4. Company")
-            if st.button("최종 가입신청", disabled=not (pw1==pw2 and n_name)):
+            # ✅ 가입 양식 전체 복원 및 텍스트 간소화
+            p1, p2 = st.columns(2)
+            pw1 = p1.text_input("2. Password", type="password")
+            pw2 = p2.text_input("Password 확인", type="password")
+            
+            c1, c2 = st.columns(2)
+            n_name = c1.text_input("3. 이름")
+            n_comp = c2.text_input("4. Company (회사명)")
+            
+            c3, c4 = st.columns(2)
+            n_dept = c3.text_input("5. 부서")
+            n_job = c4.text_input("6. 직책/담당업무")
+            
+            n_phone = st.text_input("7. 연락처")
+
+            if st.button("가입신청", disabled=not (pw1==pw2 and n_name), use_container_width=True):
                 conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
-                new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "RegDate": datetime.utcnow().strftime("%Y-%m-%d")}])
+                new_user = pd.DataFrame([{
+                    "Email": st.session_state.temp_email, 
+                    "Password": hash_password(pw1), 
+                    "Name": n_name, 
+                    "Company": n_comp, 
+                    "Dept": n_dept,
+                    "Job": n_job,
+                    "Phone": n_phone,
+                    "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
+                }])
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                 st.cache_data.clear() 
                 st.success("가입신청 완료! 로그인 해주세요."); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
@@ -461,7 +481,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ Glossary 삭제, 100% 화면 레이아웃)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 with st.container():
     with st.container(border=True):
@@ -469,7 +489,6 @@ with st.container():
         st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.02, 0.98])
         with c_1:
-            # ✅ 데이터 취합 및 VIP 전용 마커 추가 로직
             if is_pro and st.session_state.workspace == "material_overall":
                 vips = get_vip_list_exact()
                 dfs = []
@@ -508,10 +527,10 @@ with st.container():
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ VIP 전용 소재 포맷팅 함수
+                # ✅ VIP 전용 소재 포맷팅: [전용] 글자 삭제, 다이아몬드 아이콘만 유지
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist()
                 def format_mat_name(name):
-                    return f"💎 [전용] {name}" if name in vip_names else name
+                    return f"💎 {name}" if name in vip_names else name
                 
                 with m1:
                     cat_sel = st.selectbox("**Cathode**", cat_list if cat_list else ["Sample Cathode"], format_func=format_mat_name, key="sel_cat_m")
@@ -521,7 +540,7 @@ with st.container():
                             c_cat = st.number_input("용량 (mAh/g)", value=160.0, key="n_cat_c")
                             v_cat = st.number_input("전압 (V)", value=3.2, key="n_cat_v")
                             
-                            if st.button("저장", key="btn_save_cat"):
+                            if st.button("저장", key="btn_save_cat", use_container_width=True):
                                 try:
                                     new_row = pd.DataFrame([{"Name": n_cat, "Category": "Cathode", "Cap_Def": c_cat, "Volt_Def": v_cat, "Den_Def": 2.2}])
                                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -541,7 +560,7 @@ with st.container():
                             c_ano = st.number_input("용량 (mAh/g)", value=360.0, key="n_ano_c")
                             v_ano = st.number_input("전압 (V)", value=0.1, key="n_ano_v")
                             
-                            if st.button("저장", key="btn_save_ano"):
+                            if st.button("저장", key="btn_save_ano", use_container_width=True):
                                 try:
                                     new_row = pd.DataFrame([{"Name": n_ano, "Category": "Anode", "Cap_Def": c_ano, "Volt_Def": v_ano, "Den_Def": 1.1}])
                                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -560,7 +579,7 @@ with st.container():
                             n_ele = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Elec_01")
                             d_ele = st.number_input("밀도 (g/cc)", value=1.2, key="n_ele_d")
                             
-                            if st.button("저장", key="btn_save_ele"):
+                            if st.button("저장", key="btn_save_ele", use_container_width=True):
                                 try:
                                     new_row = pd.DataFrame([{"Name": n_ele, "Category": "Electrolyte", "Den_Def": d_ele}])
                                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -579,7 +598,7 @@ with st.container():
                             n_sep = st.text_input("소재명", placeholder=f"{st.session_state.workspace}_Sep_01")
                             t_sep = st.number_input("두께 (μm)", value=16.0, key="n_sep_t") 
                             
-                            if st.button("저장", key="btn_save_sep"):
+                            if st.button("저장", key="btn_save_sep", use_container_width=True):
                                 try:
                                     new_row = pd.DataFrame([{"Name": n_sep, "Category": "Separator", "Load_Def": t_sep}])
                                     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -730,7 +749,6 @@ with st.container():
                     "dq_x": v_axis, "dq_y": dqdv
                 }
                 
-                # ✅ 중복 실행 방지 로직 적용
                 is_dup = False
                 if st.session_state.history:
                     last_run = st.session_state.history[0]
@@ -741,9 +759,8 @@ with st.container():
                 if is_dup:
                     st.warning("⚠️ 이전 실행과 동일한 파라미터 조건입니다. (중복 저장 방지)")
                 else:
-                    # ✅ 로딩 스피너 적용
                     with st.spinner("🚀 물리 엔진 연산 및 시뮬레이션 진행 중..."):
-                        time.sleep(0.6) # 가시적 프로그레스 효과
+                        time.sleep(0.6) 
                         st.session_state.history.insert(0, log_data)
                         st.session_state.sim_result = log_data
                         st.rerun()
@@ -765,7 +782,8 @@ with st.container():
                 
                 g1, g2, g3 = st.columns(3)
                 with g1:
-                    st.markdown('<p class="sub-header-bold">Discharge Profile</p>', unsafe_allow_html=True)
+                    # ✅ 그래프 제목 중앙 정렬
+                    st.markdown('<p class="sub-header-bold" style="text-align: center;">Discharge Profile</p>', unsafe_allow_html=True)
                     fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
                     fig1.update_layout(
                         height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white",
@@ -780,7 +798,7 @@ with st.container():
                     """, unsafe_allow_html=True)
                     
                 with g2:
-                    st.markdown('<p class="sub-header-bold">dQ/dV Profile</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="sub-header-bold" style="text-align: center;">dQ/dV Profile</p>', unsafe_allow_html=True)
                     fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
                     fig2.update_layout(
                         height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white",
@@ -795,7 +813,7 @@ with st.container():
                     """, unsafe_allow_html=True)
                     
                 with g3:
-                    st.markdown('<p class="sub-header-bold">Cell Performance Radar</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="sub-header-bold" style="text-align: center;">Cell Performance Radar</p>', unsafe_allow_html=True)
                     categories = ['Energy(Wh/kg)', 'Power(C-rate)', 'Life(Cycle)', 'Voltage(V)', 'Loading(mg)']
                     r_vals = [
                         min(100, res.get('Wh/kg', 0) / 250 * 100),
@@ -830,16 +848,17 @@ with st.container():
         st.markdown("<br>", unsafe_allow_html=True)
 
     # -----------------------------------------------------------------------------
-    # 6. 내 데이터 관리 및 클라우드 과거 이력 
+    # 6. 내 데이터 관리 및 클라우드 과거 이력
     # -----------------------------------------------------------------------------
     if is_pro and st.session_state.history:
         with st.container(border=True):
             st.markdown('<p class="main-header">6. Data Management & Past Records (Pro)</p>', unsafe_allow_html=True)
             sp6, c_6 = st.columns([0.03, 0.97])
             with c_6:
+                # ✅ 버튼을 4등분 컬럼으로 배치하고 use_container_width를 적용하여 모바일 비율 통일
                 btn1, btn2, btn3, btn4 = st.columns(4)
                 
-                if btn1.button("💾 내 계정에 저장하기", key="btn_save_my"):
+                if btn1.button("💾 계정에 저장", key="btn_save_my", use_container_width=True):
                     try:
                         conn = st.connection("gsheets", type=GSheetsConnection)
                         db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
@@ -878,17 +897,15 @@ with st.container():
                     file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv"
                     mime_type = "text/csv"
 
-                btn2.download_button(label="📥 내 기록 다운로드", data=file_data, file_name=file_name, mime=mime_type)
+                btn2.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, use_container_width=True)
 
                 if FPDF is not None:
-                    # PDF 출력 설명 추가
-                    btn3.download_button(label="📄 선택 항목 PDF 출력", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf")
-                    btn4.download_button(label="📑 전체 이력 PDF 출력", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf")
+                    btn3.download_button(label="📄 현재결과 PDF", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf", use_container_width=True)
+                    btn4.download_button(label="📑 전체이력 PDF", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf", use_container_width=True)
                 else:
                     btn3.warning("PDF 모듈 필요"); btn4.warning("PDF 모듈 필요")
                 
-                # 안내 문구
-                st.caption("ℹ️ **안내:** [PDF 출력] 버튼은 수치 데이터 기반의 리포트를 생성합니다. 렌더링된 그래프의 완벽한 캡처가 필요하신 경우, 브라우저의 **[인쇄 (Ctrl+P) ➔ PDF로 저장]** 기능을 활용하시는 것을 가장 권장합니다.")
+                st.caption("ℹ️ **안내:** [PDF 출력] 버튼은 수치 데이터 기반의 리포트를 생성합니다. 렌더링된 그래프의 완벽한 화면 캡처가 필요하신 경우, 브라우저의 **[인쇄 (Ctrl+P) ➔ PDF로 저장]** 기능을 활용하시는 것을 가장 권장합니다.")
 
                 st.markdown("---")
                 
@@ -899,7 +916,6 @@ with st.container():
                         my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                         
                         if not my_saved_data.empty:
-                            # ✅ 최신 이력이 맨 위로 올라오도록 정렬
                             my_saved_data = my_saved_data.sort_values(by='Time', ascending=False)
                             
                             col_title, col_btn_save, col_btn_del = st.columns([0.6, 0.2, 0.2])
@@ -911,7 +927,6 @@ with st.container():
                                 df_display['User Comment'] = ""
                             df_display['User Comment'] = df_display['User Comment'].fillna("")
                             
-                            # ✅ User Comment 컬럼을 Time 바로 뒤로 전진 배치하여 가시성 확보
                             core_cols = ['Time', 'User Comment', 'Cathode', 'Anode']
                             other_cols = [c for c in df_display.columns if c not in core_cols]
                             df_display = df_display[core_cols + other_cols]
@@ -936,7 +951,7 @@ with st.container():
                             )
                             
                             with col_btn_save:
-                                if st.button("💾 사용자 코멘트 저장", type="secondary", use_container_width=True):
+                                if st.button("💾 코멘트 저장", type="secondary", use_container_width=True):
                                     current_comments = edited_df['User Comment'].tolist()
                                     
                                     if current_comments == original_comments:
@@ -982,5 +997,5 @@ with st.container():
                     else:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
-# 7. 푸터 (저작권 표시 변경)
+# 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
