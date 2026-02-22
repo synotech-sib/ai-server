@@ -11,6 +11,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import requests # ✅ 에러 없는 다이렉트 통신을 위한 표준 라이브러리
 
 # [PDF 라이브러리 예외 처리]
 try:
@@ -23,12 +24,6 @@ try:
     from streamlit_gsheets import GSheetsConnection
 except ImportError:
     GSheetsConnection = None
-
-# [Google Gemini 라이브러리 예외 처리]
-try:
-    import google.generativeai as genai
-except ImportError:
-    genai = None
 
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
@@ -277,7 +272,8 @@ default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None, 'chat_messages': []
+    'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
+    'show_bot': True 
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -335,8 +331,10 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        # ✅ 처음 사이트 진입 시 챗봇 무조건 활성화되도록 기본값(value=True) 강제 설정
-        bot_active = st.toggle("**💬 SynoBot 활성화**", value=True, key="bot_toggle_ui")
+        bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
+        if bot_active != st.session_state.show_bot:
+            st.session_state.show_bot = bot_active
+            st.rerun()
 
 st.markdown("---")
 
@@ -555,7 +553,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
 # -----------------------------------------------------------------------------
 # 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
-if bot_active:
+if st.session_state.get('show_bot', True):
     col_main, col_bot = st.columns([0.75, 0.25])
 else:
     col_main = st.container()
@@ -1069,7 +1067,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 에러 원천 차단형 프롬프트 모델
+# 🤖 시노봇 (SynoBot) AI 패널 - REST API 기반 (에러 원천 차단형)
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by Google Gemini.
@@ -1088,19 +1086,17 @@ Answer questions accurately and professionally in Korean based on the following 
 - Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
 """
 
-# ✅ 시노봇 첫 인사말 (API 전송 시 필터링하기 위한 상수)
+# 첫 인사말
 GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
 
 if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        if genai is None:
-            st.error("⚠️ `google-generativeai` 라이브러리가 설치되지 않았습니다. `requirements.txt` 업데이트 후 앱을 재부팅(Reboot) 해주세요.")
-        elif "GEMINI_API_KEY" not in st.secrets:
+        if "GEMINI_API_KEY" not in st.secrets:
             st.warning("⚠️ Streamlit Secrets에 `GEMINI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
         else:
-            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            api_key = st.secrets["GEMINI_API_KEY"]
             
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
@@ -1115,37 +1111,48 @@ if col_bot:
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
-                # AI 연산을 위한 완벽한 프롬프트 문자열 조립 (에러 원천 차단 방식)
-                full_prompt = f"[시스템 기본 지식]\n{SYSTEM_KNOWLEDGE}\n\n"
+                # AI 연산을 위한 완벽한 프롬프트 조립 (모든 정보를 텍스트 하나로 묶어 서버 에러 원천 차단)
+                full_prompt = f"[System Instruction]\n{SYSTEM_KNOWLEDGE}\n\n"
                 
                 if st.session_state.sim_result:
-                    full_prompt += f"[현재 유저의 시뮬레이션 상태]\n{st.session_state.sim_result}\n\n"
+                    full_prompt += f"[Current User's Simulation State]\n{st.session_state.sim_result}\n\n"
                 
-                full_prompt += "--- 이전 대화 기록 ---\n"
+                full_prompt += "--- Conversation History ---\n"
                 
-                # 인사말을 제외한 실제 대화 내역만 발췌
-                real_messages = [m for m in st.session_state.chat_messages if m["content"] != GREETING_MSG]
-                
-                # 방금 입력한 질문을 제외한 과거 대화 기록 추가
-                for msg in real_messages[:-1]: 
+                for msg in st.session_state.chat_messages:
+                    if msg["content"] == GREETING_MSG:
+                        continue
                     role_name = "User" if msg["role"] == "user" else "SynoBot"
                     full_prompt += f"{role_name}: {msg['content']}\n"
                     
-                full_prompt += f"\nUser: {prompt}\nSynoBot:"
+                full_prompt += "SynoBot:"
                 
                 try:
-                    # ✅ 라이브러리 버전에 상관없이 가장 안전한 모델 호출 방식
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    response = model.generate_content(full_prompt)
-                    bot_reply = response.text
+                    # ✅ 라이브러리 버전에 상관없이 100% 작동하는 다이렉트 REST API 통신
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
                     
-                    with st.chat_message("assistant"):
-                        st.markdown(bot_reply)
-                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                    payload = {
+                        "contents": [{
+                            "role": "user", 
+                            "parts": [{"text": full_prompt}]
+                        }]
+                    }
                     
+                    response = requests.post(url, json=payload, headers={'Content-Type': 'application/json'})
+                    
+                    if response.status_code == 200:
+                        res_data = response.json()
+                        bot_reply = res_data['candidates'][0]['content']['parts'][0]['text']
+                        
+                        with st.chat_message("assistant"):
+                            st.markdown(bot_reply)
+                        st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                    else:
+                        err_msg = response.json().get('error', {}).get('message', '알 수 없는 오류')
+                        st.error(f"구글 AI 서버 응답 오류: {err_msg}")
+                        
                 except Exception as e:
-                    st.error(f"AI 연산 중 오류가 발생했습니다. (상세 내역: {e})")
-                    st.info("💡 **조치방법:** GitHub의 requirements.txt 파일에 `google-generativeai>=0.7.0`이 있는지 확인 후, Streamlit 우측 상단 메뉴(⋮)에서 **[Reboot app]**을 클릭해 주세요.")
+                    st.error(f"통신 중 오류가 발생했습니다. (상세 내역: {str(e)})")
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
