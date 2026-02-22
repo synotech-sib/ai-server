@@ -11,6 +11,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import streamlit.components.v1 as components # 🔥 [추가] JS 제어 및 인쇄용 컴포넌트
 
 # [구글 시트 라이브러리 예외 처리]
 try:
@@ -145,8 +146,7 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
 
-# 🔥 [핵심 추가] 최고 관리자 비밀번호를 st.secrets에서 연동 (안전 보안) 🔥
-ADMIN_PW = st.secrets.get("ADMIN_PW", "synotech0773!")
+ADMIN_PW = st.secrets.get("ADMIN_PW", "Please_Set_Password_In_Secrets")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
@@ -1196,7 +1196,6 @@ with col_main:
 
                     print_clicked = btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True)
                     if print_clicked:
-                        import streamlit.components.v1 as components
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
@@ -1240,7 +1239,8 @@ if col_bot:
         chat_container = st.container(height=730, border=True) 
         
         with chat_container:
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+            # 🔥 [핵심 수정] 첫 줄 가림 방지 15px Spacer 공간 확보 🔥
+            st.markdown("<div id='chat-top-anchor' style='height: 15px; width: 100%;'></div>", unsafe_allow_html=True)
             
             if OpenAI is None:
                 st.error("⚠️ `openai` 라이브러리 설치가 필요합니다. `requirements.txt`에 `openai`를 추가 후 앱을 재시작 해주세요.")
@@ -1297,6 +1297,27 @@ if col_bot:
                         if display_content.startswith("- "): 
                             display_content = "\- " + display_content[2:]
                         st.markdown(display_content)
+            
+            # 🔥 [핵심 수정] 채팅 메시지 렌더링 직후 스크롤을 무조건 최상단으로 끌어올리는 JS 강제 주입 🔥
+            components.html("""
+                <script>
+                    setTimeout(function() {
+                        const doc = window.parent.document;
+                        const anchor = doc.getElementById('chat-top-anchor');
+                        if (anchor) {
+                            let parent = anchor.parentElement;
+                            while (parent) {
+                                const style = window.parent.getComputedStyle(parent);
+                                if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                                    parent.scrollTop = 0;
+                                    break;
+                                }
+                                parent = parent.parentElement;
+                            }
+                        }
+                    }, 100);
+                </script>
+            """, height=0)
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
