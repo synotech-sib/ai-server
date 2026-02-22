@@ -38,9 +38,10 @@ st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide")
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    /* 가로폭 컴팩트 제어 */
+    
+    /* 화면을 더 넓게 쓰도록 최대폭 확장 (10:70:20 레이아웃 최적화) */
     .main .block-container {
-        max-width: 1150px; 
+        max-width: 1500px !important; 
         padding-top: 2rem;
         padding-bottom: 2rem;
         margin: auto; 
@@ -66,7 +67,7 @@ st.markdown("""
         cursor: pointer !important;
     }
     
-    /* 지표 박스(stMetric) 4개 윗선 칼각 정렬 유지 */
+    /* 지표 박스(stMetric) 높이 통일 및 상단 정렬 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; 
         border: 1px solid #dee2e6; 
@@ -121,33 +122,25 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 🔥 [핵심 마법] 플로팅(Sticky) 100% 보장 로직 🔥 */
-    /* PC 화면(768px 이상)에서만 플로팅이 작동하여 모바일 화면 가림 현상 방지 */
+    /* 🔥 [핵심 마법] 스트림릿 한계를 부수는 Position: Fixed 영구 고정 기술 🔥 */
     @media (min-width: 768px) {
-        /* 우측 컬럼의 껍데기는 시뮬레이터 높이만큼 늘어나도록 내버려 둡니다. (미끄럼틀 역할) */
-        
-        /* 컬럼 안에 있는 '챗봇 내용물(VerticalBlock)'만 콕 집어서 화면에 고정시킵니다. */
-        div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"] {
-            position: -webkit-sticky !important;
-            position: sticky !important;
-            top: 2rem !important; /* 모니터 상단에서 2rem 띄워서 예쁘게 고정 */
-            
-            /* 고급스러운 독립 위젯(Widget) 디자인 적용 */
-            background-color: #ffffff;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px 15px 15px 15px;
-            box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.08); /* 은은한 그림자 */
-            
-            /* 챗봇 대화가 길어지면 위젯 안에서만 스크롤 되도록 제한 */
-            max-height: calc(100vh - 4rem) !important; 
-            overflow-y: auto !important; 
-            z-index: 999;
+        div[data-testid="column"]:has(#bot-fixed-anchor) {
+            position: fixed !important;
+            right: 0 !important;
+            top: 0 !important;
+            width: 350px !important; /* 챗봇 텍스트가 깨지지 않는 최적의 고정 너비 */
+            height: 100vh !important; /* 브라우저 화면 위아래 100% 꽉 채우기 */
+            background-color: #ffffff !important; /* 고급스러운 흰색 패널 */
+            border-left: 1px solid #e0e0e0 !important;
+            padding: 80px 20px 20px 20px !important; /* 상단 메뉴들과 안 겹치게 여백 확보 */
+            overflow-y: auto !important; /* 내용이 길면 패널 안에서만 스크롤 됨 */
+            z-index: 9999 !important; /* 모든 화면의 가장 최상단 위로 배치 */
+            box-shadow: -4px 0px 20px rgba(0, 0, 0, 0.08) !important; /* 은은한 그림자 효과 */
         }
         
-        /* 위젯 내부 미니 스크롤바 디자인 */
-        div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar { width: 5px; }
-        div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb { background-color: #c0c0c0; border-radius: 4px; }
+        /* 챗봇 패널 내부 미니 스크롤바 디자인 */
+        div[data-testid="column"]:has(#bot-fixed-anchor)::-webkit-scrollbar { width: 6px; }
+        div[data-testid="column"]:has(#bot-fixed-anchor)::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
     }
     
     .stChatInput { padding-bottom: 10px !important; }
@@ -583,15 +576,19 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 토글에 따른 75:25 화면 분할 & 우측 챗봇 구현)
+# 5. 시뮬레이터 본문 (✅ 10:70:20 레이아웃 전면 적용)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
-    # 토글 켜짐: 왼쪽 75% 시뮬레이터, 오른쪽 25% 챗봇
-    col_main, col_bot = st.columns([0.75, 0.25], gap="large")
+    # 사용자의 요청대로 완벽한 비율: 왼쪽 10%, 중앙 70%, 오른쪽 20% (챗봇이 20%일 때 글자가 안 깨지도록 CSS 강제 너비 적용)
+    col_left, col_main, col_bot = st.columns([0.1, 0.7, 0.2], gap="large")
 else:
-    # 토글 꺼짐: 100% 전체 화면 시뮬레이터
-    col_main = st.container()
+    # 챗봇을 끄면 본문이 넓게 확장됨
+    col_left, col_main = st.columns([0.1, 0.9], gap="large")
     col_bot = None
+
+with col_left:
+    # 왼쪽 빈 공간 (시선을 중앙으로 모아주는 역할 및 워터마크)
+    st.markdown("<div style='text-align: center; color: #bbb; font-weight: bold; margin-top: 10px; font-size: 13px; letter-spacing: 1px;'>SynoCore</div>", unsafe_allow_html=True)
 
 with col_main:
     with st.container(border=True):
@@ -1110,7 +1107,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 플로팅 적용
+# 🤖 시노봇 (SynoBot) AI 패널 - 영구 고정(Position: Fixed) 특수 기술 적용
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1133,8 +1130,8 @@ GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 
 
 if col_bot:
     with col_bot:
-        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심 타겟)
-        st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
+        # ✅ 시노봇 앵커 생성 (이 앵커가 있는 컬럼 전체를 브라우저 우측에 영구 고정)
+        st.markdown("<div id='bot-fixed-anchor'></div>", unsafe_allow_html=True)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
         if OpenAI is None:
