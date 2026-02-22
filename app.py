@@ -123,26 +123,27 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 🔥 [진짜 플로팅(Sticky) 완벽 적용] 🔥 
-       컬럼 껍데기는 늘어나게 냅두고, 그 안의 stVerticalBlock (내용물)에만 스티키를 적용합니다! */
-    div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"] {
-        position: -webkit-sticky !important;
-        position: sticky !important;
-        top: 2rem !important; /* 상단 여백 2rem 띄우기 */
-        height: fit-content !important;
-        max-height: calc(100vh - 4rem) !important; /* 모니터 높이에 맞게 조절 */
-        overflow-y: auto !important; /* 내용이 너무 길면 자체 스크롤 */
-        padding-right: 5px;
-        z-index: 999;
-    }
-    
-    /* 스크롤바 디자인 */
-    div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar {
-        width: 6px;
-    }
-    div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb {
-        background-color: #ccc;
-        border-radius: 4px;
+    /* 🔥 [진짜 반응형 플로팅(Sticky)] PC 화면(768px 이상)에서만 플로팅 작동 🔥 */
+    @media (min-width: 768px) {
+        div[data-testid="column"]:has(#bot-sticky-anchor) {
+            position: -webkit-sticky !important;
+            position: sticky !important;
+            top: 2rem !important; /* 상단에서 2rem 띄운 상태로 화면에 고정 */
+            align-self: flex-start !important; /* 부모 높이만큼 늘어나지 않게 강제 제한 */
+            height: calc(100vh - 4rem) !important; /* 브라우저 창 높이에 맞게 제한 */
+            overflow-y: auto !important; /* 내용이 길면 봇 안에서 스크롤 가능하게 */
+            padding-right: 5px;
+            z-index: 99;
+        }
+        
+        /* 봇 영역 미니 스크롤바 디자인 */
+        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar {
+            width: 6px;
+        }
+        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb {
+            background-color: #ccc;
+            border-radius: 4px;
+        }
     }
     
     .stChatInput { padding-bottom: 20px !important; }
@@ -1103,7 +1104,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 
+# 🤖 시노봇 (SynoBot) AI 패널 - 반응형 플로팅 완벽 적용
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1126,7 +1127,7 @@ GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 
 
 if col_bot:
     with col_bot:
-        # ✅ 시노봇 앵커 생성 (플로팅 고정 마법의 핵심 타겟)
+        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심)
         st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
