@@ -40,45 +40,24 @@ st.markdown("""
         margin: auto; 
     }
             
-    /* ==============================================================
-       ✅ 로고(타이틀)를 로그인 풀림 없는 Home 버튼으로 마개조하는 CSS
-       ============================================================== */
-    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        height: auto !important;
-        justify-content: flex-start !important;
-        align-items: baseline !important;
-        display: flex;
+    /* 원래의 텍스트 타이틀 디자인 복원 */
+    .header-container { display: flex; align-items: center; justify-content: flex-start; height: 60px; }
+    .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
+    .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
+    
+    /* ✅ 타이틀 위를 덮는 투명 홈 버튼 (마법의 오버레이) */
+    div.st-key-btn_home_overlay {
+        margin-top: -60px !important;
+        opacity: 0 !important;
+        z-index: 999 !important;
+        height: 60px !important;
+        width: 350px !important;
+        overflow: hidden !important;
     }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button p {
-        color: #1A729A !important;
-        font-size: 44px !important;
-        font-weight: 900 !important;
-        letter-spacing: -1px !important;
-        margin: 0 !important;
-        line-height: 1 !important;
-    }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button p::after {
-        content: " 1.7 (beta)";
-        color: #D35400 !important;
-        font-size: 20px !important;
-        font-weight: bold !important;
-        margin-left: 15px;
-        letter-spacing: 0px !important;
-        vertical-align: middle;
-    }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button:hover p {
-        color: #115372 !important;
-    }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button:hover p::after {
-        color: #a84300 !important;
-    }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button:focus {
-        outline: none !important;
-        box-shadow: none !important;
+    div.st-key-btn_home_overlay button {
+        height: 100% !important;
+        width: 100% !important;
+        cursor: pointer !important;
     }
     
     /* 지표 박스(stMetric) 높이 통일 */
@@ -128,6 +107,15 @@ st.markdown("""
     /* 슬라이더 패딩 및 소재추가 폰트 크기 조절 */
     div[data-testid="stSlider"] { padding-bottom: 10px; }
     div[data-testid="stExpander"] summary p { font-size: 13px !important; }
+    
+    /* 상단 기술 가이드(SynoBot) 토글 */
+    div[data-testid="stToggle"] {
+        background-color: #F4CE14; border: 1px solid #D4AC0D; padding: 0px 15px;
+        border-radius: 4px; height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 10px;
+    }
+    div[data-testid="stToggle"] > label {
+        margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -289,8 +277,9 @@ for key, val in default_vars.items():
 h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
-    # ✅ 타이틀을 완벽한 Home 버튼으로 변경 (클릭 시 상태 리셋 및 메인으로 이동)
-    if st.button("SynoCore Pro Max", key="btn_home_title"):
+    # ✅ 텍스트 원본 렌더링 후 그 위를 투명 버튼으로 덮는 최상급 기법 적용
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
+    if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False
         st.session_state.show_profile = False
         st.session_state.admin_view = None
@@ -335,6 +324,16 @@ with h_r:
         if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
             for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
+
+    t1, t2 = st.columns([1, 1])
+    with t2:
+        # ✅ 시노봇을 위한 우측 토글 세팅 (과거 Glossary 완전 대체)
+        toggle_label = "**💬 SynoBot (AI 설계 어시스턴트)**" if is_pro else "**💬 SynoBot (Pro Mode)**"
+        st.toggle(
+            toggle_label, 
+            key="show_bot",
+            disabled=not is_pro
+        )
 
 st.markdown("---")
 
@@ -550,9 +549,15 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문
+# 5. 시뮬레이터 본문 (✅ 시노봇(SynoBot) 적용을 위한 75:25 베이스캠프 구조)
 # -----------------------------------------------------------------------------
-with st.container():
+if st.session_state.get('show_bot', False):
+    col_main, col_bot = st.columns([0.75, 0.25])
+else:
+    col_main = st.container()
+    col_bot = None
+
+with col_main:
     with st.container(border=True):
         ws_badge = f" [Workspace: {st.session_state.workspace}]" if is_pro else ""
         st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
@@ -791,6 +796,7 @@ with st.container():
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
         sp5, c_5 = st.columns([0.03, 0.97])
         with c_5:
+            # 100% 가로폭 메인 버튼 유지
             btn_text = "🚀 RUN SIMULATION" if st.session_state.history else "🚀 RUN SIMULATION ㅡ 아직 시뮬레이션 이력이 없습니다. 실행 버튼을 눌러 주세요."
             run_clicked = st.button(btn_text, key="btn_run_m", use_container_width=True)
                     
@@ -1058,6 +1064,15 @@ with st.container():
                         st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
                     else:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
+
+# -----------------------------------------------------------------------------
+# 🤖 시노봇 (SynoBot) AI 패널 (준비중)
+# -----------------------------------------------------------------------------
+if col_bot:
+    with col_bot:
+        with st.container(border=True):
+            st.markdown("#### 🤖 SynoBot (Beta)")
+            st.info("시노봇 시스템 연동 준비 중입니다. 향후 이곳에서 배터리 설계 AI 컨설팅을 제공합니다.")
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
