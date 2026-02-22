@@ -6,4 +6,4 @@ fpdf
 openpyxl
 plotly
 st-gsheets-connection
-
+openai
