@@ -33,7 +33,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인 (전역 스크롤바 숨김 + 챗봇 들여쓰기 제거)
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 1.8 (beta)", layout="wide")
 
 st.markdown("""
     <style>
@@ -297,7 +297,7 @@ for key, val in default_vars.items():
 h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.8 (beta)</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False
         st.session_state.show_profile = False
