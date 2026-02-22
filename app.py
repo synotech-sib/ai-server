@@ -61,11 +61,10 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 🔥 [핵심 수정] 모든 버튼 텍스트 줄바꿈 방지 (어그러짐 해결) 🔥 */
     div[data-testid="stButton"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: none !important;
-        white-space: nowrap !important; /* 글자 잘림 방지 */
+        white-space: nowrap !important;
         padding: 0 5px !important;
     }
 
@@ -91,16 +90,15 @@ st.markdown("""
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; }
     
-    /* 🔥 [핵심 수정] 유저 이름도 줄바꿈 방지 🔥 */
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 15px; padding-right: 5px; white-space: nowrap; }
     
-    /* 🔥 [핵심 수정] 토글 우측 정렬 및 배경 투명화 🔥 */
+    /* 🔥 토글 완벽 우측 정렬 및 디자인 처리 🔥 */
     div[data-testid="stToggle"] {
         display: flex !important;
-        justify-content: flex-end !important; /* 우측 끝으로 밀어내기 */
+        justify-content: flex-end !important; /* 상위 컨테이너 우측 끝 밀착 */
         width: 100% !important;
         padding: 0px !important;
-        background-color: transparent !important; /* 노란 배경 제거 */
+        background-color: transparent !important; 
         border: none !important;
         margin-top: 5px !important;
     }
@@ -131,8 +129,12 @@ st.markdown("""
         width: 100% !important; 
     }
 
-    div[data-testid="stDataEditor"] th {
-        color: black !important;
+    /* 🔥 [핵심 수정] 데이터 에디터 헤더 텍스트 완전 검정색 강제 지정 🔥 */
+    div[data-testid="stDataEditor"] th, 
+    div[data-testid="stDataEditor"] th span, 
+    div[data-testid="stDataEditor"] th div {
+        color: #000000 !important;
+        font-weight: 800 !important;
     }
     
     </style>
@@ -312,7 +314,6 @@ with h_r:
         if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
-        # 🔥 [핵심 수정] 로그인 후 상단 버튼 비율 미세조정 (깨짐 방지) 🔥
         r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
         with r_name:
             st.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
@@ -323,7 +324,6 @@ with h_r:
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
 
-    # 🔥 [핵심 수정] 토글을 칼럼 없이 배치하여 flex-end CSS를 통해 완벽히 우측 끝으로 정렬 🔥
     bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
     if bot_active != st.session_state.show_bot:
         st.session_state.show_bot = bot_active
@@ -956,15 +956,18 @@ with col_main:
                                 original_comments = df_display['User Comment'].tolist()
                                 disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 
+                                st.caption("💡 **Tip:** 아래 테이블의 `📝 코멘트 입력` 열을 더블클릭하여 메모를 남기고 `Enter`를 누르면 클라우드에 자동 저장됩니다.")
+                                
+                                # 🔥 [핵심 수정] column_config 네이밍 직관적으로 변경 🔥
                                 edited_df = st.data_editor(
                                     df_display, 
                                     use_container_width=True, 
                                     hide_index=True,
                                     disabled=disabled_cols,
                                     column_config={
-                                        "Time": st.column_config.TextColumn("Time"),
+                                        "Time": st.column_config.TextColumn("Time", disabled=True),
                                         "User Comment": st.column_config.TextColumn(
-                                            "💬 사용자 코멘트 (더블클릭)", 
+                                            "📝 코멘트 입력 (더블클릭)", 
                                             help="실제 실험 결과(Real Wh/kg)나 개선사항 등을 자유롭게 기재하여 데이터 품질을 높여주세요.",
                                             width="large",
                                             required=False
