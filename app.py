@@ -66,7 +66,7 @@ st.markdown("""
         cursor: pointer !important;
     }
     
-    /* 지표 박스(stMetric) 높이 통일 및 상단 정렬 */
+    /* 지표 박스(stMetric) 4개 윗선 칼각 정렬 유지 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; 
         border: 1px solid #dee2e6; 
@@ -121,33 +121,33 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 🔥 [핵심 마법] Streamlit의 고질적인 컬럼 강제 늘림(Stretch) 박살내기 */
-    div[data-testid="stHorizontalBlock"] {
-        align-items: flex-start !important;
-    }
-
-    /* 🔥 독립적인 위젯 형태의 우측 플로팅 패널 디자인 (PC 전용) */
+    /* 🔥 [핵심 마법] 플로팅(Sticky) 100% 보장 로직 🔥 */
+    /* PC 화면(768px 이상)에서만 플로팅이 작동하여 모바일 화면 가림 현상 방지 */
     @media (min-width: 768px) {
-        div[data-testid="column"]:has(#bot-sticky-anchor) {
+        /* 우측 컬럼의 껍데기는 시뮬레이터 높이만큼 늘어나도록 내버려 둡니다. (미끄럼틀 역할) */
+        
+        /* 컬럼 안에 있는 '챗봇 내용물(VerticalBlock)'만 콕 집어서 화면에 고정시킵니다. */
+        div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"] {
             position: -webkit-sticky !important;
             position: sticky !important;
-            top: 2rem !important; /* 상단에서 약간 띄워서 고정 */
-            height: auto !important;
-            max-height: calc(100vh - 4rem) !important; /* 화면을 넘지 않도록 제한 */
-            overflow-y: auto !important; /* 봇 내부 스크롤 활성화 */
-            z-index: 999 !important;
+            top: 2rem !important; /* 모니터 상단에서 2rem 띄워서 예쁘게 고정 */
             
-            /* 깔끔한 독립 패널(위젯) 느낌을 주는 디자인 */
+            /* 고급스러운 독립 위젯(Widget) 디자인 적용 */
             background-color: #ffffff;
             border: 1px solid #e0e0e0;
             border-radius: 12px;
-            padding: 20px 15px 15px 15px !important;
-            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.08);
+            padding: 20px 15px 15px 15px;
+            box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.08); /* 은은한 그림자 */
+            
+            /* 챗봇 대화가 길어지면 위젯 안에서만 스크롤 되도록 제한 */
+            max-height: calc(100vh - 4rem) !important; 
+            overflow-y: auto !important; 
+            z-index: 999;
         }
         
         /* 위젯 내부 미니 스크롤바 디자인 */
-        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar { width: 5px; }
-        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
+        div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar { width: 5px; }
+        div[data-testid="column"]:has(#bot-sticky-anchor) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb { background-color: #c0c0c0; border-radius: 4px; }
     }
     
     .stChatInput { padding-bottom: 10px !important; }
@@ -304,7 +304,7 @@ default_vars = {
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'show_bot': True, # 토글 초기값: 켜짐
+    'show_bot': True,
     'trigger_auto_bot': False 
 }
 for key, val in default_vars.items():
@@ -363,7 +363,6 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        # ✅ 토글 버튼 (켜면 우측에 패널 생성, 끄면 시뮬레이터가 100% 확장)
         bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
         if bot_active != st.session_state.show_bot:
             st.session_state.show_bot = bot_active
@@ -881,6 +880,7 @@ with col_main:
                 res = st.session_state.history[sel_idx]
                 
                 st.markdown("---")
+                
                 r1, r2, r3, r4 = st.columns(4)
                 
                 delta_e = round(res['Wh/kg'] - v_te, 1)
@@ -1110,7 +1110,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 오른쪽에 완벽 고정되는 패널 레이아웃 적용
+# 🤖 시노봇 (SynoBot) AI 패널 - 플로팅 적용
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1133,7 +1133,7 @@ GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 
 
 if col_bot:
     with col_bot:
-        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심)
+        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심 타겟)
         st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
@@ -1147,10 +1147,12 @@ if col_bot:
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
+            # 화면에 기존 대화 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
+            # 🚀 RUN SIMULATION 버튼 클릭 시 발동하는 "자동 분석 로직"
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 
@@ -1175,6 +1177,7 @@ if col_bot:
                         except Exception as e:
                             st.error(f"자동 분석 중 오류가 발생했습니다: {str(e)}")
 
+            # 유저가 직접 입력하는 일반 채팅 로직
             if prompt := st.chat_input("시노봇에게 질문하기..."):
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
