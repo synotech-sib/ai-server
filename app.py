@@ -212,7 +212,6 @@ def send_verification_email(to_email, code):
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(sender_email, sender_password.replace(" ", "")) 
@@ -231,7 +230,6 @@ def send_welcome_email(to_email, user_name):
         msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(sender_email, sender_password.replace(" ", "")) 
@@ -241,7 +239,7 @@ def send_welcome_email(to_email, user_name):
     except Exception: return False
 
 # -----------------------------------------------------------------------------
-# 유틸리티 (물리 엔진)
+# 유틸리티 (물리 엔진 및 데이터 연동)
 # -----------------------------------------------------------------------------
 def get_dqdv(cat_sel, v_tc, m_df=None):
     v_axis = np.linspace(2.0, 4.2, 150); dqdv = np.zeros_like(v_axis); p1, p2 = 3.15, 0.0 
@@ -280,6 +278,32 @@ def load_user_history(email, workspace="material_list"):
         return hist[::-1]
     except: return []
 
+# 🔥 [옵션 B 추가] 시노봇 채팅 로그 클라우드 저장 헬퍼 함수 🔥
+def save_chat_log(email, workspace, role, content):
+    if GSheetsConnection is None or not email: return
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        try:
+            chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=600)
+        except Exception:
+            chat_df = pd.DataFrame(columns=["Time", "Email", "Workspace", "Role", "Message"])
+            
+        new_row = pd.DataFrame([{
+            "Time": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
+            "Email": email,
+            "Workspace": workspace,
+            "Role": role,
+            "Message": content
+        }])
+        
+        if chat_df.empty:
+            conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=new_row)
+        else:
+            updated_df = pd.concat([chat_df, new_row], ignore_index=True)
+            conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=updated_df)
+        st.cache_data.clear()
+    except Exception: pass
+
 # -----------------------------------------------------------------------------
 # 4. 세션 초기화 및 헤더 모듈 
 # -----------------------------------------------------------------------------
@@ -289,7 +313,7 @@ default_vars = {
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True, 'trigger_auto_bot': False, 'trigger_bot_reply': False,
-    'bot_user_input': "" # 🔥 입력창 강제 초기화를 위한 세션 스테이트 추가
+    'bot_user_input': "" 
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -300,11 +324,8 @@ h_l, h_r = st.columns([0.72, 0.28], gap="small")
 with h_l:
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
-        st.session_state.show_reg = False
-        st.session_state.show_profile = False
-        st.session_state.admin_view = None
-        st.session_state.admin_ws = None
-        st.rerun()
+        st.session_state.show_reg = False; st.session_state.show_profile = False
+        st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
 with h_r:
     is_pro = st.session_state.logged_in
@@ -323,8 +344,7 @@ with h_r:
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall', 'user_tier': 'Admin'})
-                        st.session_state.history = load_user_history(u_id_clean, 'material_overall')
-                        st.rerun()
+                        st.session_state.history = load_user_history(u_id_clean, 'material_overall'); st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                         if not valid.empty:
@@ -337,15 +357,13 @@ with h_r:
                                 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
                                 'user_tier': tier_str
                             });
-                            st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
-                            st.rerun()
+                            st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace); st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
         r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
-        with r_name:
-            st.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({st.session_state.user_tier})</div>', unsafe_allow_html=True)
+        with r_name: st.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({st.session_state.user_tier})</div>', unsafe_allow_html=True)
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
@@ -355,8 +373,7 @@ with h_r:
 
     bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
     if bot_active != st.session_state.show_bot:
-        st.session_state.show_bot = bot_active
-        st.rerun()
+        st.session_state.show_bot = bot_active; st.rerun()
 
 st.markdown("---")
 
@@ -367,7 +384,9 @@ if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
-            a1, a2, a3, a4 = st.columns(4)
+            
+            # 🔥 [옵션 B 추가] 챗봇 로그 DB 버튼 신설 (5열 배치) 🔥
+            a1, a2, a3, a4, a5 = st.columns(5)
             
             if a1.button("👥 유저 관리 DB", use_container_width=True):
                 st.session_state.admin_view = None if st.session_state.admin_view == 'users' else 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
@@ -377,6 +396,8 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.session_state.admin_view = None if st.session_state.admin_view == 'param' else 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
             if a4.button("💾 로그 DB", use_container_width=True):
                 st.session_state.admin_view = None if st.session_state.admin_view == 'logs' else 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
+            if a5.button("💬 챗봇 로그 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'chat' else 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
 
             if st.session_state.admin_view:
                 st.markdown("---")
@@ -386,6 +407,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 elif st.session_state.admin_view == 'mats': target_url = URL_MATS; ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
                 elif st.session_state.admin_view == 'param': target_url = URL_PARAM; ws_options = ["param_config"]
                 elif st.session_state.admin_view == 'logs': target_url = URL_LOGS; ws_options = ["myData"]
+                elif st.session_state.admin_view == 'chat': target_url = URL_LOGS; ws_options = ["ChatLogs"] # 🔥 옵션 B 맵핑
                 
                 if len(ws_options) > 1:
                     sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
@@ -417,7 +439,6 @@ if is_pro and st.session_state.get('is_admin', False):
                             df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else 'Pro')
                             display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
                             df_display = df_display[[c for c in display_order if c in df_display.columns]]
-                            
                             edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
                             if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                                 try:
@@ -437,7 +458,6 @@ if is_pro and st.session_state.get('is_admin', False):
                             other_cols = [c for c in original_cols if c not in front_cols]
                             df_display = df_display[front_cols + other_cols]
                             df_display = df_display.iloc[::-1].reset_index(drop=True)
-                            
                             edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_logs")
                             if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                                 try:
@@ -451,10 +471,14 @@ if is_pro and st.session_state.get('is_admin', False):
                                 except Exception as e: st.error(f"저장 중 오류 발생: {e}")
                         
                         elif st.session_state.admin_view != 'users':
-                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_other")
+                            if st.session_state.admin_view == 'chat': 
+                                if not df_display.empty: df_display = df_display.iloc[::-1].reset_index(drop=True)
+                                
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
                             if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                                 try:
                                     save_df = edited_df.copy()
+                                    if st.session_state.admin_view == 'chat' and not save_df.empty: save_df = save_df.iloc[::-1].reset_index(drop=True)
                                     if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
                                     edited_df_safe = save_df.fillna("")
                                     conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
@@ -732,7 +756,8 @@ with col_main:
                     cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
-                    log_data = {"Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel, "Cap(mAh/g)": round(v_cap, 1), "Volt(V)": round(v_volt, 2), "Load(mg)": round(v_load, 1), "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc, "Wh/kg": round(res_whkg, 1), "Wh/L": round(whl, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv}
+                    # 🔥 [옵션 A 추가] AI_Briefing 저장을 위한 빈 값 추가 🔥
+                    log_data = {"Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel, "Cap(mAh/g)": round(v_cap, 1), "Volt(V)": round(v_volt, 2), "Load(mg)": round(v_load, 1), "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc, "Wh/kg": round(res_whkg, 1), "Wh/L": round(whl, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Briefing": ""}
                     
                     is_dup = False
                     if st.session_state.history:
@@ -829,6 +854,7 @@ with col_main:
                                 st.warning("이미 저장된 결과입니다.")
                             else:
                                 save_record = res.copy(); save_record['Email'] = st.session_state.user_email; save_record['Workspace'] = st.session_state.workspace; save_record['User Comment'] = ""; save_record.pop('dq_x', None); save_record.pop('dq_y', None)
+                                # 🔥 [옵션 A 작동] AI_Briefing이 포함된 채로 db_df에 병합 및 저장 완료 🔥
                                 conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True)); st.cache_data.clear(); st.success("저장 완료!"); st.rerun() 
                         except Exception as e: st.error("저장 오류")
 
@@ -860,19 +886,20 @@ Answer questions accurately and professionally in Korean based on SIB knowledge.
 - 모든 답변은 도트 블릿('- ')을 사용하여 핵심을 명확히 나열하십시오.
 """
 
-# 🔥 [핵심 추가] 입력창 강제 초기화(콜백 함수) 탑재 - 잔여 입력값 방지 🔥
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
     if user_input.strip():
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
+        
+        # 🔥 [옵션 B 작동] 유저 질문 클라우드 저장 🔥
+        save_chat_log(st.session_state.user_email, st.session_state.workspace, "User", user_input)
+        
         st.session_state.trigger_bot_reply = True
         st.session_state.bot_user_input = "" 
 
 if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
-        
-        # 🔥 [핵심 수정] st.form 구조 완전 폐기 및 on_change 콜백 연동으로 엔터 입력 지원 🔥
         c_in1, c_in2 = st.columns([0.75, 0.25])
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
@@ -894,7 +921,15 @@ if col_bot:
                         with st.spinner("분석 중..."):
                             try:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
-                                st.session_state.chat_messages.append({"role": "assistant", "content": "📊 **[AI 진단]**\n\n" + reply})
+                                bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
+                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                                
+                                # 🔥 [옵션 A 작동] 방금 시뮬레이션 히스토리(history[0])에 AI 브리핑 내용 즉시 매핑 🔥
+                                if st.session_state.history:
+                                    st.session_state.history[0]["AI_Briefing"] = bot_reply
+                                
+                                # 🔥 [옵션 B 작동] 시노봇 자동 브리핑 내역 클라우드 저장 🔥
+                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_Auto", bot_reply)
                             except Exception: pass
                     st.rerun()
 
@@ -907,6 +942,9 @@ if col_bot:
                             try:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                                
+                                # 🔥 [옵션 B 작동] 시노봇 일반 답변 내역 클라우드 저장 🔥
+                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                             except Exception: pass
                     st.rerun()
 
