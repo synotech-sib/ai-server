@@ -31,9 +31,9 @@ except ImportError:
     OpenAI = None
 
 # -----------------------------------------------------------------------------
-# 1. 페이지 설정 및 디자인 (사이드바 기본 열림 설정)
+# 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="SynoCore Pro Max 1.7 (beta)", layout="wide")
 
 st.markdown("""
     <style>
@@ -51,7 +51,7 @@ st.markdown("""
     .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
     
-    /* 타이틀 위를 덮는 투명 홈 버튼 (마법의 오버레이) */
+    /* 타이틀 위를 덮는 투명 홈 버튼 */
     div.st-key-btn_home_overlay {
         margin-top: -60px !important;
         opacity: 0 !important;
@@ -66,7 +66,7 @@ st.markdown("""
         cursor: pointer !important;
     }
     
-    /* ✅ 지표 박스(stMetric) 4개 윗선 칼각 정렬 및 높이 유지 */
+    /* 지표 박스(stMetric) 높이 통일 및 상단 정렬 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; 
         border: 1px solid #dee2e6; 
@@ -75,7 +75,7 @@ st.markdown("""
         height: 120px; 
         display: flex;
         flex-direction: column;
-        justify-content: flex-start; /* 상단 기준 정렬 */
+        justify-content: flex-start; 
     }
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
@@ -88,7 +88,6 @@ st.markdown("""
         width: 100%; border: none !important; margin-top: 0px !important;
     }
     
-    /* PDF 다운로드 버튼 색상 */
     div[data-testid="stDownloadButton"] > button {
         height: 40px !important; background-color: #FFCA28 !important; 
         color: #222 !important; 
@@ -110,11 +109,10 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; padding-right: 15px; }
     
-    /* 슬라이더 패딩 및 소재추가 폰트 크기 조절 */
     div[data-testid="stSlider"] { padding-bottom: 10px; }
     div[data-testid="stExpander"] summary p { font-size: 13px !important; }
     
-    /* 상단 기술 가이드(SynoBot) 토글 */
+    /* 상단 토글버튼 디자인 */
     div[data-testid="stToggle"] {
         background-color: #F4CE14; border: 1px solid #D4AC0D; padding: 0px 15px;
         border-radius: 4px; height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 10px;
@@ -123,8 +121,36 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* 시노봇 채팅창 하단 여백 확보 */
-    .stChatInput { padding-bottom: 20px !important; }
+    /* 🔥 [핵심 마법] Streamlit의 고질적인 컬럼 강제 늘림(Stretch) 박살내기 */
+    div[data-testid="stHorizontalBlock"] {
+        align-items: flex-start !important;
+    }
+
+    /* 🔥 독립적인 위젯 형태의 우측 플로팅 패널 디자인 (PC 전용) */
+    @media (min-width: 768px) {
+        div[data-testid="column"]:has(#bot-sticky-anchor) {
+            position: -webkit-sticky !important;
+            position: sticky !important;
+            top: 2rem !important; /* 상단에서 약간 띄워서 고정 */
+            height: auto !important;
+            max-height: calc(100vh - 4rem) !important; /* 화면을 넘지 않도록 제한 */
+            overflow-y: auto !important; /* 봇 내부 스크롤 활성화 */
+            z-index: 999 !important;
+            
+            /* 깔끔한 독립 패널(위젯) 느낌을 주는 디자인 */
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px 15px 15px 15px !important;
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* 위젯 내부 미니 스크롤바 디자인 */
+        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar { width: 5px; }
+        div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
+    }
+    
+    .stChatInput { padding-bottom: 10px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -278,7 +304,7 @@ default_vars = {
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'show_bot': True,
+    'show_bot': True, # 토글 초기값: 켜짐
     'trigger_auto_bot': False 
 }
 for key, val in default_vars.items():
@@ -337,6 +363,7 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
+        # ✅ 토글 버튼 (켜면 우측에 패널 생성, 끄면 시뮬레이터가 100% 확장)
         bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
         if bot_active != st.session_state.show_bot:
             st.session_state.show_bot = bot_active
@@ -557,9 +584,15 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 사이드바 적용으로 레이아웃 전면 개편)
+# 5. 시뮬레이터 본문 (✅ 토글에 따른 75:25 화면 분할 & 우측 챗봇 구현)
 # -----------------------------------------------------------------------------
-col_main = st.container()
+if st.session_state.get('show_bot', True):
+    # 토글 켜짐: 왼쪽 75% 시뮬레이터, 오른쪽 25% 챗봇
+    col_main, col_bot = st.columns([0.75, 0.25], gap="large")
+else:
+    # 토글 꺼짐: 100% 전체 화면 시뮬레이터
+    col_main = st.container()
+    col_bot = None
 
 with col_main:
     with st.container(border=True):
@@ -848,8 +881,6 @@ with col_main:
                 res = st.session_state.history[sel_idx]
                 
                 st.markdown("---")
-                
-                # ✅ [핵심 유지] 결과값 4개 윗선 정렬 및 Delta(차이값) 상시 노출 적용
                 r1, r2, r3, r4 = st.columns(4)
                 
                 delta_e = round(res['Wh/kg'] - v_te, 1)
@@ -1079,7 +1110,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 공식 사이드바(Sidebar) 완벽 적용
+# 🤖 시노봇 (SynoBot) AI 패널 - 오른쪽에 완벽 고정되는 패널 레이아웃 적용
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1098,15 +1129,16 @@ Answer questions accurately and professionally in Korean based on the following 
 - Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
 """
 
-GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 우측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
+GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
 
-# ✅ 우측 컬럼에서 좌측 "사이드바"로 시노봇 UI 이동 (플로팅 + 모바일 최적화 완벽 보장)
-if st.session_state.show_bot:
-    with st.sidebar:
-        st.markdown("### 🤖 SynoBot (Beta)")
+if col_bot:
+    with col_bot:
+        # ✅ 시노봇 앵커 생성 (플로팅 마법의 핵심)
+        st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
+        st.markdown("#### 🤖 SynoBot (Beta)")
         
         if OpenAI is None:
-            st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt` 업데이트 후 앱을 Reboot 해주세요.")
+            st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 `openai`를 추가 후 앱을 Reboot 해주세요.")
         elif "OPENAI_API_KEY" not in st.secrets:
             st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
         else:
@@ -1115,12 +1147,10 @@ if st.session_state.show_bot:
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
-            # 화면에 기존 대화 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
-            # 🚀 RUN SIMULATION 버튼 클릭 시 발동하는 "자동 분석 로직"
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 
@@ -1145,7 +1175,6 @@ if st.session_state.show_bot:
                         except Exception as e:
                             st.error(f"자동 분석 중 오류가 발생했습니다: {str(e)}")
 
-            # 유저가 직접 입력하는 일반 채팅 로직
             if prompt := st.chat_input("시노봇에게 질문하기..."):
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
