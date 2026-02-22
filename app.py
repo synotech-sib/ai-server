@@ -93,7 +93,7 @@ st.markdown("""
     }
     div[data-testid="stToggle"] > label { margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center; }
     
-    /* 🔥 [핵심 1] 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
+    /* 🔥 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
         scrollbar-width: none !important; /* Firefox */
         -ms-overflow-style: none !important;  /* IE and Edge */
@@ -102,19 +102,19 @@ st.markdown("""
         display: none !important; /* Chrome, Safari */
     }
 
-    /* 🔥 [핵심 2] 챗봇 들여쓰기 제거 (아바타 아래로 텍스트 분리) 🔥 */
+    /* 🔥 챗봇 들여쓰기 제거 (아바타 아래로 텍스트 분리) 🔥 */
     div[data-testid="stChatMessage"] {
         display: flex !important;
-        flex-direction: column !important; /* 가로 배치를 세로 배치로 강제 변경 */
+        flex-direction: column !important;
         align-items: flex-start !important;
         gap: 5px !important;
         padding: 10px !important;
     }
     div[data-testid="stChatMessage"] > div:first-child { margin-bottom: 5px !important; }
     div[data-testid="stChatMessage"] > div:nth-child(2) {
-        margin-left: 0px !important; /* 들여쓰기 0 */
+        margin-left: 0px !important;
         padding-left: 0px !important;
-        width: 100% !important; /* 폭을 100% 활용 */
+        width: 100% !important; 
     }
     
     </style>
@@ -277,65 +277,65 @@ for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# ✅ 상단 헤더 박스는 [1 : 1] 비율. 우측 영역(h_r) 안에서 또 [1:1]로 나누므로 
-# 계정가입 버튼(c2)이 전체 화면의 정확히 25% 폭을 가짐
-h_l, h_r = st.columns([1, 1]) 
+# 🔥 [수정 1] 상/하단 폭 완벽 동기화를 위해 Header를 3분할로 변경 (0.02 : 0.70 : 0.28) 🔥
+h_empty, h_main, h_bot = st.columns([0.02, 0.70, 0.28], gap="large")
 
-with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
-    if st.button("홈으로", key="btn_home_overlay"):
-        st.session_state.show_reg = False
-        st.session_state.show_profile = False
-        st.session_state.admin_view = None
-        st.session_state.admin_ws = None
-        st.rerun()
-
-with h_r:
-    is_pro = st.session_state.logged_in
-    
-    if not is_pro:
-        c1, c2 = st.columns([1, 1])
-        with c1.popover("Login", use_container_width=True):
-            with st.form("login_form", border=False):
-                u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
-                u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
-                submit_login = st.form_submit_button("로그인", use_container_width=True)
-                
-                if submit_login:
-                    df_u = get_user_db()
-                    u_id_clean = u_id.strip().lower()
-                    hashed_pw = hash_password(u_pw) if u_pw else ""
+with h_main:
+    # 타이틀과 로그인 버튼을 메인 패널(0.70) 안에서 분할
+    hc_title, hc_login = st.columns([0.85, 0.15])
+    with hc_title:
+        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
+        if st.button("홈으로", key="btn_home_overlay"):
+            st.session_state.show_reg = False
+            st.session_state.show_profile = False
+            st.session_state.admin_view = None
+            st.session_state.admin_ws = None
+            st.rerun()
+    with hc_login:
+        is_pro = st.session_state.logged_in
+        if not is_pro:
+            with st.popover("Login", use_container_width=True):
+                with st.form("login_form", border=False):
+                    u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
+                    u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
+                    submit_login = st.form_submit_button("로그인", use_container_width=True)
                     
-                    if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
-                        st.session_state.history = load_user_history(u_id_clean, 'material_overall')
-                        st.rerun()
-                    else:
-                        valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
-                        if not valid.empty:
-                            domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                            st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
-                            st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
+                    if submit_login:
+                        df_u = get_user_db()
+                        u_id_clean = u_id.strip().lower()
+                        hashed_pw = hash_password(u_pw) if u_pw else ""
+                        
+                        if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
+                            st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall'})
+                            st.session_state.history = load_user_history(u_id_clean, 'material_overall')
                             st.rerun()
-                        else: st.error("아이디 또는 비밀번호를 확인해주세요.")
-        
-        # c2는 전체 화면의 정확히 우측 끝 25% 폭
-        if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
+                        else:
+                            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
+                            if not valid.empty:
+                                domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
+                                st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list'});
+                                st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
+                                st.rerun()
+                            else: st.error("아이디 또는 비밀번호를 확인해주세요.")
+        else:
+            st.markdown(f'<div class="user-greeting" style="padding-top:10px;">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+
+with h_bot:
+    # 우측 패널(0.28)에 가입/프로필 버튼과 토글을 배치하여 하단 시노봇(0.28)과 폭을 완전히 일치시킴
+    if not is_pro:
+        if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
-        r_name, r_my, r_out = st.columns([2, 1, 1])
-        r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
+        r_my, r_out = st.columns(2)
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
             for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
-
-    t1, t2 = st.columns([1, 1])
-    with t2:
-        bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
-        if bot_active != st.session_state.show_bot:
-            st.session_state.show_bot = bot_active
-            st.rerun()
+            
+    bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
+    if bot_active != st.session_state.show_bot:
+        st.session_state.show_bot = bot_active
+        st.rerun()
 
 st.markdown("---")
 
@@ -452,20 +452,20 @@ if is_pro and st.session_state.get('is_admin', False):
                     st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 0.05 : 0.70 : 0.25 완벽한 폭 일치 적용)
+# 5. 시뮬레이터 본문 (🔥 상단 헤더와 동일하게 0.02 : 0.70 : 0.28 적용 🔥)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
-    # 우측 시노봇을 상단 계정가입 버튼과 동일하게 정확히 25%로 맞춤
-    col_left, col_main, col_bot = st.columns([0.05, 0.70, 0.25], gap="large")
+    col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="large")
 else:
-    col_left, col_main = st.columns([0.05, 0.95], gap="large")
+    col_left, col_main = st.columns([0.02, 0.98], gap="large")
     col_bot = None
 
 with col_left:
-    st.markdown("<div style='text-align: center; color: #bbb; font-weight: bold; margin-top: 10px; font-size: 13px; letter-spacing: 1px;'>SynoCore</div>", unsafe_allow_html=True)
+    # 🔥 [수정 2] "SynoCore" 텍스트 삭제 및 왼쪽 폭 0.05 -> 0.02 축소 반영 완료
+    st.empty() 
 
 with col_main:
-    # ✅ [수정 완료] 계정 가입 및 정보 수정 폼을 메인 패널(70% 폭) 안으로 이동
+    # 🔥 [수정 3] 계정 가입 및 정보 수정 폼을 메인 패널(70% 폭) 안으로 이동 🔥
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode) <span style="font-size:15px; color:#666; font-weight:normal; letter-spacing:0px; margin-left:10px;">아래 사항 모두 기입해 주시면 감사하겠습니다.</span></p>', unsafe_allow_html=True)
@@ -863,6 +863,7 @@ with col_main:
                     delta_l = res['Life(Cyc)'] - v_tl
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{delta_l:+} Cyc (vs Target)")
                     
+                    # ✅ [핵심 3] 결과값 하단 한 줄 여유 추가 (답답함 해소)
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     
                     g1, g2, g3 = st.columns(3)
@@ -897,6 +898,7 @@ with col_main:
                         """, unsafe_allow_html=True)
                         
                     with g3:
+                        # ✅ [핵심 4] 레이더 차트 이름 변경 (Radar 단어 삭제)
                         st.markdown('<p class="sub-header-bold" style="text-align: center;">Cell Performance</p>', unsafe_allow_html=True)
                         categories = ['Energy(Wh/kg)', 'Power(C-rate)', 'Life(Cycle)', 'Voltage(V)', 'Loading(mg)']
                         r_vals = [
@@ -998,7 +1000,7 @@ with col_main:
                             if not my_saved_data.empty:
                                 my_saved_data = my_saved_data.sort_values(by='Time', ascending=False)
                                 
-                                col_title, col_btn_del = st.columns([0.8, 0.2])
+                                col_title, col_btn_save, col_btn_del = st.columns([0.6, 0.2, 0.2])
                                 with col_title:
                                     st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
                                 
@@ -1012,35 +1014,45 @@ with col_main:
                                 df_display = df_display[core_cols + other_cols]
                                 df_display.insert(0, "선택", False)
                                 
-                                # 코멘트 자동저장 콜백
-                                def on_editor_change():
-                                    if st.session_state.get('log_editor') and 'edited_rows' in st.session_state.log_editor:
-                                        changes = st.session_state.log_editor['edited_rows']
-                                        if changes:
-                                            conn_u = st.connection("gsheets", type=GSheetsConnection)
-                                            db_u = conn_u.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
-                                            for row_idx_str, col_updates in changes.items():
-                                                row_idx = int(row_idx_str)
-                                                target_time = df_display.iloc[row_idx]['Time']
-                                                if "User Comment" in col_updates:
-                                                    new_comment = col_updates["User Comment"]
-                                                    mask = (db_u['Email'] == st.session_state.user_email) & (db_u.get('Workspace') == st.session_state.workspace) & (db_u['Time'] == target_time)
-                                                    if mask.any(): db_u.loc[mask, 'User Comment'] = new_comment
-                                            conn_u.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_u)
-                                            st.cache_data.clear()
-                                            
+                                original_comments = df_display['User Comment'].tolist()
+                                
+                                disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 edited_df = st.data_editor(
                                     df_display, 
-                                    key="log_editor",
                                     use_container_width=True, 
                                     hide_index=True,
-                                    disabled=[c for c in df_display.columns if c not in ["선택", "User Comment"]],
-                                    on_change=on_editor_change,
+                                    disabled=disabled_cols,
                                     column_config={
-                                        "User Comment": st.column_config.TextColumn("💬 사용자 코멘트 (더블클릭)", width="large")
+                                        "User Comment": st.column_config.TextColumn(
+                                            "💬 사용자 코멘트 (더블클릭)", 
+                                            help="실제 실험 결과(Real Wh/kg)나 개선사항 등을 자유롭게 기재하여 데이터 품질을 높여주세요.",
+                                            width="large",
+                                            required=False
+                                        )
                                     }
                                 )
-                                st.caption("ℹ️ 셀 색상이 지정된 '사용자 코멘트' 칸을 더블클릭하여 내용을 수정하고 바깥 영역을 누르면 **자동으로 클라우드에 저장**됩니다.")
+                                
+                                with col_btn_save:
+                                    if st.button("💾 사용자 코멘트 저장", type="secondary", use_container_width=True):
+                                        current_comments = edited_df['User Comment'].tolist()
+                                        
+                                        if current_comments == original_comments:
+                                            st.warning("수정되거나 추가된 코멘트가 없습니다.")
+                                        else:
+                                            if 'User Comment' not in db_df_all.columns:
+                                                db_df_all['User Comment'] = ""
+                                            
+                                            for idx, row in edited_df.iterrows():
+                                                mask = (db_df_all['Email'] == st.session_state.user_email) & \
+                                                       (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
+                                                       (db_df_all['Time'] == row['Time'])
+                                                if mask.any():
+                                                    db_df_all.loc[mask, 'User Comment'] = row['User Comment']
+                                            
+                                            conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all)
+                                            st.cache_data.clear()
+                                            st.success("코멘트가 성공적으로 저장되었습니다.")
+                                            st.rerun()
 
                                 with col_btn_del:
                                     selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
@@ -1052,6 +1064,7 @@ with col_main:
                                                      (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
                                                      (db_df_all['Time'].isin(selected_times)))
                                             updated_db = db_df_all[mask]
+                                            
                                             conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
                                             st.cache_data.clear() 
                                             st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
@@ -1069,11 +1082,35 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
+# 🔥 [핵심 5] 엔지니어 스타일 브리핑 시스템 프롬프트 업데이트 🔥
+SYSTEM_KNOWLEDGE = """
+You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
+Answer questions accurately and professionally in Korean based on the following SIB knowledge:
+- Active Ratio (%): Trade-off between energy (requires 96-98%) and power (requires <90% with more conductive agent).
+- Anode: SIB uses Hard Carbon instead of Graphite due to larger Na+ size. Storage involves sloping and plateau regions.
+- Anode Press Density: Hard carbon is fragile; limit is 1.0~1.2 g/cc. Higher causes particle cracking, lower reduces cycle life.
+- C-rate: Speed of charge/discharge. High C-rate causes overpotential (IR drop) reducing actual capacity.
+- Capacity (mAh/g): Specific capacity. SIB layered oxides typically have 120~160 mAh/g.
+- Cathode Press Density: Compressing cathode reduces volume for higher Wh/L. Too high causes zero porosity (dead cell) and particle cracking.
+- Cycle Life: Degrades due to SEI growth, phase transition, and micro-cracking.
+- E/C Ratio (g/Ah): High ratio improves cycle life but drops Wh/kg. Low ratio (<2.0) risks sudden death by electrolyte depletion.
+- N/P Ratio: Must be > 1.05 to prevent Na-Plating (dendrite short-circuit). >1.15 lowers energy density.
+- Porosity: Formula is (1 - Press Density / True Density) * 100. <20% causes poor wetting.
+
+[응답 스타일 필수 지침]
+- 반드시 SIB 수석 연구원(엔지니어)의 브리핑 스타일로 작성하십시오.
+- 서술형, 만연체 문장(~~습니다, ~~합니다)의 사용을 피하십시오.
+- 모든 답변은 도트 블릿('- ')을 사용하여 핵심만 명확히 나열하십시오.
+- 블릿 기호와 텍스트가 떨어지지 않도록 바로 붙여서 작성하십시오. (예시: - 나트륨 석출(Na-Plating) 위험 감지)
+"""
+
+GREETING_MSG = "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 시뮬레이터 결과 또는 SIB 설계 지식에 대해 질문해 주십시오."
+
 if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        chat_container = st.container(border=True) 
+        chat_container = st.container(height=800, border=True) 
         
         with chat_container:
             if OpenAI is None:
@@ -1084,12 +1121,38 @@ if col_bot:
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 
                 if not st.session_state.chat_messages:
-                    st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 시뮬레이터 결과 또는 SIB 설계 지식에 대해 질문해 주십시오."}]
+                    st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
                 for message in st.session_state.chat_messages:
                     with st.chat_message(message["role"]):
                         st.markdown(message["content"])
 
+                # 🚀 RUN SIMULATION 자동 분석 로직
+                if st.session_state.trigger_auto_bot and st.session_state.sim_result:
+                    st.session_state.trigger_auto_bot = False 
+                    
+                    auto_prompt = "방금 사용자가 새로운 파라미터로 시뮬레이션을 실행했습니다. 제공된 데이터를 분석하여 잘된 점, 개선점, 위험 요소를 도트 블릿('- ') 형태로 3~4줄 이내로 짧고 명확하게 브리핑해 주십시오."
+                    
+                    sys_prompt = SYSTEM_KNOWLEDGE
+                    sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
+                    
+                    api_messages = [{"role": "system", "content": sys_prompt}]
+                    api_messages.append({"role": "user", "content": auto_prompt})
+                    
+                    with st.chat_message("assistant"):
+                        with st.spinner("📊 실시간 데이터 분석 중..."):
+                            try:
+                                response = client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=api_messages
+                                )
+                                bot_reply = "📊 **[실시간 AI 진단]**\n\n" + response.choices[0].message.content
+                                st.markdown(bot_reply)
+                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                            except Exception as e:
+                                st.error(f"자동 분석 오류: {str(e)}")
+
+        # 채팅 입력창
         if prompt := st.chat_input("시노봇에게 질문하기..."):
             st.session_state.chat_messages.append({"role": "user", "content": prompt})
             st.rerun() 
@@ -1098,22 +1161,6 @@ if col_bot:
             prompt = st.session_state.chat_messages[-1]["content"]
             
             client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            
-            SYSTEM_KNOWLEDGE = """
-            You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
-            Answer questions accurately and professionally in Korean based on the following SIB knowledge:
-            - Active Ratio (%): Trade-off between energy (requires 96-98%) and power (requires <90% with more conductive agent).
-            - Anode: SIB uses Hard Carbon instead of Graphite due to larger Na+ size. Storage involves sloping and plateau regions.
-            - Anode Press Density: Hard carbon is fragile; limit is 1.0~1.2 g/cc. Higher causes particle cracking, lower reduces cycle life.
-            - C-rate: Speed of charge/discharge. High C-rate causes overpotential (IR drop) reducing actual capacity.
-            - Capacity (mAh/g): Specific capacity. SIB layered oxides typically have 120~160 mAh/g.
-            - Cathode Press Density: Compressing cathode reduces volume for higher Wh/L. Too high causes zero porosity (dead cell) and particle cracking.
-            - Cycle Life: Degrades due to SEI growth, phase transition, and micro-cracking.
-            - E/C Ratio (g/Ah): High ratio improves cycle life but drops Wh/kg. Low ratio (<2.0) risks sudden death by electrolyte depletion.
-            - N/P Ratio: Must be > 1.05 to prevent Na-Plating (dendrite short-circuit). >1.15 lowers energy density.
-            - Porosity: Formula is (1 - Press Density / True Density) * 100. <20% causes poor wetting.
-            """
-            
             sys_prompt = SYSTEM_KNOWLEDGE
             if st.session_state.sim_result:
                 sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
