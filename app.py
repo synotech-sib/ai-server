@@ -278,7 +278,7 @@ default_vars = {
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'show_bot': True # ✅ 플랫폼 접속 시 챗봇 무조건 활성화
+    'show_bot': True # ✅ 시노봇 초기화면 접속 시 무조건 켜지도록 강제 세팅
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -331,13 +331,12 @@ with h_r:
         r_name.markdown(f'<div class="user-greeting">{st.session_state.user_name} (Pro)</div>', unsafe_allow_html=True)
         if r_my.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         if r_out.button("Logout", key="btn_logout_m", use_container_width=True): 
-            # 로그아웃 시 챗봇 상태는 켜진 상태로 초기화 유지
             for key, val in default_vars.items(): st.session_state[key] = val
             st.rerun()
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        # ✅ 토글 라벨 변경 및 비로그인 유저도 마음껏 클릭할 수 있도록 세팅
+        # ✅ 토글 라벨 변경 (가입 전 유저에게도 항상 공개 및 활성화)
         st.toggle("**💬 SynoBot 활성화**", key="show_bot")
 
 st.markdown("---")
@@ -555,7 +554,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 75:25 시노봇 연동 레이아웃)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
     col_main, col_bot = st.columns([0.75, 0.25])
@@ -1071,7 +1070,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 (Gemini 최신버전 호환)
+# 🤖 시노봇 (SynoBot) AI 패널 (Gemini 탑재판)
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by Google Gemini.
@@ -1118,9 +1117,9 @@ if col_bot:
                     context_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                 
                 try:
-                    # ✅ 구형 라이브러리에서도 작동하도록 gemini-1.5-flash-latest 버전으로 호출
+                    # ✅ 안정적인 1.5 Flash 모델 호출 (최신버전 호환)
                     model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash-latest",
+                        model_name="gemini-1.5-flash",
                         system_instruction=context_prompt
                     )
                     
@@ -1138,7 +1137,7 @@ if col_bot:
                     st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                     
                 except Exception as e:
-                    # 1.5 지원 안 하는 버전을 위한 최후의 2중 안전장치
+                    # 1.5 지원 안 하는 버전을 위한 최후의 2중 안전장치 (구형 라이브러리 우회)
                     if "404" in str(e) or "not found" in str(e):
                         try:
                             fallback_model = genai.GenerativeModel("gemini-pro")
