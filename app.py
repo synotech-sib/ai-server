@@ -24,6 +24,12 @@ try:
 except ImportError:
     GSheetsConnection = None
 
+# [Google Gemini 라이브러리 예외 처리]
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
@@ -45,7 +51,7 @@ st.markdown("""
     .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
     .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
     
-    /* ✅ 타이틀 위를 덮는 투명 홈 버튼 (마법의 오버레이) */
+    /* 타이틀 위를 덮는 투명 홈 버튼 (마법의 오버레이) */
     div.st-key-btn_home_overlay {
         margin-top: -60px !important;
         opacity: 0 !important;
@@ -116,6 +122,9 @@ st.markdown("""
     div[data-testid="stToggle"] > label {
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
+    
+    /* 시노봇 채팅창 하단 여백 확보 */
+    .stChatInput { padding-bottom: 20px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -268,7 +277,7 @@ default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None
+    'admin_view': None, 'admin_ws': None, 'chat_messages': [] # 시노봇 채팅 기록
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -277,7 +286,6 @@ for key, val in default_vars.items():
 h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
-    # ✅ 텍스트 원본 렌더링 후 그 위를 투명 버튼으로 덮는 최상급 기법 적용
     st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False
@@ -327,7 +335,6 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        # ✅ 시노봇을 위한 우측 토글 세팅 (과거 Glossary 완전 대체)
         toggle_label = "**💬 SynoBot (AI 설계 어시스턴트)**" if is_pro else "**💬 SynoBot (Pro Mode)**"
         st.toggle(
             toggle_label, 
@@ -341,112 +348,113 @@ st.markdown("---")
 # 👑 [최고 관리자 전용 대시보드] 인라인 에디터
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
-    with st.container(border=True):
-        st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
-        a1, a2, a3, a4 = st.columns(4)
-        
-        if a1.button("👥 유저 관리 DB", use_container_width=True):
-            if st.session_state.admin_view == 'users': st.session_state.admin_view = None
-            else: st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'
-            st.rerun()
-        if a2.button("🔋 소재 DB", use_container_width=True):
-            if st.session_state.admin_view == 'mats': st.session_state.admin_view = None
-            else: st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'material_overall'
-            st.rerun()
-        if a3.button("⚙️ 파라미터 DB", use_container_width=True):
-            if st.session_state.admin_view == 'param': st.session_state.admin_view = None
-            else: st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'
-            st.rerun()
-        if a4.button("💾 로그 DB", use_container_width=True):
-            if st.session_state.admin_view == 'logs': st.session_state.admin_view = None
-            else: st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'
-            st.rerun()
-
-        if st.session_state.admin_view:
-            st.markdown("---")
-            st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
+    if st.session_state.admin_view is not None or st.session_state.show_profile is False:
+        with st.container(border=True):
+            st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+            a1, a2, a3, a4 = st.columns(4)
             
-            if st.session_state.admin_view == 'users':
-                target_url = URL_USERS
-                ws_options = ["Users", "VIPs"]
-            elif st.session_state.admin_view == 'mats':
-                target_url = URL_MATS
-                ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
-            elif st.session_state.admin_view == 'param':
-                target_url = URL_PARAM
-                ws_options = ["param_config"]
-            elif st.session_state.admin_view == 'logs':
-                target_url = URL_LOGS
-                ws_options = ["myData"]
-            
-            if len(ws_options) > 1:
-                sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
-                if sel_ws_admin != st.session_state.admin_ws:
-                    st.session_state.admin_ws = sel_ws_admin
-                    st.rerun()
-            
-            conn = st.connection("gsheets", type=GSheetsConnection)
-            try:
-                if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
-                    st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다. (수정은 개별 탭에서 진행해주세요.)")
-                    vips = get_vip_list_exact()
-                    dfs = []
-                    for v in vips:
-                        tmp = load_cloud_data(target_url, v)
-                        if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
-                    tmp_public = load_cloud_data(target_url, "material_list")
-                    if not tmp_public.empty: dfs.append(tmp_public)
-                    
-                    df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-                    df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
-                    
-                    st.dataframe(df_admin, use_container_width=True)
-                else:
-                    df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
-                    st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
-                    
-                    original_cols = df_admin.columns.tolist()
-                    df_display = df_admin.copy()
-                    is_log_view = (st.session_state.admin_view == 'logs')
-                    
-                    if is_log_view and not df_display.empty:
-                        front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
-                        other_cols = [c for c in original_cols if c not in front_cols]
-                        df_display = df_display[front_cols + other_cols]
-                        df_display = df_display.iloc[::-1].reset_index(drop=True)
-                    
-                    edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
-                    
-                    if st.button("💾 변경사항 클라우드에 저장", type="primary"):
-                        try:
-                            save_df = edited_df.copy()
-                            if is_log_view and not save_df.empty:
-                                save_df = save_df.iloc[::-1].reset_index(drop=True)
-                            if set(original_cols) == set(save_df.columns):
-                                save_df = save_df[original_cols]
-                                
-                            edited_df_safe = save_df.fillna("")
-                            conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
-                            st.cache_data.clear()
-                            st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                        except Exception as e:
-                            st.error(f"저장 중 오류 발생: {e}")
-            except Exception as e:
-                err_msg = str(e)
-                if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
-                    st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
-                else:
-                    st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
-            
-            st.markdown("---")
-            st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
-            st.caption("ℹ️ 위에서 수정한 DB가 하단의 시뮬레이터에 잘 적용되었는지 특정 VIP의 시점으로 테스트할 수 있습니다.")
-            vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
-            sel_ws = st.selectbox("**🔒 테스트 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
-            if sel_ws != st.session_state.workspace:
-                st.session_state.workspace = sel_ws
-                st.session_state.history = load_user_history(st.session_state.user_email, sel_ws)
+            if a1.button("👥 유저 관리 DB", use_container_width=True):
+                if st.session_state.admin_view == 'users': st.session_state.admin_view = None
+                else: st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'
                 st.rerun()
+            if a2.button("🔋 소재 DB", use_container_width=True):
+                if st.session_state.admin_view == 'mats': st.session_state.admin_view = None
+                else: st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'material_overall'
+                st.rerun()
+            if a3.button("⚙️ 파라미터 DB", use_container_width=True):
+                if st.session_state.admin_view == 'param': st.session_state.admin_view = None
+                else: st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'
+                st.rerun()
+            if a4.button("💾 로그 DB", use_container_width=True):
+                if st.session_state.admin_view == 'logs': st.session_state.admin_view = None
+                else: st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'
+                st.rerun()
+
+            if st.session_state.admin_view:
+                st.markdown("---")
+                st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
+                
+                if st.session_state.admin_view == 'users':
+                    target_url = URL_USERS
+                    ws_options = ["Users", "VIPs"]
+                elif st.session_state.admin_view == 'mats':
+                    target_url = URL_MATS
+                    ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
+                elif st.session_state.admin_view == 'param':
+                    target_url = URL_PARAM
+                    ws_options = ["param_config"]
+                elif st.session_state.admin_view == 'logs':
+                    target_url = URL_LOGS
+                    ws_options = ["myData"]
+                
+                if len(ws_options) > 1:
+                    sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
+                    if sel_ws_admin != st.session_state.admin_ws:
+                        st.session_state.admin_ws = sel_ws_admin
+                        st.rerun()
+                
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                try:
+                    if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
+                        st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다. (수정은 개별 탭에서 진행해주세요.)")
+                        vips = get_vip_list_exact()
+                        dfs = []
+                        for v in vips:
+                            tmp = load_cloud_data(target_url, v)
+                            if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
+                        tmp_public = load_cloud_data(target_url, "material_list")
+                        if not tmp_public.empty: dfs.append(tmp_public)
+                        
+                        df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                        df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
+                        
+                        st.dataframe(df_admin, use_container_width=True)
+                    else:
+                        df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
+                        st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
+                        
+                        original_cols = df_admin.columns.tolist()
+                        df_display = df_admin.copy()
+                        is_log_view = (st.session_state.admin_view == 'logs')
+                        
+                        if is_log_view and not df_display.empty:
+                            front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
+                            other_cols = [c for c in original_cols if c not in front_cols]
+                            df_display = df_display[front_cols + other_cols]
+                            df_display = df_display.iloc[::-1].reset_index(drop=True)
+                        
+                        edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}_{st.session_state.admin_ws}")
+                        
+                        if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                            try:
+                                save_df = edited_df.copy()
+                                if is_log_view and not save_df.empty:
+                                    save_df = save_df.iloc[::-1].reset_index(drop=True)
+                                if set(original_cols) == set(save_df.columns):
+                                    save_df = save_df[original_cols]
+                                    
+                                edited_df_safe = save_df.fillna("")
+                                conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                                st.cache_data.clear()
+                                st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                            except Exception as e:
+                                st.error(f"저장 중 오류 발생: {e}")
+                except Exception as e:
+                    err_msg = str(e)
+                    if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
+                        st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
+                    else:
+                        st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {err_msg})")
+                
+                st.markdown("---")
+                st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
+                st.caption("ℹ️ 위에서 수정한 DB가 하단의 시뮬레이터에 잘 적용되었는지 특정 VIP의 시점으로 테스트할 수 있습니다.")
+                vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
+                sel_ws = st.selectbox("**🔒 테스트 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
+                if sel_ws != st.session_state.workspace:
+                    st.session_state.workspace = sel_ws
+                    st.session_state.history = load_user_history(st.session_state.user_email, sel_ws)
+                    st.rerun()
 
 # -----------------------------------------------------------------------------
 # 계정 가입 및 My 계정 관리
@@ -549,7 +557,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 시노봇(SynoBot) 적용을 위한 75:25 베이스캠프 구조)
+# 5. 시뮬레이터 본문 (✅ 75:25 시노봇 연동 레이아웃)
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', False):
     col_main, col_bot = st.columns([0.75, 0.25])
@@ -796,7 +804,6 @@ with col_main:
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
         sp5, c_5 = st.columns([0.03, 0.97])
         with c_5:
-            # 100% 가로폭 메인 버튼 유지
             btn_text = "🚀 RUN SIMULATION" if st.session_state.history else "🚀 RUN SIMULATION ㅡ 아직 시뮬레이션 이력이 없습니다. 실행 버튼을 눌러 주세요."
             run_clicked = st.button(btn_text, key="btn_run_m", use_container_width=True)
                     
@@ -1066,13 +1073,85 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 (준비중)
+# 🤖 시노봇 (SynoBot) AI 패널 (Gemini 탑재판)
 # -----------------------------------------------------------------------------
+# AI에게 부여할 배터리 전문 지식(System Prompt) - 이전 Glossary 데이터
+SYSTEM_KNOWLEDGE = """
+You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by Google Gemini.
+Answer questions accurately and professionally in Korean based on the following SIB knowledge:
+- Active Ratio (%): Trade-off between energy (requires 96-98%) and power (requires <90% with more conductive agent).
+- Anode: SIB uses Hard Carbon instead of Graphite due to larger Na+ size. Storage involves sloping and plateau regions.
+- Anode Press Density: Hard carbon is fragile; limit is 1.0~1.2 g/cc. Higher causes particle cracking, lower reduces cycle life.
+- C-rate: Speed of charge/discharge. High C-rate causes overpotential (IR drop) reducing actual capacity.
+- Capacity (mAh/g): Specific capacity. SIB layered oxides typically have 120~160 mAh/g.
+- Cathode Press Density: Compressing cathode reduces volume for higher Wh/L. Too high causes zero porosity (dead cell) and particle cracking.
+- Cycle Life: Degrades due to SEI growth, phase transition, and micro-cracking.
+- E/C Ratio (g/Ah): High ratio improves cycle life but drops Wh/kg. Low ratio (<2.0) risks sudden death by electrolyte depletion.
+- N/P Ratio: Must be > 1.05 to prevent Na-Plating (dendrite short-circuit). >1.15 lowers energy density.
+- Porosity: Formula is (1 - Press Density / True Density) * 100. <20% causes poor wetting.
+- Separator Thick: Thinner (<16um) increases energy density but raises penetration risk.
+- Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
+"""
+
 if col_bot:
     with col_bot:
-        with st.container(border=True):
-            st.markdown("#### 🤖 SynoBot (Beta)")
-            st.info("시노봇 시스템 연동 준비 중입니다. 향후 이곳에서 배터리 설계 AI 컨설팅을 제공합니다.")
+        st.markdown("#### 🤖 SynoBot (Beta)")
+        
+        if genai is None:
+            st.error("⚠️ `google-generativeai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 추가해주세요.")
+        elif "GEMINI_API_KEY" not in st.secrets:
+            st.warning("⚠️ Streamlit Secrets에 `GEMINI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
+            st.caption("관리자가 API 키를 연동하면 즉시 깨어납니다.")
+        else:
+            # API Client 초기화 (Gemini)
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            
+            # 채팅 기록 초기화
+            if not st.session_state.chat_messages:
+                st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"}]
+
+            # 기존 메시지 출력
+            for message in st.session_state.chat_messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            # 채팅 입력 처리
+            if prompt := st.chat_input("시노봇에게 질문하기..."):
+                # 유저 메시지 화면 표시 및 저장
+                st.chat_message("user").markdown(prompt)
+                st.session_state.chat_messages.append({"role": "user", "content": prompt})
+
+                # AI 문맥(Context) 조합
+                context_prompt = SYSTEM_KNOWLEDGE
+                if st.session_state.sim_result:
+                    # 현재 시뮬레이션 상태를 AI에게 주입
+                    context_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
+                
+                try:
+                    # Gemini 1.5 Flash 모델 로드 및 시스템 지침 주입
+                    model = genai.GenerativeModel(
+                        model_name="gemini-1.5-flash",
+                        system_instruction=context_prompt
+                    )
+                    
+                    # Streamlit 히스토리를 Gemini 히스토리 포맷으로 변환
+                    formatted_history = []
+                    for msg in st.session_state.chat_messages[:-1]: # 방금 입력한 현재 프롬프트 제외
+                        r = "user" if msg["role"] == "user" else "model"
+                        formatted_history.append({"role": r, "parts": [{"text": msg["content"]}]})
+                    
+                    # 채팅 세션 시작 및 메시지 전송
+                    chat = model.start_chat(history=formatted_history)
+                    response = chat.send_message(prompt)
+                    bot_reply = response.text
+                    
+                    # 봇 응답 화면 표시 및 저장
+                    with st.chat_message("assistant"):
+                        st.markdown(bot_reply)
+                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                    
+                except Exception as e:
+                    st.error(f"AI 응답 오류: {e}")
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
