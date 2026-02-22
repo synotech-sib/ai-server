@@ -66,7 +66,7 @@ st.markdown("""
         cursor: pointer !important;
     }
     
-    /* ✅ [핵심] 지표 박스(stMetric) 높이 통일 및 상단 정렬 완벽화 */
+    /* 지표 박스(stMetric) 높이 통일 및 상단 정렬 완벽화 */
     div[data-testid="stMetric"] { 
         background-color: #f8f9fa; 
         border: 1px solid #dee2e6; 
@@ -123,23 +123,20 @@ st.markdown("""
         margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center;
     }
     
-    /* ✅ [핵심] 시노봇 채팅창 컬럼을 화면 스크롤 시 따라오게 만드는 Sticky CSS */
+    /* ✅ [핵심] 시노봇 채팅창 컬럼을 화면 스크롤 시 완벽하게 따라오게 만드는 플로팅 마법 */
     div[data-testid="column"]:has(#bot-sticky-anchor) {
         position: -webkit-sticky !important;
         position: sticky !important;
-        top: 2rem !important; /* 상단에서 2rem 띄운 상태로 고정 */
-        height: calc(100vh - 4rem) !important; /* 화면 높이에 맞춰 꽉 차게 */
-        overflow-y: auto !important; /* 내용이 길면 자체 스크롤 */
-        padding-right: 10px;
+        top: 2rem !important; /* 스크롤 시 화면 상단에서 띄울 여백 */
+        align-self: flex-start !important; /* ✨이 한 줄이 없으면 부모 높이만큼 강제로 늘어나서 플로팅이 먹히지 않습니다✨ */
+        height: max-content !important; 
+        max-height: calc(100vh - 4rem) !important; /* 모니터 높이에 맞게 제한 */
+        overflow-y: auto !important; /* 챗봇 내용이 길어지면 내부 스크롤 생성 */
+        padding-bottom: 10px !important;
     }
-    /* 봇 영역의 스크롤바 디자인 깔끔하게 (웹킷 브라우저 전용) */
-    div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar {
-        width: 4px;
-    }
-    div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb {
-        background-color: #ccc;
-        border-radius: 4px;
-    }
+    /* 봇 영역 미니 스크롤바 디자인 */
+    div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar { width: 6px; }
+    div[data-testid="column"]:has(#bot-sticky-anchor)::-webkit-scrollbar-thumb { background-color: #bbb; border-radius: 4px; }
     
     .stChatInput { padding-bottom: 20px !important; }
     </style>
@@ -870,13 +867,13 @@ with col_main:
                 
                 st.markdown("---")
                 
-                # ✅ [핵심] 결과값 4개 윗선 정렬 및 Delta(차이값) 상시 노출 적용
+                # ✅ [핵심] 결과값 4개 윗선 정렬 및 Delta(차이값) 상시 노출 완벽 적용
                 r1, r2, r3, r4 = st.columns(4)
                 
                 delta_e = round(res['Wh/kg'] - v_te, 1)
                 r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{delta_e:+} Wh/kg (vs Target)")
                 
-                # 체적당 에너지 밀도는 타겟이 없으므로 빈칸 Delta로 높이만 유지
+                # 체적당 에너지 밀도는 타겟이 없으므로 빈칸 Delta로 레이아웃 유지
                 r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L", delta=" - ", delta_color="off")
                 
                 # 셀 전압은 기준 전압 대비 IR Drop(저항 손실)을 Delta로 표시
@@ -1102,7 +1099,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - 가장 완벽하고 안정적인 OpenAI (ChatGPT) 아키텍처
+# 🤖 시노봇 (SynoBot) AI 패널 - 플로팅 완벽 적용
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
@@ -1125,7 +1122,7 @@ GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 
 
 if col_bot:
     with col_bot:
-        # ✅ 시노봇 앵커 생성 (플로팅 고정 마법의 핵심)
+        # ✅ 시노봇 앵커 생성 (플로팅 고정 마법의 핵심 타겟)
         st.markdown("<div id='bot-sticky-anchor'></div>", unsafe_allow_html=True)
         st.markdown("#### 🤖 SynoBot (Beta)")
         
@@ -1139,10 +1136,12 @@ if col_bot:
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
+            # 화면에 기존 대화 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
+            # 🚀 RUN SIMULATION 버튼 클릭 시 발동하는 "자동 분석 로직"
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 
@@ -1167,6 +1166,7 @@ if col_bot:
                         except Exception as e:
                             st.error(f"자동 분석 중 오류가 발생했습니다: {str(e)}")
 
+            # 유저가 직접 입력하는 일반 채팅 로직
             if prompt := st.chat_input("시노봇에게 질문하기..."):
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
