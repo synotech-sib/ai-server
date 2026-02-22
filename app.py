@@ -11,7 +11,6 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import requests # ✅ 에러 없는 다이렉트 통신을 위한 표준 라이브러리
 
 # [PDF 라이브러리 예외 처리]
 try:
@@ -24,6 +23,12 @@ try:
     from streamlit_gsheets import GSheetsConnection
 except ImportError:
     GSheetsConnection = None
+
+# [OpenAI 라이브러리 예외 처리]
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
@@ -273,7 +278,7 @@ default_vars = {
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'show_bot': True 
+    'show_bot': True # 기본적으로 챗봇 켜짐 유지
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -1067,10 +1072,10 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 - REST API 기반 (에러 원천 차단형)
+# 🤖 시노봇 (SynoBot) AI 패널 - 가장 완벽하고 안정적인 OpenAI (ChatGPT) 아키텍처
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
-You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by Google Gemini.
+You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on the following SIB knowledge:
 - Active Ratio (%): Trade-off between energy (requires 96-98%) and power (requires <90% with more conductive agent).
 - Anode: SIB uses Hard Carbon instead of Graphite due to larger Na+ size. Storage involves sloping and plateau regions.
@@ -1086,73 +1091,55 @@ Answer questions accurately and professionally in Korean based on the following 
 - Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
 """
 
-# 첫 인사말
 GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
 
 if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        if "GEMINI_API_KEY" not in st.secrets:
-            st.warning("⚠️ Streamlit Secrets에 `GEMINI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
+        if OpenAI is None:
+            st.error("⚠️ `openai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 `openai`를 추가 후 앱을 Reboot 해주세요.")
+        elif "OPENAI_API_KEY" not in st.secrets:
+            st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
         else:
-            api_key = st.secrets["GEMINI_API_KEY"]
+            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
             
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
-            # 기존 메시지 화면 출력
+            # 화면에 기존 대화 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
             if prompt := st.chat_input("시노봇에게 질문하기..."):
-                # 유저 메시지 화면 표시 및 세션 저장
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
-                # AI 연산을 위한 완벽한 프롬프트 조립 (모든 정보를 텍스트 하나로 묶어 서버 에러 원천 차단)
-                full_prompt = f"[System Instruction]\n{SYSTEM_KNOWLEDGE}\n\n"
-                
+                # 백그라운드 지식 + 현재 시뮬레이션 상태 주입
+                sys_prompt = SYSTEM_KNOWLEDGE
                 if st.session_state.sim_result:
-                    full_prompt += f"[Current User's Simulation State]\n{st.session_state.sim_result}\n\n"
+                    sys_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                 
-                full_prompt += "--- Conversation History ---\n"
-                
+                # API로 보낼 규격화된 메시지 리스트 생성
+                api_messages = [{"role": "system", "content": sys_prompt}]
                 for msg in st.session_state.chat_messages:
-                    if msg["content"] == GREETING_MSG:
-                        continue
-                    role_name = "User" if msg["role"] == "user" else "SynoBot"
-                    full_prompt += f"{role_name}: {msg['content']}\n"
-                    
-                full_prompt += "SynoBot:"
+                    api_messages.append({"role": msg["role"], "content": msg["content"]})
                 
                 try:
-                    # ✅ 라이브러리 버전에 상관없이 100% 작동하는 다이렉트 REST API 통신
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                    # 세계 최고의 안정성: GPT-4o-mini 모델 호출
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=api_messages
+                    )
+                    bot_reply = response.choices[0].message.content
                     
-                    payload = {
-                        "contents": [{
-                            "role": "user", 
-                            "parts": [{"text": full_prompt}]
-                        }]
-                    }
-                    
-                    response = requests.post(url, json=payload, headers={'Content-Type': 'application/json'})
-                    
-                    if response.status_code == 200:
-                        res_data = response.json()
-                        bot_reply = res_data['candidates'][0]['content']['parts'][0]['text']
-                        
-                        with st.chat_message("assistant"):
-                            st.markdown(bot_reply)
-                        st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                    else:
-                        err_msg = response.json().get('error', {}).get('message', '알 수 없는 오류')
-                        st.error(f"구글 AI 서버 응답 오류: {err_msg}")
+                    with st.chat_message("assistant"):
+                        st.markdown(bot_reply)
+                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                         
                 except Exception as e:
-                    st.error(f"통신 중 오류가 발생했습니다. (상세 내역: {str(e)})")
+                    st.error(f"AI 연산 중 오류가 발생했습니다. (상세 내역: {str(e)})")
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
