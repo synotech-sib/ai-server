@@ -277,8 +277,7 @@ default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'show_bot': True # ✅ 시노봇 초기화면 접속 시 무조건 켜지도록 강제 세팅
+    'admin_view': None, 'admin_ws': None, 'chat_messages': []
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -336,8 +335,8 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        # ✅ 토글 라벨 변경 (가입 전 유저에게도 항상 공개 및 활성화)
-        st.toggle("**💬 SynoBot 활성화**", key="show_bot")
+        # ✅ 토글 값을 기본으로 켜지도록(value=True) 설정하여 최초 진입 시 자동 활성화 구현
+        bot_active = st.toggle("**💬 SynoBot 활성화**", value=True, key="bot_toggle_ui")
 
 st.markdown("---")
 
@@ -554,9 +553,9 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문
+# 5. 시뮬레이터 본문 (✅ bot_active 토글 값을 기반으로 레이아웃 세팅)
 # -----------------------------------------------------------------------------
-if st.session_state.get('show_bot', True):
+if bot_active:
     col_main, col_bot = st.columns([0.75, 0.25])
 else:
     col_main = st.container()
@@ -1101,14 +1100,19 @@ if col_bot:
         else:
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
             
+            # 초기 인사말 세팅 (API 기록 전송 필터링을 위해 명시적 텍스트 사용)
+            GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
+            
             if not st.session_state.chat_messages:
-                st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"}]
+                st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
+            # 기존 메시지 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
             if prompt := st.chat_input("시노봇에게 질문하기..."):
+                # 유저 메시지 화면 표시 및 저장
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
@@ -1117,17 +1121,21 @@ if col_bot:
                     context_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                 
                 try:
-                    # ✅ 안정적인 1.5 Flash 모델 호출 (최신버전 호환)
+                    # 안정적인 최신 호환 모델 사용
                     model = genai.GenerativeModel(
                         model_name="gemini-1.5-flash",
                         system_instruction=context_prompt
                     )
                     
+                    # ✅ 404 에러 원천 차단: 첫 인사말(Greeting)은 API 히스토리에서 제외하여 User 메시지로 시작하도록 강제함
+                    api_history_msgs = [m for m in st.session_state.chat_messages[:-1] if m["content"] != GREETING_MSG]
+                    
                     formatted_history = []
-                    for msg in st.session_state.chat_messages[:-1]: 
+                    for msg in api_history_msgs: 
                         r = "user" if msg["role"] == "user" else "model"
                         formatted_history.append({"role": r, "parts": [{"text": msg["content"]}]})
                     
+                    # 채팅 전송
                     chat = model.start_chat(history=formatted_history)
                     response = chat.send_message(prompt)
                     bot_reply = response.text
@@ -1137,8 +1145,8 @@ if col_bot:
                     st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                     
                 except Exception as e:
-                    # 1.5 지원 안 하는 버전을 위한 최후의 2중 안전장치 (구형 라이브러리 우회)
-                    if "404" in str(e) or "not found" in str(e):
+                    # 1.5 모델 지원 불가한 구형 서버 버전을 위한 폴백(안전장치)
+                    if "404" in str(e) or "not found" in str(e) or "API version" in str(e):
                         try:
                             fallback_model = genai.GenerativeModel("gemini-pro")
                             fallback_prompt = f"System Instruction: {context_prompt}\n\nUser: {prompt}"
