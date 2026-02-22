@@ -277,7 +277,8 @@ default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False,
-    'admin_view': None, 'admin_ws': None, 'chat_messages': [] # 시노봇 채팅 기록
+    'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
+    'show_bot': True # ✅ 기본적으로 최초 접속 시 챗봇이 켜져 있도록 설정
 }
 for key, val in default_vars.items():
     if key not in st.session_state:
@@ -335,11 +336,10 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        toggle_label = "**💬 SynoBot (AI 설계 어시스턴트)**" if is_pro else "**💬 SynoBot (Pro Mode)**"
+        # ✅ 토글 라벨 변경 및 비로그인 유저도 마음껏 클릭할 수 있도록 disabled 속성 완벽 제거
         st.toggle(
-            toggle_label, 
-            key="show_bot",
-            disabled=not is_pro
+            "**💬 SynoBot 활성화**", 
+            key="show_bot"
         )
 
 st.markdown("---")
@@ -557,9 +557,9 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ 75:25 시노봇 연동 레이아웃)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
-if st.session_state.get('show_bot', False):
+if st.session_state.get('show_bot', True): # ✅ default is True now
     col_main, col_bot = st.columns([0.75, 0.25])
 else:
     col_main = st.container()
@@ -1075,7 +1075,6 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 (Gemini 탑재판)
 # -----------------------------------------------------------------------------
-# AI에게 부여할 배터리 전문 지식(System Prompt) - 이전 Glossary 데이터
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by Google Gemini.
 Answer questions accurately and professionally in Korean based on the following SIB knowledge:
@@ -1103,49 +1102,38 @@ if col_bot:
             st.warning("⚠️ Streamlit Secrets에 `GEMINI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
             st.caption("관리자가 API 키를 연동하면 즉시 깨어납니다.")
         else:
-            # API Client 초기화 (Gemini)
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
             
-            # 채팅 기록 초기화
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"}]
 
-            # 기존 메시지 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
-            # 채팅 입력 처리
             if prompt := st.chat_input("시노봇에게 질문하기..."):
-                # 유저 메시지 화면 표시 및 저장
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
-                # AI 문맥(Context) 조합
                 context_prompt = SYSTEM_KNOWLEDGE
                 if st.session_state.sim_result:
-                    # 현재 시뮬레이션 상태를 AI에게 주입
                     context_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
                 
                 try:
-                    # Gemini 1.5 Flash 모델 로드 및 시스템 지침 주입
                     model = genai.GenerativeModel(
                         model_name="gemini-1.5-flash",
                         system_instruction=context_prompt
                     )
                     
-                    # Streamlit 히스토리를 Gemini 히스토리 포맷으로 변환
                     formatted_history = []
-                    for msg in st.session_state.chat_messages[:-1]: # 방금 입력한 현재 프롬프트 제외
+                    for msg in st.session_state.chat_messages[:-1]: 
                         r = "user" if msg["role"] == "user" else "model"
                         formatted_history.append({"role": r, "parts": [{"text": msg["content"]}]})
                     
-                    # 채팅 세션 시작 및 메시지 전송
                     chat = model.start_chat(history=formatted_history)
                     response = chat.send_message(prompt)
                     bot_reply = response.text
                     
-                    # 봇 응답 화면 표시 및 저장
                     with st.chat_message("assistant"):
                         st.markdown(bot_reply)
                     st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
