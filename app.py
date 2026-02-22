@@ -40,9 +40,46 @@ st.markdown("""
         margin: auto; 
     }
             
-    .header-container { display: flex; align-items: center; justify-content: flex-start; height: 100%; }
-    .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
-    .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
+    /* ==============================================================
+       ✅ 로고(타이틀)를 로그인 풀림 없는 Home 버튼으로 마개조하는 CSS
+       ============================================================== */
+    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        height: auto !important;
+        justify-content: flex-start !important;
+        align-items: baseline !important;
+        display: flex;
+    }
+    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button p {
+        color: #1A729A !important;
+        font-size: 44px !important;
+        font-weight: 900 !important;
+        letter-spacing: -1px !important;
+        margin: 0 !important;
+        line-height: 1 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button p::after {
+        content: " 1.7 (beta)";
+        color: #D35400 !important;
+        font-size: 20px !important;
+        font-weight: bold !important;
+        margin-left: 15px;
+        letter-spacing: 0px !important;
+        vertical-align: middle;
+    }
+    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button:hover p {
+        color: #115372 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button:hover p::after {
+        color: #a84300 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:nth-of-type(1) div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] > button:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
     
     /* 지표 박스(stMetric) 높이 통일 */
     div[data-testid="stMetric"] { 
@@ -140,7 +177,6 @@ def get_user_db():
         conn = st.connection("gsheets", type=GSheetsConnection)
         return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
     except Exception:
-        # ✅ ProMax_Req 컬럼 추가
         return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "Purpose", "ProMax_Req", "RegDate"])
 
 def safe_float(val, default):
@@ -166,7 +202,7 @@ def send_verification_email(to_email, code):
         msg['From'] = f"SynoCore Admin <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
-        body = f"안녕하세요. SynoCore Pro 시뮬레이터 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
+        body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -253,7 +289,13 @@ for key, val in default_vars.items():
 h_l, h_r = st.columns([1, 1]) 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.7 (beta)</span></div>', unsafe_allow_html=True)
+    # ✅ 타이틀을 완벽한 Home 버튼으로 변경 (클릭 시 상태 리셋 및 메인으로 이동)
+    if st.button("SynoCore Pro Max", key="btn_home_title"):
+        st.session_state.show_reg = False
+        st.session_state.show_profile = False
+        st.session_state.admin_view = None
+        st.session_state.admin_ws = None
+        st.rerun()
 
 with h_r:
     is_pro = st.session_state.logged_in
@@ -408,11 +450,10 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.rerun()
 
 # -----------------------------------------------------------------------------
-# 계정 가입 및 My 계정 관리 (✅ VIP 문구 및 레이아웃, 보안 로직 완성)
+# 계정 가입 및 My 계정 관리
 # -----------------------------------------------------------------------------
 if st.session_state.show_reg and not st.session_state.logged_in:
     with st.container(border=True):
-        # ✅ 메인 타이틀 옆에 서브 안내 문구 삽입
         st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode) <span style="font-size:15px; color:#666; font-weight:normal; letter-spacing:0px; margin-left:10px;">아래 사항 모두 기입해 주시면 감사하겠습니다.</span></p>', unsafe_allow_html=True)
         if st.session_state.reg_stage == 0:
             e_in = st.text_input("1. 회사 이메일 주소")
@@ -433,7 +474,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
         elif st.session_state.reg_stage == 2:
             p1, p2 = st.columns(2)
             pw1 = p1.text_input("2. Password", type="password")
-            pw2 = p2.text_input("Password 확인", type="password") # "2-1" 텍스트 삭제
+            pw2 = p2.text_input("Password 확인", type="password") 
             
             c1, c2 = st.columns(2)
             n_name = c1.text_input("3. 이름")
@@ -447,7 +488,6 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             n_phone = c5.text_input("7. 연락처")
             n_purpose = c6.text_input("8. 사용용도", placeholder="시뮬레이션, 교육 및 정보습득 등 사용목적 기입")
 
-            # ✅ VIP 가입(Pro Max) 홍보 및 연동 체크박스 신설
             st.markdown("---")
             st.markdown("""
             <div style='background-color: #e8f4f8; padding: 15px; border-radius: 5px; border: 1px solid #b8dae6; margin-bottom: 10px;'>
@@ -457,7 +497,6 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             """, unsafe_allow_html=True)
             is_vip_request = st.checkbox("Pro Max Mode 가입합니다.")
 
-            # 보안 및 개인정보 동의 약관
             st.markdown("---")
             st.markdown("""
             <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6; margin-bottom: 15px;'>
@@ -472,7 +511,6 @@ if st.session_state.show_reg and not st.session_state.logged_in:
             """, unsafe_allow_html=True)
             agree_sec = st.checkbox("위 보안 및 개인정보 처리 사항에 동의합니다.")
 
-            # ✅ 버튼 이름 '가입신청'으로 통일 및 agree_sec 강제 체크 조건 추가
             if st.button("가입신청", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                 conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 new_user = pd.DataFrame([{
@@ -484,7 +522,7 @@ if st.session_state.show_reg and not st.session_state.logged_in:
                     "Job": n_job,
                     "Phone": n_phone,
                     "Purpose": n_purpose,
-                    "ProMax_Req": "Y" if is_vip_request else "N", # VIP 요청 플래그 DB 연동
+                    "ProMax_Req": "Y" if is_vip_request else "N",
                     "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
                 }])
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
@@ -558,7 +596,6 @@ with st.container():
                 ele_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist()
                 sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist()
                 
-                # ✅ VIP 전용 소재 포맷팅: [전용] 글자 삭제, 다이아몬드 아이콘만 유지
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist()
                 def format_mat_name(name):
                     return f"💎 {name}" if name in vip_names else name
@@ -754,7 +791,6 @@ with st.container():
         st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
         sp5, c_5 = st.columns([0.03, 0.97])
         with c_5:
-            # 100% 가로폭 메인 버튼 유지
             btn_text = "🚀 RUN SIMULATION" if st.session_state.history else "🚀 RUN SIMULATION ㅡ 아직 시뮬레이션 이력이 없습니다. 실행 버튼을 눌러 주세요."
             run_clicked = st.button(btn_text, key="btn_run_m", use_container_width=True)
                     
