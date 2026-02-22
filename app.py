@@ -12,12 +12,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# [PDF 라이브러리 예외 처리]
-try:
-    from fpdf import FPDF
-except ImportError:
-    FPDF = None
-
 # [구글 시트 라이브러리 예외 처리]
 try:
     from streamlit_gsheets import GSheetsConnection
@@ -71,12 +65,20 @@ st.markdown("""
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: none !important;
     }
-    
-    div[data-testid="stDownloadButton"] > button {
-        height: 40px !important; background-color: #FFCA28 !important; color: #222 !important; 
-        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #E4B526 !important;
+
+    /* 🔥 [수정] 엑셀 다운로드 버튼: 계정에 저장과 동일한 브랜드 칼라 🔥 */
+    div.st-key-btn_excel > button {
+        height: 40px !important; background-color: #1A729A !important; color: white !important; 
+        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #155A7A !important;
     }
-    div[data-testid="stDownloadButton"] > button:hover { background-color: #FFB300 !important; border: 1px solid #DDA010 !important; }
+    div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
+
+    /* 🔥 [수정] 선택항목 삭제 버튼: 오렌지 칼라 🔥 */
+    div.st-key-btn_del_sel > button {
+        height: 40px !important; background-color: #D35400 !important; color: white !important; 
+        font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
+    }
+    div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
@@ -93,7 +95,7 @@ st.markdown("""
     }
     div[data-testid="stToggle"] > label { margin-bottom: 0px !important; font-size: 15px !important; color: #333 !important; width: 100%; display: flex; justify-content: center; }
     
-    /* 🔥 [핵심 1] 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
+    /* 🔥 [핵심] 메인 시뮬레이터 스크롤바 숨기기 (투명화) 🔥 */
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
         scrollbar-width: none !important; /* Firefox */
         -ms-overflow-style: none !important;  /* IE and Edge */
@@ -102,19 +104,24 @@ st.markdown("""
         display: none !important; /* Chrome, Safari */
     }
 
-    /* 🔥 [핵심 2] 챗봇 들여쓰기 제거 (아바타 아래로 텍스트 분리) 🔥 */
+    /* 🔥 [핵심] 챗봇 들여쓰기 제거 🔥 */
     div[data-testid="stChatMessage"] {
         display: flex !important;
-        flex-direction: column !important; /* 가로 배치를 세로 배치로 강제 변경 */
+        flex-direction: column !important; 
         align-items: flex-start !important;
         gap: 5px !important;
         padding: 10px !important;
     }
     div[data-testid="stChatMessage"] > div:first-child { margin-bottom: 5px !important; }
     div[data-testid="stChatMessage"] > div:nth-child(2) {
-        margin-left: 0px !important; /* 들여쓰기 0 */
+        margin-left: 0px !important; 
         padding-left: 0px !important;
-        width: 100% !important; /* 폭을 100% 활용 */
+        width: 100% !important; 
+    }
+
+    /* 🔥 [수정] 데이터 에디터 테이블 헤더 텍스트 색상 검정색 강제 지정 🔥 */
+    div[data-testid="stDataEditor"] th {
+        color: black !important;
     }
     
     </style>
@@ -155,10 +162,6 @@ param_df = load_cloud_data(URL_PARAM, "param_config")
 sys_params = {}
 if not param_df.empty and 'Parameter_ID' in param_df.columns:
     sys_params = param_df.set_index('Parameter_ID').to_dict('index')
-
-def get_p(pid, prop, fallback):
-    try: return float(sys_params[pid][prop])
-    except: return fallback
 
 def get_user_db():
     if GSheetsConnection is None: return pd.DataFrame()
@@ -204,7 +207,7 @@ def send_verification_email(to_email, code):
         return False
 
 # -----------------------------------------------------------------------------
-# 유틸리티 (물리 엔진 및 PDF)
+# 유틸리티 (물리 엔진)
 # -----------------------------------------------------------------------------
 def get_dqdv(cat_sel, v_tc, m_df=None):
     v_axis = np.linspace(2.0, 4.2, 150); dqdv = np.zeros_like(v_axis); p1, p2 = 3.15, 0.0 
@@ -238,30 +241,6 @@ def load_user_history(email, workspace="material_list"):
         return hist[::-1]
     except: return []
 
-def create_pdf(data_list, title="SynoCore Simulation Report"):
-    if FPDF is None: return b""
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
-    pdf.add_page(); pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, title, ln=True, align="C"); pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 10, f"Generated: {(datetime.utcnow() + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)", ln=True, align="R"); pdf.ln(5)
-
-    if not data_list:
-        pdf.cell(0, 10, "No data available.", ln=True); return pdf.output(dest="S").encode("latin-1")
-
-    headers = ["Time", "Cathode", "Cap(mAh)", "Volt(V)", "Active(%)", "C-rate", "Wh/kg", "Cell_V", "Life"]
-    col_widths = [25, 60, 25, 20, 25, 20, 25, 25, 25]
-    
-    pdf.set_font("Arial", "B", 10)
-    for i, head in enumerate(headers): pdf.cell(col_widths[i], 10, head, border=1, align="C")
-    pdf.ln(); pdf.set_font("Arial", "", 10)
-    for item in data_list:
-        pdf.cell(col_widths[0], 10, str(item.get("Time", "")), border=1, align="C")
-        pdf.cell(col_widths[1], 10, str(item.get("Cathode", ""))[:30], border=1, align="L")
-        for i, k in enumerate(["Cap(mAh/g)", "Volt(V)", "Active(%)", "C-rate", "Wh/kg", "Cell_V", "Life(Cyc)"]):
-            pdf.cell(col_widths[i+2], 10, str(item.get(k, "")), border=1, align="C")
-        pdf.ln()
-    return pdf.output(dest="S").encode("latin-1")
-
 # -----------------------------------------------------------------------------
 # 4. 세션 초기화 및 헤더 모듈 
 # -----------------------------------------------------------------------------
@@ -278,7 +257,6 @@ for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# ✅ 상단 헤더 박스는 [0.72 : 0.28] 비율로 수정하여 하단 봇(0.28)과 우측 폭을 완벽히 일치 (gap="small")
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
@@ -451,7 +429,7 @@ if is_pro and st.session_state.get('is_admin', False):
                     st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (🔥 [수정] 메인 패널 우측폭 70% 근접 확대 & 여백 축소 gap="small" 🔥)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 if st.session_state.get('show_bot', True):
     col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
@@ -560,7 +538,6 @@ with col_main:
                     st.cache_data.clear() 
                     st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
-    # 시뮬레이터를 독립 스크롤 컨테이너에 넣습니다. (가장 안정적인 방식 유지)
     with st.container(height=900, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
@@ -813,7 +790,8 @@ with col_main:
                     whl = res_whkg * v_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
                     
-                    cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%H:%M:%S")
+                    # 🔥 [수정] Time을 월-일 시:분 형태로 변경 🔥
+                    cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
                     log_data = {
@@ -933,6 +911,79 @@ with col_main:
                 st.markdown('<p class="main-header">6. Data Management & Past Records (Pro)</p>', unsafe_allow_html=True)
                 sp6, c_6 = st.columns([0.03, 0.97])
                 with c_6:
+                    
+                    # 🔥 [핵심] 클라우드 데이터를 가장 먼저 불러오고, 상단에 데이터 에디터 테이블부터 배치 🔥
+                    db_df_all = pd.DataFrame()
+                    selected_times = []
+                    
+                    try:
+                        conn = st.connection("gsheets", type=GSheetsConnection)
+                        db_df_all = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
+                        
+                        if not db_df_all.empty and 'Email' in db_df_all.columns:
+                            my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
+                            
+                            if not my_saved_data.empty:
+                                my_saved_data = my_saved_data.sort_values(by='Time', ascending=False)
+                                
+                                df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
+                                if 'User Comment' not in df_display.columns:
+                                    df_display['User Comment'] = ""
+                                df_display['User Comment'] = df_display['User Comment'].fillna("")
+                                
+                                core_cols = ['Time', 'User Comment', 'Cathode', 'Anode']
+                                other_cols = [c for c in df_display.columns if c not in core_cols]
+                                df_display = df_display[core_cols + other_cols]
+                                df_display.insert(0, "선택", False)
+                                
+                                original_comments = df_display['User Comment'].tolist()
+                                
+                                disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
+                                
+                                # 데이터 에디터 출력
+                                edited_df = st.data_editor(
+                                    df_display, 
+                                    use_container_width=True, 
+                                    hide_index=True,
+                                    disabled=disabled_cols,
+                                    column_config={
+                                        "User Comment": st.column_config.TextColumn(
+                                            "💬 사용자 코멘트 (더블클릭)", 
+                                            help="실제 실험 결과(Real Wh/kg)나 개선사항 등을 자유롭게 기재하여 데이터 품질을 높여주세요.",
+                                            width="large",
+                                            required=False
+                                        )
+                                    }
+                                )
+                                
+                                # 자동 저장 로직 (코멘트가 변경되었다면 즉시 DB 업데이트)
+                                current_comments = edited_df['User Comment'].tolist()
+                                if current_comments != original_comments:
+                                    if 'User Comment' not in db_df_all.columns:
+                                        db_df_all['User Comment'] = ""
+                                    
+                                    for idx, row in edited_df.iterrows():
+                                        mask = (db_df_all['Email'] == st.session_state.user_email) & \
+                                               (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
+                                               (db_df_all['Time'] == row['Time'])
+                                        if mask.any():
+                                            db_df_all.loc[mask, 'User Comment'] = row['User Comment']
+                                    
+                                    conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all)
+                                    st.cache_data.clear()
+                                
+                                selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
+                            else:
+                                st.info("클라우드 DB에 이전에 저장된 시뮬레이션 데이터가 없습니다.")
+                    except Exception as e:
+                        err_msg = str(e)
+                        if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
+                            st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
+                        else:
+                            st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
+
+                    # 테이블 바로 아래 4열 버튼 배치
+                    st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
                     if btn1.button("💾 계정에 저장", key="btn_save_my", use_container_width=True):
@@ -958,6 +1009,7 @@ with col_main:
                             else:
                                 st.cache_data.clear() 
                                 st.success("내 계정에 저장하기가 완료되었습니다.")
+                                st.rerun() # 저장 직후 테이블 리프레쉬
                         except Exception as e: 
                             st.error(f"저장 오류: {e}")
 
@@ -967,112 +1019,39 @@ with col_main:
                         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                             df_export.to_excel(writer, index=False, sheet_name='Simulation_Logs')
                         file_data = buffer.getvalue()
-                        file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
+                        file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%m%d_%H%M')}.xlsx"
                         mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     except ImportError:
                         file_data = df_export.to_csv(index=False).encode('utf-8-sig')
-                        file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+                        file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%m%d_%H%M')}.csv"
                         mime_type = "text/csv"
 
-                    btn2.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, use_container_width=True)
+                    # 엑셀 다운로드 (btn_excel 키를 통해 CSS로 파란색 처리)
+                    btn2.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
-                    if FPDF is not None:
-                        btn3.download_button(label="📄 현재결과 PDF", data=create_pdf([res], f"Result - {res['Cathode']}"), file_name=f"SynoCore_Result_{res['Time'].replace(':','')}.pdf", mime="application/pdf", use_container_width=True)
-                        btn4.download_button(label="📑 전체이력 PDF", data=create_pdf(st.session_state.history, "SynoCore - All Logs"), file_name="SynoCore_All_Logs.pdf", mime="application/pdf", use_container_width=True)
-                    else:
-                        btn3.warning("PDF 모듈 필요"); btn4.warning("PDF 모듈 필요")
-                    
-                    st.caption("ℹ️ **안내:** [PDF 출력] 버튼은 수치 데이터 기반의 리포트를 생성합니다. 렌더링된 그래프의 완벽한 화면 캡처가 필요하신 경우, 브라우저의 **[인쇄 (Ctrl+P) ➔ PDF로 저장]** 기능을 활용하시는 것을 가장 권장합니다.")
+                    # 현재화면 PDF 인쇄 (window.print 자바스크립트 호출)
+                    print_clicked = btn3.button("📄 화면 인쇄 (PDF)", key="btn_print_pdf", use_container_width=True)
+                    if print_clicked:
+                        import streamlit.components.v1 as components
+                        components.html("<script>window.parent.print();</script>", height=0)
 
-                    st.markdown("---")
-                    
-                    try:
-                        conn = st.connection("gsheets", type=GSheetsConnection)
-                        db_df_all = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
-                        if not db_df_all.empty and 'Email' in db_df_all.columns:
-                            my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
-                            
-                            if not my_saved_data.empty:
-                                my_saved_data = my_saved_data.sort_values(by='Time', ascending=False)
+                    # 선택항목 삭제 (btn_del_sel 키를 통해 CSS로 오렌지색 처리)
+                    if btn4.button("🗑️ 선택항목 삭제", key="btn_del_sel", use_container_width=True):
+                        if not selected_times:
+                            st.warning("삭제할 항목을 체크해 주세요.")
+                        elif not db_df_all.empty:
+                            try:
+                                mask = ~((db_df_all['Email'] == st.session_state.user_email) & \
+                                         (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
+                                         (db_df_all['Time'].isin(selected_times)))
+                                updated_db = db_df_all[mask]
                                 
-                                col_title, col_btn_save, col_btn_del = st.columns([0.6, 0.2, 0.2])
-                                with col_title:
-                                    st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
-                                
-                                df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
-                                if 'User Comment' not in df_display.columns:
-                                    df_display['User Comment'] = ""
-                                df_display['User Comment'] = df_display['User Comment'].fillna("")
-                                
-                                core_cols = ['Time', 'User Comment', 'Cathode', 'Anode']
-                                other_cols = [c for c in df_display.columns if c not in core_cols]
-                                df_display = df_display[core_cols + other_cols]
-                                df_display.insert(0, "선택", False)
-                                
-                                original_comments = df_display['User Comment'].tolist()
-                                
-                                disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
-                                edited_df = st.data_editor(
-                                    df_display, 
-                                    use_container_width=True, 
-                                    hide_index=True,
-                                    disabled=disabled_cols,
-                                    column_config={
-                                        "User Comment": st.column_config.TextColumn(
-                                            "💬 사용자 코멘트 (더블클릭)", 
-                                            help="실제 실험 결과(Real Wh/kg)나 개선사항 등을 자유롭게 기재하여 데이터 품질을 높여주세요.",
-                                            width="large",
-                                            required=False
-                                        )
-                                    }
-                                )
-                                
-                                with col_btn_save:
-                                    if st.button("💾 사용자 코멘트 저장", type="secondary", use_container_width=True):
-                                        current_comments = edited_df['User Comment'].tolist()
-                                        
-                                        if current_comments == original_comments:
-                                            st.warning("수정되거나 추가된 코멘트가 없습니다.")
-                                        else:
-                                            if 'User Comment' not in db_df_all.columns:
-                                                db_df_all['User Comment'] = ""
-                                            
-                                            for idx, row in edited_df.iterrows():
-                                                mask = (db_df_all['Email'] == st.session_state.user_email) & \
-                                                       (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
-                                                       (db_df_all['Time'] == row['Time'])
-                                                if mask.any():
-                                                    db_df_all.loc[mask, 'User Comment'] = row['User Comment']
-                                            
-                                            conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all)
-                                            st.cache_data.clear()
-                                            st.success("코멘트가 성공적으로 저장되었습니다.")
-                                            st.rerun()
-
-                                with col_btn_del:
-                                    selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
-                                    if st.button("🗑️ 선택 항목 삭제", type="primary", use_container_width=True):
-                                        if not selected_times:
-                                            st.warning("삭제할 항목을 체크해 주세요.")
-                                        else:
-                                            mask = ~((db_df_all['Email'] == st.session_state.user_email) & \
-                                                     (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace) & \
-                                                     (db_df_all['Time'].isin(selected_times)))
-                                            updated_db = db_df_all[mask]
-                                            
-                                            conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
-                                            st.cache_data.clear() 
-                                            st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
-                                            st.rerun()
-                            else:
-                                st.markdown('<p class="sub-header-bold">🗄️ 내 클라우드 저장 이력</p>', unsafe_allow_html=True)
-                                st.info("클라우드 DB에 이전에 저장된 시뮬레이션 데이터가 없습니다.")
-                    except Exception as e:
-                        err_msg = str(e)
-                        if "Quota exceeded" in err_msg or "429" in err_msg or "RATE_LIMIT_EXCEEDED" in err_msg:
-                            st.error("⚠️ 구글 시트 API 분당 요청 한도(60회)를 초과했습니다. 약 1분 후 다시 시도해주세요.")
-                        else:
-                            st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
+                                conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=updated_db)
+                                st.cache_data.clear() 
+                                st.success(f"총 {len(selected_times)}건의 이력이 삭제되었습니다.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"삭제 오류: {e}")
 
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
@@ -1104,7 +1083,6 @@ if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        # 🔥 [핵심 3] 대화 입력창을 봇 패널 최상단으로 끌어올림 🔥
         with st.form("chat_input_form", clear_on_submit=True):
             c_in1, c_in2 = st.columns([0.75, 0.25])
             user_q = c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...")
@@ -1126,7 +1104,6 @@ if col_bot:
                 if not st.session_state.chat_messages:
                     st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
-                # 자동 분석 브리핑 트리거
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
                     
@@ -1145,7 +1122,6 @@ if col_bot:
                                 st.error(f"자동 분석 오류: {str(e)}")
                     st.rerun()
 
-                # 사용자 질문에 대한 응답 트리거
                 if st.session_state.get('trigger_bot_reply'):
                     st.session_state.trigger_bot_reply = False
                     
@@ -1167,14 +1143,11 @@ if col_bot:
                                 st.error(f"AI 연산 오류: {str(e)}")
                     st.rerun()
 
-                # 🔥 [핵심 4, 5] 메시지 최신순(역순) 렌더링 및 마크다운 블릿 이스케이프(\-) 처리 🔥
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
-                        # 줄바꿈 후 '- '를 '\- '로 치환하고, 맨 첫 글자가 '- '인 경우에도 치환
                         display_content = message["content"].replace("\n- ", "\n\- ")
                         if display_content.startswith("- "): 
                             display_content = "\- " + display_content[2:]
-                            
                         st.markdown(display_content)
 
 # 7. 푸터 
