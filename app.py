@@ -335,7 +335,7 @@ with h_r:
 
     t1, t2 = st.columns([1, 1])
     with t2:
-        # ✅ 토글 값을 기본으로 켜지도록(value=True) 설정하여 최초 진입 시 자동 활성화 구현
+        # ✅ 처음 사이트 진입 시 챗봇 무조건 활성화되도록 기본값(value=True) 강제 설정
         bot_active = st.toggle("**💬 SynoBot 활성화**", value=True, key="bot_toggle_ui")
 
 st.markdown("---")
@@ -553,7 +553,7 @@ if st.session_state.get('show_profile') and st.session_state.logged_in:
                 st.session_state.user_name = m_name; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 (✅ bot_active 토글 값을 기반으로 레이아웃 세팅)
+# 5. 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 if bot_active:
     col_main, col_bot = st.columns([0.75, 0.25])
@@ -1069,7 +1069,7 @@ with col_main:
                         st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 (Gemini 탑재판)
+# 🤖 시노봇 (SynoBot) AI 패널 - 에러 원천 차단형 프롬프트 모델
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by Google Gemini.
@@ -1088,56 +1088,55 @@ Answer questions accurately and professionally in Korean based on the following 
 - Voltage (V): Higher voltage cutoff increases capacity but decomposes organic electrolytes (swelling).
 """
 
+# ✅ 시노봇 첫 인사말 (API 전송 시 필터링하기 위한 상수)
+GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
+
 if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
         if genai is None:
-            st.error("⚠️ `google-generativeai` 라이브러리가 설치되지 않았습니다. `requirements.txt`에 추가해주세요.")
+            st.error("⚠️ `google-generativeai` 라이브러리가 설치되지 않았습니다. `requirements.txt` 업데이트 후 앱을 재부팅(Reboot) 해주세요.")
         elif "GEMINI_API_KEY" not in st.secrets:
             st.warning("⚠️ Streamlit Secrets에 `GEMINI_API_KEY`가 설정되지 않아 시노봇이 대기 중입니다.")
-            st.caption("관리자가 API 키를 연동하면 즉시 깨어납니다.")
         else:
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-            
-            # 초기 인사말 세팅 (API 기록 전송 필터링을 위해 명시적 텍스트 사용)
-            GREETING_MSG = "안녕하세요! 배터리 설계 전문 AI 시노봇입니다. 좌측의 시뮬레이터 결과나 SIB 설계 지식에 대해 자유롭게 물어보세요!"
             
             if not st.session_state.chat_messages:
                 st.session_state.chat_messages = [{"role": "assistant", "content": GREETING_MSG}]
 
-            # 기존 메시지 출력
+            # 기존 메시지 화면 출력
             for message in st.session_state.chat_messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
             if prompt := st.chat_input("시노봇에게 질문하기..."):
-                # 유저 메시지 화면 표시 및 저장
+                # 유저 메시지 화면 표시 및 세션 저장
                 st.chat_message("user").markdown(prompt)
                 st.session_state.chat_messages.append({"role": "user", "content": prompt})
 
-                context_prompt = SYSTEM_KNOWLEDGE
+                # AI 연산을 위한 완벽한 프롬프트 문자열 조립 (에러 원천 차단 방식)
+                full_prompt = f"[시스템 기본 지식]\n{SYSTEM_KNOWLEDGE}\n\n"
+                
                 if st.session_state.sim_result:
-                    context_prompt += f"\n\n[Current User's Simulation State]\n{st.session_state.sim_result}"
+                    full_prompt += f"[현재 유저의 시뮬레이션 상태]\n{st.session_state.sim_result}\n\n"
+                
+                full_prompt += "--- 이전 대화 기록 ---\n"
+                
+                # 인사말을 제외한 실제 대화 내역만 발췌
+                real_messages = [m for m in st.session_state.chat_messages if m["content"] != GREETING_MSG]
+                
+                # 방금 입력한 질문을 제외한 과거 대화 기록 추가
+                for msg in real_messages[:-1]: 
+                    role_name = "User" if msg["role"] == "user" else "SynoBot"
+                    full_prompt += f"{role_name}: {msg['content']}\n"
+                    
+                full_prompt += f"\nUser: {prompt}\nSynoBot:"
                 
                 try:
-                    # 안정적인 최신 호환 모델 사용
-                    model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash",
-                        system_instruction=context_prompt
-                    )
-                    
-                    # ✅ 404 에러 원천 차단: 첫 인사말(Greeting)은 API 히스토리에서 제외하여 User 메시지로 시작하도록 강제함
-                    api_history_msgs = [m for m in st.session_state.chat_messages[:-1] if m["content"] != GREETING_MSG]
-                    
-                    formatted_history = []
-                    for msg in api_history_msgs: 
-                        r = "user" if msg["role"] == "user" else "model"
-                        formatted_history.append({"role": r, "parts": [{"text": msg["content"]}]})
-                    
-                    # 채팅 전송
-                    chat = model.start_chat(history=formatted_history)
-                    response = chat.send_message(prompt)
+                    # ✅ 라이브러리 버전에 상관없이 가장 안전한 모델 호출 방식
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    response = model.generate_content(full_prompt)
                     bot_reply = response.text
                     
                     with st.chat_message("assistant"):
@@ -1145,20 +1144,8 @@ if col_bot:
                     st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                     
                 except Exception as e:
-                    # 1.5 모델 지원 불가한 구형 서버 버전을 위한 폴백(안전장치)
-                    if "404" in str(e) or "not found" in str(e) or "API version" in str(e):
-                        try:
-                            fallback_model = genai.GenerativeModel("gemini-pro")
-                            fallback_prompt = f"System Instruction: {context_prompt}\n\nUser: {prompt}"
-                            fallback_response = fallback_model.generate_content(fallback_prompt)
-                            bot_reply = fallback_response.text
-                            with st.chat_message("assistant"):
-                                st.markdown(bot_reply)
-                            st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                        except Exception as e2:
-                            st.error(f"AI 응답 오류: {e2}")
-                    else:
-                        st.error(f"AI 응답 오류: {e}")
+                    st.error(f"AI 연산 중 오류가 발생했습니다. (상세 내역: {e})")
+                    st.info("💡 **조치방법:** GitHub의 requirements.txt 파일에 `google-generativeai>=0.7.0`이 있는지 확인 후, Streamlit 우측 상단 메뉴(⋮)에서 **[Reboot app]**을 클릭해 주세요.")
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.</div>", unsafe_allow_html=True)
