@@ -61,7 +61,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    div[data-testid="stButton"] > button {
+    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: none !important;
         white-space: nowrap !important;
@@ -92,7 +92,6 @@ st.markdown("""
     
     .user-greeting { color: #1A729A; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: flex-end; font-size: 15px; padding-right: 5px; white-space: nowrap; }
     
-    /* 🔥 토글 완벽 우측 정렬 (float 적용) 🔥 */
     div[data-testid="stToggle"] {
         display: flex !important;
         justify-content: flex-end !important;
@@ -220,6 +219,31 @@ def send_verification_email(to_email, code):
     except Exception as e:
         return False
 
+# 🔥 [핵심 추가] 가입 완료 환영 이메일 발송 함수 🔥
+def send_welcome_email(to_email, user_name):
+    sender_email = "wschoi@synotech.co.kr"
+    sender_password = "여기에_16자리_앱비밀번호를_입력하세요"
+    try:
+        if "EMAIL_PASSWORD" in st.secrets: sender_password = st.secrets["EMAIL_PASSWORD"]
+    except: pass
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = f"SynoCore Admin <{sender_email}>"
+        msg['To'] = to_email
+        msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
+        body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password.replace(" ", "")) 
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        return False
+
 # -----------------------------------------------------------------------------
 # 유틸리티 (물리 엔진)
 # -----------------------------------------------------------------------------
@@ -249,7 +273,12 @@ def load_user_history(email, workspace="material_list"):
             try:
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
-                row_dict['Time'] = str(row_dict.get('Time', '')) 
+                
+                # 🔥 [핵심 추가] 기존 DB 빈 날짜(Time) 자동 처리 🔥
+                time_str = str(row_dict.get('Time', '')).strip()
+                if not time_str or time_str == "nan":
+                    time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
+                row_dict['Time'] = time_str 
             except: pass
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0), pd.DataFrame())
             row_dict['dq_x'], row_dict['dq_y'] = v_x, v_y; hist.append(row_dict)
@@ -308,7 +337,6 @@ with h_r:
                         if not valid.empty:
                             domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
                             
-                            # 🔥 [핵심 추가] DB의 ProMax_Req 값을 읽어 등급(Tier) 동적 할당 🔥
                             promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
                             tier_str = "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"
                             
@@ -329,7 +357,6 @@ with h_r:
     else:
         r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
         with r_name:
-            # 🔥 [핵심 추가] 세션에 저장된 user_tier(Pro / Pro Max)를 노출 🔥
             st.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({st.session_state.user_tier})</div>', unsafe_allow_html=True)
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
@@ -418,11 +445,9 @@ if is_pro and st.session_state.get('is_admin', False):
                         df_display = df_admin.copy()
                         is_log_view = (st.session_state.admin_view == 'logs')
                         
-                        # 🔥 [핵심 추가] Admin Users DB 컬럼 가공 및 필터링 🔥
                         if st.session_state.admin_view == 'users' and st.session_state.admin_ws == 'Users':
                             df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else 'Pro')
                             display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
-                            # 패스워드를 숨기고 새 순서 적용
                             df_display = df_display[[c for c in display_order if c in df_display.columns]]
                             
                             edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
@@ -430,11 +455,9 @@ if is_pro and st.session_state.get('is_admin', False):
                             if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                                 try:
                                     save_df = edited_df.copy()
-                                    # 구분을 다시 ProMax_Req로 롤백
                                     save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else 'N')
                                     save_df = save_df.drop(columns=['구분'])
                                     
-                                    # 원본 DB에서 패스워드 가져와 병합 (Password 보존)
                                     merged = pd.merge(save_df, df_admin[['Email', 'Password']], on='Email', how='left')
                                     final_cols = ['Email', 'Password', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'ProMax_Req', 'RegDate']
                                     final_save = merged[[c for c in final_cols if c in merged.columns]].fillna("")
@@ -445,7 +468,6 @@ if is_pro and st.session_state.get('is_admin', False):
                                 except Exception as e:
                                     st.error(f"저장 중 오류 발생: {e}")
 
-                        # 🔥 [핵심 추가] Admin Logs DB 워크스페이스 치환 처리 🔥
                         elif is_log_view and not df_display.empty:
                             df_display['Workspace'] = df_display['Workspace'].replace({'material_overall': 'admin', 'material_list': 'pro_user'})
                             front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
@@ -459,7 +481,6 @@ if is_pro and st.session_state.get('is_admin', False):
                                 try:
                                     save_df = edited_df.copy()
                                     save_df = save_df.iloc[::-1].reset_index(drop=True)
-                                    # 치환했던 텍스트 롤백
                                     save_df['Workspace'] = save_df['Workspace'].replace({'admin': 'material_overall', 'pro_user': 'material_list'})
                                     
                                     if set(original_cols) == set(save_df.columns):
@@ -472,7 +493,6 @@ if is_pro and st.session_state.get('is_admin', False):
                                 except Exception as e:
                                     st.error(f"저장 중 오류 발생: {e}")
                         
-                        # 그 외 탭 (VIPs, param_config, material_overall 제외) 처리
                         elif st.session_state.admin_view != 'users':
                             edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_other")
                             if st.button("💾 변경사항 클라우드에 저장", type="primary"):
@@ -519,22 +539,37 @@ with col_main:
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode) <span style="font-size:15px; color:#666; font-weight:normal; letter-spacing:0px; margin-left:10px;">아래 사항 모두 기입해 주시면 감사하겠습니다.</span></p>', unsafe_allow_html=True)
+            
+            # 🔥 [핵심 추가] 엔터키(Enter) 입력 지원을 위한 form 래핑 적용 🔥
             if st.session_state.reg_stage == 0:
-                e_in = st.text_input("1. 회사 이메일 주소")
-                if st.button("인증번호 발송"):
-                    if not e_in or "@" not in e_in: st.error("올바른 이메일 주소를 입력해주세요.")
-                    else:
-                        v_code = str(random.randint(100000, 999999))
-                        with st.spinner("📧 이메일을 발송 중입니다... (최대 10초 소요)"):
-                            if send_verification_email(e_in, v_code):
-                                st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
-                            else: st.error("이메일 발송 실패. 관리자에게 문의하세요.")
+                with st.form("form_reg_email", border=False):
+                    e_in = st.text_input("1. 회사 이메일 주소")
+                    submit_email = st.form_submit_button("인증번호 발송", use_container_width=True)
+                    if submit_email:
+                        if not e_in or "@" not in e_in: 
+                            st.error("올바른 이메일 주소를 입력해주세요.")
+                        else:
+                            v_code = str(random.randint(100000, 999999))
+                            with st.spinner("📧 이메일을 발송 중입니다... (최대 10초 소요)"):
+                                if send_verification_email(e_in, v_code):
+                                    st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1})
+                                    st.rerun()
+                                else: 
+                                    st.error("이메일 발송 실패. 관리자에게 문의하세요.")
+                                    
             elif st.session_state.reg_stage == 1:
                 st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
-                v_in = st.text_input("인증번호 6자리 입력")
-                if st.button("인증 확인"):
-                    if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
-                    else: st.error("인증번호가 일치하지 않습니다.")
+                # 🔥 [핵심 추가] 엔터키(Enter) 입력 지원을 위한 form 래핑 적용 🔥
+                with st.form("form_reg_code", border=False):
+                    v_in = st.text_input("인증번호 6자리 입력")
+                    submit_code = st.form_submit_button("인증 확인", use_container_width=True)
+                    if submit_code:
+                        if v_in == st.session_state.v_code: 
+                            st.session_state.reg_stage = 2
+                            st.rerun()
+                        else: 
+                            st.error("인증번호가 일치하지 않습니다.")
+                            
             elif st.session_state.reg_stage == 2:
                 p1, p2 = st.columns(2)
                 pw1 = p1.text_input("2. Password", type="password")
@@ -559,7 +594,9 @@ with col_main:
                     <span style='font-size:13px; color:#555;'>VIP 가입을 통해 나의 회사 단독 DB를 보관하고 관리할 수 있습니다. 소재 및 조건 등을 입력하고 그에 맞는 시뮬레이션과 데이터 관리가 가능합니다.</span>
                 </div>
                 """, unsafe_allow_html=True)
-                is_vip_request = st.checkbox("Pro Max Mode 가입합니다.")
+                
+                # 🔥 [핵심 추가] 빨간색 강조 텍스트 적용 🔥
+                is_vip_request = st.checkbox(":red[Pro Max Mode] 가입합니다.")
 
                 st.markdown("---")
                 st.markdown("""
@@ -591,7 +628,14 @@ with col_main:
                     }])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                     st.cache_data.clear() 
-                    st.success("가입신청 완료! 로그인 해주세요."); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
+                    
+                    # 🔥 [핵심 추가] 가입 완료 후 Welcome 메일 발송 로직 추가 🔥
+                    send_welcome_email(st.session_state.temp_email, n_name)
+                    
+                    st.success("가입신청 완료! 환영 이메일이 발송되었습니다. 로그인 해주세요.")
+                    st.session_state.show_reg = False
+                    st.session_state.reg_stage = 0
+                    st.rerun()
 
     if st.session_state.get('show_profile') and st.session_state.logged_in:
         with st.container(border=True):
@@ -601,7 +645,6 @@ with col_main:
                 df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u[df_u['Email'] == st.session_state.user_email].empty else {}
                 st.markdown(f"**이메일(ID):** {st.session_state.user_email} (변경 불가)")
                 
-                # 🔥 [핵심 추가] 개인정보 수정란 UI 및 권한/사용용도 확장 🔥
                 c1, c2 = st.columns([1, 1])
                 m_pw = c1.text_input("새 Password (변경 시에만 입력)", type="password")
                 
@@ -636,7 +679,6 @@ with col_main:
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); 
                     st.cache_data.clear() 
                     
-                    # 현재 세션 정보 최신화
                     st.session_state.user_name = m_name
                     st.session_state.user_tier = m_tier
                     st.session_state.show_profile = False
@@ -859,7 +901,7 @@ with col_main:
                         st.warning("⚠️ N/P Ratio 과다: 잉여 음극 설계로 인한 초기 비가역 용량 증가 및 에너지 밀도 하락!")
                 with w3:
                     if show_adv and v_ec < 2.0:
-                        st.error("⚠️ E/C Ratio 부족: 전해액 고갈(Depletion)에 따른 수명 급 급감 위험!")
+                        st.error("⚠️ E/C Ratio 부족: 전해액 고갈(Depletion)에 따른 수명 급감 위험!")
                         
                 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1026,6 +1068,12 @@ with col_main:
                         db_df_all = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
                         
                         if not db_df_all.empty and 'Email' in db_df_all.columns:
+                            
+                            # 🔥 [핵심 추가] 전체 DB의 Time 컬럼 누락분 일괄 보정 (현재 시간 주입) 🔥
+                            today_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
+                            if 'Time' in db_df_all.columns:
+                                db_df_all['Time'] = db_df_all['Time'].replace("", today_str).fillna(today_str)
+                                
                             my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'material_list') == st.session_state.workspace)]
                             
                             if not my_saved_data.empty:
@@ -1197,7 +1245,6 @@ if col_bot:
         chat_container = st.container(height=730, border=True) 
         
         with chat_container:
-            # 🔥 [핵심 수정] 첫 줄 가림 방지 Spacer 공간 삽입 🔥
             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             
             if OpenAI is None:
