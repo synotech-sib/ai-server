@@ -11,7 +11,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import streamlit.components.v1 as components # 🔥 [추가] JS 제어 및 인쇄용 컴포넌트
+import streamlit.components.v1 as components 
 
 # [구글 시트 라이브러리 예외 처리]
 try:
@@ -32,7 +32,14 @@ st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
 
 st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    /* 🔥 [핵심 추가] Streamlit 로고, 푸터 및 헤더 완벽 숨김 처리 🔥 */
+    #MainMenu {visibility: hidden;} 
+    footer {visibility: hidden !important; display: none !important;} 
+    header {visibility: hidden !important; display: none !important;}
+    a[href^="https://streamlit.io"] {display: none !important;}
+    [data-testid="stHeader"] {display: none !important;}
+    .stApp > header {display: none !important;}
+    .stApp [data-testid="stToolbar"] {display: none !important;}
     
     .main .block-container {
         max-width: 1400px !important; 
@@ -1201,6 +1208,8 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
+
+# 🔥 [핵심 수정] 시노봇의 프롬프트를 정중한 사무적 합쇼체(~입니다, ~합니다)로 변경 🔥
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert Sodium-Ion Battery (SIB) R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on the following SIB knowledge:
@@ -1216,10 +1225,9 @@ Answer questions accurately and professionally in Korean based on the following 
 - Porosity: Formula is (1 - Press Density / True Density) * 100. <20% causes poor wetting.
 
 [응답 스타일 필수 지침]
-- 반드시 SIB 수석 연구원(엔지니어)의 브리핑 스타일로 작성하십시오.
-- 서술형, 만연체 문장(~~습니다, ~~합니다)의 사용을 피하십시오.
-- 모든 답변은 도트 블릿('- ')을 사용하여 핵심만 명확히 나열하십시오.
-- 블릿 기호와 텍스트가 떨어지지 않도록 바로 붙여서 작성하십시오. (예시: - 나트륨 석출(Na-Plating) 위험 감지)
+- 반드시 SIB 수석 연구원(엔지니어)의 전문적인 브리핑 스타일로 작성하되, 사무적이고 정중한 '합쇼체(~입니다, ~합니다)'로 답변하십시오.
+- 모든 답변은 도트 블릿('- ')을 사용하여 핵심을 명확히 나열하십시오.
+- 블릿 기호와 텍스트가 떨어지지 않도록 바로 붙여서 작성하십시오. (예시: - 나트륨 석출 위험이 감지되었습니다.)
 """
 
 GREETING_MSG = "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 시뮬레이터 결과 또는 SIB 설계 지식에 대해 질문해 주십시오."
@@ -1239,7 +1247,6 @@ if col_bot:
         chat_container = st.container(height=730, border=True) 
         
         with chat_container:
-            # 🔥 [핵심 수정] 첫 줄 가림 방지 15px Spacer 공간 확보 🔥
             st.markdown("<div id='chat-top-anchor' style='height: 15px; width: 100%;'></div>", unsafe_allow_html=True)
             
             if OpenAI is None:
@@ -1298,7 +1305,6 @@ if col_bot:
                             display_content = "\- " + display_content[2:]
                         st.markdown(display_content)
             
-            # 🔥 [핵심 수정] 채팅 메시지 렌더링 직후 스크롤을 무조건 최상단으로 끌어올리는 JS 강제 주입 🔥
             components.html("""
                 <script>
                     setTimeout(function() {
