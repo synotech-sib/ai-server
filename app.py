@@ -72,6 +72,7 @@ st.markdown("""
     }
     div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
 
+    /* 🔥 선택 삭제 버튼: 오렌지 칼라 🔥 */
     div.st-key-btn_del_sel > button {
         height: 40px !important; background-color: #D35400 !important; color: white !important; 
         font-weight: bold !important; font-size: 16px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
@@ -230,7 +231,7 @@ def load_user_history(email, workspace="material_list"):
             try:
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
-                row_dict['Time'] = str(row_dict.get('Time', '')) # Time 문자열 강제 변환
+                row_dict['Time'] = str(row_dict.get('Time', '')) 
             except: pass
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0), pd.DataFrame())
             row_dict['dq_x'], row_dict['dq_y'] = v_x, v_y; hist.append(row_dict)
@@ -508,7 +509,8 @@ with col_main:
                         "Phone": n_phone,
                         "Purpose": n_purpose,
                         "ProMax_Req": "Y" if is_vip_request else "N",
-                        "RegDate": datetime.utcnow().strftime("%Y-%m-%d")
+                        # 🔥 가입일자 KST 적용 🔥
+                        "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")
                     }])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                     st.cache_data.clear() 
@@ -786,6 +788,7 @@ with col_main:
                     whl = res_whkg * v_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
                     
+                    # 🔥 KST 한국 표준시 적용 🔥
                     cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
@@ -979,8 +982,11 @@ with col_main:
                             st.warning("데이터베이스 연결에 실패하여 과거 이력을 불러오지 못했습니다.")
 
                     st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # 🔥 [수정] 4개 버튼 순서 논리적 재배치 🔥
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
+                    # 1. 계정에 저장
                     if btn1.button("💾 계정에 저장", key="btn_save_my", use_container_width=True):
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection)
@@ -1008,27 +1014,8 @@ with col_main:
                         except Exception as e: 
                             st.error(f"저장 오류: {e}")
 
-                    df_export = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
-                    buffer = io.BytesIO()
-                    try:
-                        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                            df_export.to_excel(writer, index=False, sheet_name='Simulation_Logs')
-                        file_data = buffer.getvalue()
-                        file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%m%d_%H%M')}.xlsx"
-                        mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    except ImportError:
-                        file_data = df_export.to_csv(index=False).encode('utf-8-sig')
-                        file_name = f"SynoCore_Logs_{datetime.utcnow().strftime('%m%d_%H%M')}.csv"
-                        mime_type = "text/csv"
-
-                    btn2.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
-
-                    print_clicked = btn3.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True)
-                    if print_clicked:
-                        import streamlit.components.v1 as components
-                        components.html("<script>window.parent.print();</script>", height=0)
-
-                    if btn4.button("🗑️ 선택 삭제", key="btn_del_sel", use_container_width=True):
+                    # 2. 선택 삭제 (오렌지 박스 유지 - key="btn_del_sel"을 통해 스타일 매핑)
+                    if btn2.button("🗑️ 선택 삭제", key="btn_del_sel", use_container_width=True):
                         if not selected_times:
                             st.warning("삭제할 항목을 체크해 주세요.")
                         elif not db_df_all.empty:
@@ -1044,6 +1031,29 @@ with col_main:
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"삭제 오류: {e}")
+
+                    # 3. 엑셀 다운로드 파일 준비
+                    df_export = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y'], errors='ignore')
+                    buffer = io.BytesIO()
+                    try:
+                        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                            df_export.to_excel(writer, index=False, sheet_name='Simulation_Logs')
+                        file_data = buffer.getvalue()
+                        # 다운로드 파일 이름에도 KST 시간 적용
+                        file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.xlsx"
+                        mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    except ImportError:
+                        file_data = df_export.to_csv(index=False).encode('utf-8-sig')
+                        file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.csv"
+                        mime_type = "text/csv"
+
+                    btn3.download_button(label="📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
+
+                    # 4. 화면 PDF 인쇄
+                    print_clicked = btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True)
+                    if print_clicked:
+                        import streamlit.components.v1 as components
+                        components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
@@ -1087,7 +1097,7 @@ if col_bot:
         
         with chat_container:
             if OpenAI is None:
-                st.error("⚠️ `openai` 라이브러 설치가 필요합니다. `requirements.txt`에 `openai`를 추가 후 앱을 재시작 해주세요.")
+                st.error("⚠️ `openai` 라이브러리 설치가 필요합니다. `requirements.txt`에 `openai`를 추가 후 앱을 재시작 해주세요.")
             elif "OPENAI_API_KEY" not in st.secrets:
                 st.warning("⚠️ Streamlit Secrets에 `OPENAI_API_KEY`가 설정되지 않아 대기 중입니다.")
             else:
@@ -1135,11 +1145,16 @@ if col_bot:
                                 st.error(f"AI 연산 오류: {str(e)}")
                     st.rerun()
 
+                # 🔥 [수정] 시노봇의 마크다운 도트 블릿 간격 벌리기(줄바꿈) 적용 🔥
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
-                        display_content = message["content"].replace("\n- ", "\n\- ")
+                        # '- ' 기호가 나오면 앞에 강제로 엔터 두 개를 넣어 단락을 띄움
+                        display_content = message["content"].replace("\n- ", "\n\n\- ")
+                        
+                        # 대화 내용의 가장 첫 줄이 '- '로 시작할 때도 치환
                         if display_content.startswith("- "): 
                             display_content = "\- " + display_content[2:]
+                            
                         st.markdown(display_content)
 
 # 7. 푸터 
