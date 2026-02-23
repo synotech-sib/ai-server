@@ -260,7 +260,6 @@ def load_user_history(email, workspace="material_list"):
         for _, row in my_logs.iterrows():
             row_dict = row.to_dict(); row_dict.pop('Email', None); row_dict.pop('Workspace', None)
             try:
-                # v1.97 추가된 파라미터 컬럼들 파싱 
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'C_Load', 'C_Press', 'C_Act', 'C_Bin', 'C_Con', 'N/P Ratio', 'A_Press', 'A_Act', 'A_Bin', 'A_Con', 'E/C Ratio', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: 
                     row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
@@ -384,6 +383,122 @@ st.markdown("---")
 # 🔥 양방향 동기화 콜백
 def sync_s_to_n(s_key, n_key): st.session_state[n_key] = st.session_state[s_key]
 def sync_n_to_s(s_key, n_key): st.session_state[s_key] = st.session_state[n_key]
+
+# -----------------------------------------------------------------------------
+# 👑 [최고 관리자 전용 대시보드] (생략 없이 원본 유지)
+# -----------------------------------------------------------------------------
+if is_pro and st.session_state.get('is_admin', False):
+    if st.session_state.admin_view is not None or st.session_state.show_profile is False:
+        with st.container(border=True):
+            st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+            
+            a1, a2, a3, a4, a5 = st.columns(5)
+            
+            if a1.button("👥 유저 관리 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'users' else 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
+            if a2.button("🔋 소재 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'mats' else 'mats'; st.session_state.admin_ws = 'material_overall'; st.rerun()
+            if a3.button("⚙️ 파라미터 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'param' else 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
+            if a4.button("💾 로그 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'logs' else 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
+            if a5.button("💬 챗봇 로그 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'chat' else 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
+
+            if st.session_state.admin_view:
+                st.markdown("---")
+                st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
+                
+                if st.session_state.admin_view == 'users': target_url = URL_USERS; ws_options = ["Users", "VIPs"]
+                elif st.session_state.admin_view == 'mats': target_url = URL_MATS; ws_options = ["material_overall", "material_list"] + get_vip_list_exact()
+                elif st.session_state.admin_view == 'param': target_url = URL_PARAM; ws_options = ["param_config"]
+                elif st.session_state.admin_view == 'logs': target_url = URL_LOGS; ws_options = ["myData"]
+                elif st.session_state.admin_view == 'chat': target_url = URL_LOGS; ws_options = ["ChatLogs"] 
+                
+                if len(ws_options) > 1:
+                    sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
+                    if sel_ws_admin != st.session_state.admin_ws:
+                        st.session_state.admin_ws = sel_ws_admin; st.rerun()
+                
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                try:
+                    if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
+                        st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다.")
+                        vips = get_vip_list_exact(); dfs = []
+                        for v in vips:
+                            tmp = load_cloud_data(target_url, v)
+                            if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
+                        tmp_public = load_cloud_data(target_url, "material_list")
+                        if not tmp_public.empty: dfs.append(tmp_public)
+                        df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                        df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
+                        st.dataframe(df_admin, use_container_width=True)
+                    else:
+                        df_admin = conn.read(spreadsheet=target_url, worksheet=st.session_state.admin_ws, ttl=600) 
+                        st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
+                        
+                        original_cols = df_admin.columns.tolist()
+                        df_display = df_admin.copy()
+                        is_log_view = (st.session_state.admin_view == 'logs')
+                        
+                        if st.session_state.admin_view == 'users' and st.session_state.admin_ws == 'Users':
+                            df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else ('Out' if str(x) == 'Out' else 'Pro'))
+                            display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
+                            df_display = df_display[[c for c in display_order if c in df_display.columns]]
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else ('Out' if x == 'Out' else 'N'))
+                                    save_df = save_df.drop(columns=['구분'])
+                                    merged = pd.merge(save_df, df_admin[['Email', 'Password']], on='Email', how='left')
+                                    final_cols = ['Email', 'Password', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'ProMax_Req', 'RegDate']
+                                    final_save = merged[[c for c in final_cols if c in merged.columns]].fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=final_save)
+                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
+
+                        elif is_log_view and not df_display.empty:
+                            df_display['Workspace'] = df_display['Workspace'].replace({'material_overall': 'admin', 'material_list': 'pro_user'})
+                            front_cols = [c for c in ['Workspace', 'Email', 'Time'] if c in original_cols]
+                            other_cols = [c for c in original_cols if c not in front_cols]
+                            df_display = df_display[front_cols + other_cols]
+                            df_display = df_display.iloc[::-1].reset_index(drop=True)
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_logs")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    save_df = save_df.iloc[::-1].reset_index(drop=True)
+                                    save_df['Workspace'] = save_df['Workspace'].replace({'admin': 'material_overall', 'pro_user': 'material_list'})
+                                    if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
+                                    edited_df_safe = save_df.fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
+                        
+                        elif st.session_state.admin_view != 'users':
+                            if st.session_state.admin_view == 'chat': 
+                                if not df_display.empty: df_display = df_display.iloc[::-1].reset_index(drop=True)
+                                
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    if st.session_state.admin_view == 'chat' and not save_df.empty: save_df = save_df.iloc[::-1].reset_index(drop=True)
+                                    if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
+                                    edited_df_safe = save_df.fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=st.session_state.admin_ws, data=edited_df_safe)
+                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
+                except Exception as e:
+                    pass
+                
+                st.markdown("---")
+                st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
+                vip_opts = ["material_overall", "material_list"] + get_vip_list_exact()
+                sel_ws = st.selectbox("**🔒 테스트 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
+                if sel_ws != st.session_state.workspace:
+                    st.session_state.workspace = sel_ws; st.session_state.history = load_user_history(st.session_state.user_email, sel_ws); st.rerun()
 
 # -----------------------------------------------------------------------------
 # 5. 시뮬레이터 본문
@@ -533,7 +648,7 @@ with col_main:
             # 섹션 3: Cell
             "ec": 3.5,
             # 섹션 4: Target
-            "te": 250.0, "tc": 1.0, "tl": 2000.0
+            "te": 160.0, "tc": 1.0, "tl": 2000.0 # 💡 에너지 밀도 기본값을 160.0으로 밸런스 조정 (100~250 범위 내)
         }
         for k, v in init_vals.items():
             if f"{k}_s" not in st.session_state: st.session_state[f"{k}_s"] = v
@@ -575,7 +690,7 @@ with col_main:
                     lf2.number_input("Life_N", float(def_lif_min), float(def_lif_max), step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n"), label_visibility="collapsed", disabled=not expert)
                     v_life = st.session_state.life_s
 
-        # 🔥 [섹션 3] Process Parameters (완벽히 복원 및 연동된 영역)
+        # 🔥 [섹션 3] Process Parameters
         with st.container(border=True):
             st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
             sp3, c_3 = st.columns([0.03, 0.97])
@@ -679,17 +794,18 @@ with col_main:
                 with w3:
                     if show_adv and v_ec < 2.0: st.error("⚠️ E/C Ratio 부족: 전해액 고갈 및 수명 저하 위험!")
 
-        # [섹션 4] Target Settings
+        # 🔥 [섹션 4] Target Settings (라벨 변경 및 범위 변경)
         with st.container(border=True):
             st.markdown('<p class="main-header">4. Target Settings</p>', unsafe_allow_html=True)
             sp4, c_4 = st.columns([0.03, 0.97])
             with c_4:
                 t1, t2, t3 = st.columns(3)
                 with t1: 
-                    st.markdown('<p class="sub-header-bold">Energy (Wh/kg)</p>', unsafe_allow_html=True)
+                    # 💡 명칭 변경 및 100~250 범위 적용
+                    st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
                     te1, te2 = st.columns([0.7, 0.3])
-                    te1.slider("TE_S", 100.0, 350.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n"), label_visibility="collapsed")
-                    te2.number_input("TE_N", 100.0, 350.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n"), label_visibility="collapsed")
+                    te1.slider("TE_S", 100.0, 250.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n"), label_visibility="collapsed")
+                    te2.number_input("TE_N", 100.0, 250.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n"), label_visibility="collapsed")
                     v_te = st.session_state.te_s
                     
                 with t2: 
@@ -700,7 +816,8 @@ with col_main:
                     v_tc = st.session_state.tc_s
                     
                 with t3: 
-                    st.markdown('<p class="sub-header-bold">Life Goal</p>', unsafe_allow_html=True)
+                    # 💡 명칭 변경
+                    st.markdown('<p class="sub-header-bold">Cycle Life</p>', unsafe_allow_html=True)
                     tl1, tl2 = st.columns([0.7, 0.3])
                     tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n"), label_visibility="collapsed")
                     tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n"), label_visibility="collapsed")
