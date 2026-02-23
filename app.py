@@ -68,7 +68,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 기본 버튼 디자인 및 로그인 팝업 박스 크기 동기화 */
+    /* 기본 버튼 디자인 및 팝업 박스 크기 동기화 */
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important;
@@ -83,7 +83,6 @@ st.markdown("""
     }
     div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
 
-    /* 탈퇴 확인 버튼 등 강조 버튼 */
     div.st-key-btn_del_sel > button, div.st-key-btn_withdraw > button {
         height: 40px !important; background-color: #D35400 !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
@@ -91,36 +90,17 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover, div.st-key-btn_withdraw > button:hover { background-color: #B04600 !important; }
     
-    /* 🔥 [수정] VIP 정보 텍스트 버튼: 흰색 배경, 검정 글자, 우측 밀착 */
-    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button {
-        background-color: #FFFFFF !important; /* 배경을 무색(흰색)으로 변경 */
-        background: #FFFFFF !important;
-        border: none !important; 
-        box-shadow: none !important;
-        display: flex !important;
-        justify-content: flex-end !important; /* 박스 내부 텍스트 우측 끝 밀착 */
-        padding: 0 5px 0 0 !important;
-    }
-    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:hover,
-    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:active,
-    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:focus {
-        background-color: #FFFFFF !important; 
-        background: #FFFFFF !important;
+    /* 🔥 VIP 이름 버튼 클릭 시 나타나는 링크 디자인 */
+    div.st-key-btn_my_db_scroll_link > button {
+        background-color: transparent !important;
+        color: #1A729A !important;
         border: none !important;
-        box-shadow: none !important;
-    }
-    
-    /* 텍스트 기본 컬러(검정) 설정 */
-    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button p {
-        color: #000000 !important;
-        font-weight: bold !important; 
-        font-size: 15px !important;
-        margin: 0 !important;
-        white-space: nowrap !important;
-    }
-    /* 마우스 오버 시 파란색 텍스트(DB링크)에만 밑줄 & 주황색 변경 */
-    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:hover p span {
         text-decoration: underline !important;
+        font-size: 16px !important;
+        text-align: left !important;
+        padding: 0 !important;
+    }
+    div.st-key-btn_my_db_scroll_link > button:hover {
         color: #D35400 !important;
     }
 
@@ -169,17 +149,12 @@ st.markdown("""
         padding: 10px !important;
     }
 
-    /* 모바일 반응형 3단 분리 정렬 */
+    /* 모바일 반응형 2단 정렬 */
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
-        
-        div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button {
-            justify-content: flex-start !important; 
-            text-align: left !important;
-        }
         div.st-key-bot_toggle_ui { justify-content: flex-start !important; margin-top: 10px !important; }
         div[data-testid="stToggle"] { justify-content: flex-start !important; }
     }
@@ -239,12 +214,16 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 🔥 발송자: synocore / 로그인: wschoi 
+# ✉️ [이메일 발송 시스템] 🔥 발송 에러 상세 로그 추가
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     display_email = "synocore@synotech.co.kr"
     login_email = "wschoi@synotech.co.kr"
-    sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
+    sender_password = st.secrets.get("EMAIL_PASSWORD", "")
+    
+    if not sender_password:
+        return "비밀번호가 Secrets에 설정되지 않았습니다."
+        
     try:
         msg = MIMEMultipart()
         msg['From'] = f"SynoCore <{display_email}>"
@@ -252,20 +231,20 @@ def send_verification_email(to_email, code):
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(login_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
-        return True
+        return "SUCCESS"
     except Exception as e: 
-        print(f"Email Error: {e}") 
-        return False
+        return f"이메일 서버 오류: {e}"
 
 def send_welcome_email(to_email, user_name):
     display_email = "synocore@synotech.co.kr"
     login_email = "wschoi@synotech.co.kr"
-    sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
+    sender_password = st.secrets.get("EMAIL_PASSWORD", "")
     try:
         msg = MIMEMultipart()
         msg['From'] = f"SynoCore <{display_email}>"
@@ -368,7 +347,7 @@ for key, val in default_vars.items():
 
 is_pro = st.session_state.logged_in
 
-# 🔥 헤더 상단 비율 및 위치 최적화
+# 🔥 헤더 레이아웃 (비로그인 vs 로그인)
 if not is_pro:
     h_l, h_r = st.columns([0.72, 0.28], gap="small") 
     with h_l:
@@ -434,8 +413,8 @@ if not is_pro:
             st.session_state.show_bot = bot_active; st.rerun()
 
 else:
-    # 💡 3단 분리 (좌측 0.35 / 중앙 이름 0.37 / 우측 버튼 0.28) 
-    h_l, h_info, h_btn = st.columns([0.35, 0.37, 0.28], gap="small")
+    # 💡 2단 분리 (좌측 0.65 / 우측 0.35) -> 팝업 버튼 스타일 UI 변경
+    h_l, h_r = st.columns([0.65, 0.35], gap="small")
     
     with h_l:
         st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
@@ -443,27 +422,31 @@ else:
             st.session_state.show_reg = False; st.session_state.show_profile = False
             st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
             
-    with h_info:
+    with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
-        # 💡 :blue[] 를 통해 DB센터만 파란색 하이퍼링크 처리 (기본 글자는 검정색)
-        if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            display_name_md = f"👤 {st.session_state.user_name} (Pro Max Mode) :blue[[{st.session_state.workspace.capitalize()} DB Center]]"
-        elif st.session_state.user_tier == "Pro":
-            display_name_md = f"👤 {st.session_state.user_name} (Pro Mode)"
-        else:
-            display_name_md = f"👤 {st.session_state.user_name} (Admin Mode)"
+        
+        # 💡 [핵심] 이름 영역을 My 계정과 똑같은 파란색 버튼 컨테이너로 만듭니다.
+        btn_col1, btn_col2, btn_col3 = st.columns([1.5, 1, 1])
+        
+        with btn_col1:
+            display_name = f"👤 {st.session_state.user_name} ({st.session_state.user_tier})"
+            with st.popover(display_name, use_container_width=True):
+                st.markdown(f"**접속 계정:** {st.session_state.user_email}")
+                if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
+                    st.markdown("---")
+                    if st.button(f"👉 [{st.session_state.workspace.capitalize()} DB Center] 이동", key="btn_my_db_scroll_link", use_container_width=True):
+                        st.session_state.scroll_to_data = True
+                        st.rerun()
+                elif st.session_state.user_tier == "Admin":
+                    st.markdown("---")
+                    st.info("최고 관리자 권한이 활성화되었습니다.")
+                else:
+                    st.markdown("---")
+                    st.info("개인 전용 DB 구축은 Pro Max 업그레이드가 필요합니다.")
 
-        # CSS로 흰색 배경, 검정 글자, 우측 밀착 제어
-        if st.button(display_name_md, key="btn_my_db_scroll", use_container_width=True):
-            st.session_state.scroll_to_data = True
-
-    with h_btn:
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        # 💡 계정 버튼 2개 5:5 완벽 정렬
-        r_my, r_out = st.columns([1, 1]) 
-        with r_my:
+        with btn_col2:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
-        with r_out:
+        with btn_col3:
             if st.button("Logout", key="btn_logout_m", use_container_width=True): 
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
@@ -618,8 +601,11 @@ with col_main:
                         else:
                             v_code = str(random.randint(100000, 999999))
                             with st.spinner("📧 이메일을 발송 중입니다..."):
-                                if send_verification_email(e_in, v_code): st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
-                                else: st.error("이메일 발송 실패. (16자리 앱 비밀번호와 이메일 계정을 확인하세요)")
+                                email_status = send_verification_email(e_in, v_code)
+                                if email_status == "SUCCESS": 
+                                    st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
+                                else: 
+                                    st.error(f"이메일 발송 실패.\n사유: {email_status}")
             elif st.session_state.reg_stage == 1:
                 st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
                 with st.form("form_reg_code", border=False):
@@ -668,15 +654,15 @@ with col_main:
                     if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
                     df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
                     df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose; df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
-                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
-                    st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear(); st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
                 
-                # 🔥 탈퇴 로직 UI/UX 개선 (수정완료 버튼 아래 위치)
-                st.markdown("---")
+                # 🔥 탈퇴 신청 UI/UX 개선 (수정완료 버튼 아래 배치)
+                st.markdown("<br><hr>", unsafe_allow_html=True)
                 del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
                 if del_check:
                     del_col1, del_col2 = st.columns([0.7, 0.3])
-                    del_reason = del_col1.text_input("탈퇴 사유", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
+                    # 워터마크(Placeholder) 적용
+                    del_reason = del_col1.text_input("탈퇴 사유 입력란", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
                     if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
                         conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                         idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
