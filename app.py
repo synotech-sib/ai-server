@@ -139,7 +139,7 @@ st.markdown("""
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px; }
     
-    /* 🔥 토글 스위치 우측 하단 정렬 (봇 패널 타이틀 옆) */
+    /* 토글 스위치 우측 하단 정렬 (봇 패널 타이틀 옆) */
     div.st-key-bot_toggle_ui {
         display: flex !important;
         justify-content: flex-end !important;
@@ -239,7 +239,7 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 🔥 로그인/발송자 모두 wschoi@synotech.co.kr 로 변경
+# ✉️ [이메일 발송 시스템] wschoi@synotech.co.kr 발송 완벽 원복 및 에러 디버깅
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     sender_email = "wschoi@synotech.co.kr"
@@ -263,8 +263,7 @@ def send_verification_email(to_email, code):
         server.quit()
         return "SUCCESS"
     except Exception as e: 
-        print(f"Email Error: {e}") 
-        return f"이메일 서버 오류: {e}"
+        return f"이메일 서버 접속 또는 인증 오류: {str(e)}"
 
 def send_welcome_email(to_email, user_name):
     sender_email = "wschoi@synotech.co.kr"
@@ -445,6 +444,7 @@ else:
     with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
         
+        # 💡 유저정보 영역과 계정 버튼들을 가로로 나란히 배치
         r_info, r_my, r_out = st.columns([1.8, 1, 1], gap="small")
         
         with r_info:
@@ -619,7 +619,8 @@ with col_main:
                                 if email_status == "SUCCESS": 
                                     st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
                                 else: 
-                                    st.error(f"이메일 발송 실패.\n사유: {email_status}")
+                                    # 🚨 진짜 에러 원인 출력
+                                    st.error(f"🚨 이메일 발송 실패! 진짜 원인: {email_status}")
             elif st.session_state.reg_stage == 1:
                 st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
                 with st.form("form_reg_code", border=False):
