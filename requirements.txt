@@ -1,10 +1,7 @@
 streamlit
 pandas
 numpy
-matplotlib
-fpdf
-openpyxl
 plotly
-st-gsheets-connection
 openai
+streamlit-gsheets
 extra-streamlit-components
