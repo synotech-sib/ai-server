@@ -68,7 +68,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 기본 버튼 디자인 및 로그인 팝업 박스 크기 강제 동기화 */
+    /* 기본 버튼 디자인 및 로그인 팝업 박스 크기 동기화 */
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important;
@@ -90,29 +90,31 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
     
-    /* 🔥 [핵심] 이름/등급 텍스트의 링크화 및 오른쪽 정렬 (버튼과 밀착) */
+    /* 🔥 [핵심] 배경 투명, 글자 검정, 링크 파랑, 오른쪽 정렬 적용 */
     div.st-key-btn_my_db_scroll {
         display: flex;
-        justify-content: flex-end; /* 오른쪽으로 밀착 */
+        justify-content: flex-end !important; /* 항상 오른쪽 끝 정렬 */
         align-items: center;
-        height: 40px;
+        height: 30px;
+        margin-bottom: 5px;
     }
     div.st-key-btn_my_db_scroll > button {
         background-color: transparent !important; 
-        color: #1A729A !important; 
+        color: #000000 !important; /* 기본 글자는 검정색 */
         border: none !important; 
         font-weight: bold !important; 
         font-size: 15px !important;
         text-align: right !important;
         box-shadow: none !important;
-        padding-right: 5px !important;
+        padding: 0 !important;
         white-space: nowrap !important;
     }
     div.st-key-btn_my_db_scroll > button:hover { 
-        color: #D35400 !important; 
-        text-decoration: underline !important;
-        background-color: transparent !important;
+        background-color: transparent !important; 
     }
+    /* 파란색 링크 효과를 위한 span 처리 클래스 (파이썬에서 적용) */
+    .vip-link-text { color: #1A729A; text-decoration: none; }
+    div.st-key-btn_my_db_scroll > button:hover .vip-link-text { text-decoration: underline !important; color: #D35400; }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
@@ -123,20 +125,23 @@ st.markdown("""
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px; }
     
+    /* 🔥 토글 버튼 디자인 및 우측 하단 정렬 최적화 */
+    div.st-key-bot_toggle_ui {
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin-top: 5px !important;
+        margin-bottom: 0px !important;
+    }
     div[data-testid="stToggle"] {
         display: flex !important;
         justify-content: flex-end !important;
-        margin-left: auto !important;
-        float: right !important;
         width: 100% !important;
         padding: 0px !important;
         background-color: transparent !important; 
         border: none !important;
-        margin-top: 5px !important;
     }
     div[data-testid="stToggle"] > label { 
         margin-bottom: 0px !important; font-size: 14px !important; color: #333 !important; 
-        display: flex; justify-content: flex-end;
     }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
@@ -155,22 +160,18 @@ st.markdown("""
         padding: 10px !important;
     }
 
-    /* 🔥 모바일 최적화 (3단 분리 디자인) */
+    /* 🔥 모바일 반응형 3단 정렬 */
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
         
-        div.st-key-btn_my_db_scroll {
-            justify-content: flex-start !important; /* 모바일은 왼쪽 정렬 */
-            margin-bottom: -15px !important;
-            margin-top: 5px !important;
-        }
-        div.st-key-btn_my_db_scroll > button {
-            text-align: left !important;
-            font-size: 14px !important;
-        }
+        /* 모바일에서는 버튼, 텍스트, 토글이 자연스럽게 좌측 정렬되거나 공간에 맞게 배치됨 */
+        div.st-key-btn_my_db_scroll { justify-content: flex-start !important; margin-bottom: 5px !important; }
+        div.st-key-btn_my_db_scroll > button { text-align: left !important; font-size: 14px !important; }
+        div.st-key-bot_toggle_ui { justify-content: flex-start !important; }
+        div[data-testid="stToggle"] { justify-content: flex-start !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -178,7 +179,7 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # 2. 클라우드 DB 연동 설정
 # -----------------------------------------------------------------------------
-ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
+ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연", "admin@synotech.co.kr": "시스템관리자"}
 ADMIN_PW = st.secrets.get("ADMIN_PW", "Please_Set_Password_In_Secrets")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
@@ -227,12 +228,15 @@ def safe_int(val, default):
     try: return int(float(val)) if val != "" and not pd.isna(val) else default
     except: return default
 
+# -----------------------------------------------------------------------------
+# ✉️ [이메일 발송 시스템] 🔥 발송자 이메일 admin@synotech.co.kr 로 변경
+# -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    sender_email = "wschoi@synotech.co.kr"
+    sender_email = "admin@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore Admin <{sender_email}>"
+        msg['From'] = f"SynoCore <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
@@ -246,11 +250,11 @@ def send_verification_email(to_email, code):
     except Exception: return False
 
 def send_welcome_email(to_email, user_name):
-    sender_email = "wschoi@synotech.co.kr"
+    sender_email = "admin@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore Admin <{sender_email}>"
+        msg['From'] = f"SynoCore <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
@@ -263,6 +267,9 @@ def send_welcome_email(to_email, user_name):
         return True
     except Exception: return False
 
+# -----------------------------------------------------------------------------
+# 유틸리티 (물리 엔진 및 데이터 연동)
+# -----------------------------------------------------------------------------
 def get_dqdv(cat_sel, v_tc, m_df=None):
     v_axis = np.linspace(2.0, 4.2, 150); dqdv = np.zeros_like(v_axis); p1, p2 = 3.15, 0.0 
     if m_df is not None and not m_df.empty and 'Name' in m_df.columns:
@@ -349,7 +356,6 @@ is_pro = st.session_state.logged_in
 
 # 🔥 헤더 상단 비율 및 버튼 최적화 로직 적용
 if not is_pro:
-    # 비로그인 상태 (타이틀 0.72 / 우측버튼 0.28)
     h_l, h_r = st.columns([0.72, 0.28], gap="small") 
     with h_l:
         st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
@@ -358,7 +364,7 @@ if not is_pro:
             st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
     with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        c1, c2 = st.columns([1, 1]) # 정확히 5:5 
+        c1, c2 = st.columns([1, 1]) 
         with c1.popover("🔑 Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
@@ -408,9 +414,15 @@ if not is_pro:
         with c2:
             if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
                 st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
+        
+        # 💡 비로그인 시 토글 스위치 우측 하단 정렬 
+        bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
+        if bot_active != st.session_state.show_bot:
+            st.session_state.show_bot = bot_active; st.rerun()
+
 else:
-    # 💡 로그인 완료 상태 (좌측 0.35 / 중앙 이름 0.37 / 우측 버튼 0.28)
-    h_l, h_mid, h_r = st.columns([0.35, 0.37, 0.28], gap="small")
+    # 💡 로그인 완료 상태 (좌측 0.72 / 우측 0.28)
+    h_l, h_r = st.columns([0.72, 0.28], gap="small")
     
     with h_l:
         st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
@@ -418,21 +430,21 @@ else:
             st.session_state.show_reg = False; st.session_state.show_profile = False
             st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
             
-    with h_mid:
+    with h_r:
+        # 💡 이름 텍스트 우측 정렬 (파란색 링크 디자인 적용)
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            display_name = f"👤 {st.session_state.user_name} (Pro Max Mode) [{st.session_state.workspace.capitalize()} DB Center]"
+            display_name_html = f"👤 {st.session_state.user_name} (Pro Max Mode) <span class='vip-link-text'>[{st.session_state.workspace.capitalize()} DB Center]</span>"
         elif st.session_state.user_tier == "Pro":
-            display_name = f"👤 {st.session_state.user_name} (Pro Mode)"
+            display_name_html = f"👤 {st.session_state.user_name} (Pro Mode)"
         else:
-            display_name = f"👤 {st.session_state.user_name} (Admin Mode)"
+            display_name_html = f"👤 {st.session_state.user_name} (Admin Mode)"
 
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-        if st.button(display_name, key="btn_my_db_scroll", use_container_width=True):
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        if st.button(display_name_html, key="btn_my_db_scroll", use_container_width=True):
             st.session_state.scroll_to_data = True
 
-    with h_r:
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        r_my, r_out = st.columns([1, 1]) # 정확히 5:5 
+        # 💡 버튼들 5:5 동일 사이즈
+        r_my, r_out = st.columns([1, 1]) 
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
@@ -440,10 +452,10 @@ else:
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
 
-    # 봇 토글 스위치 유지
-    bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
-    if bot_active != st.session_state.show_bot:
-        st.session_state.show_bot = bot_active; st.rerun()
+        # 💡 시노봇 토글을 버튼 바로 아래 우측으로 정렬
+        bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
+        if bot_active != st.session_state.show_bot:
+            st.session_state.show_bot = bot_active; st.rerun()
 
 st.markdown("---")
 
