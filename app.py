@@ -68,9 +68,10 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
+    /* 기본 버튼 디자인 및 로그인 팝업 박스 크기 강제 동기화 */
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
-        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: none !important;
+        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important;
         white-space: nowrap !important;
         padding: 0 5px !important;
     }
@@ -89,22 +90,28 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
     
-    /* 🔥 텍스트 링크처럼 보이게 만드는 CSS 매직 */
+    /* 🔥 [핵심] 이름/등급 텍스트의 링크화 및 오른쪽 정렬 (버튼과 밀착) */
+    div.st-key-btn_my_db_scroll {
+        display: flex;
+        justify-content: flex-end; /* 오른쪽으로 밀착 */
+        align-items: center;
+        height: 40px;
+    }
     div.st-key-btn_my_db_scroll > button {
         background-color: transparent !important; 
         color: #1A729A !important; 
         border: none !important; 
         font-weight: bold !important; 
-        font-size: 14px !important;
+        font-size: 15px !important;
         text-align: right !important;
-        justify-content: flex-end !important;
         box-shadow: none !important;
         padding-right: 5px !important;
+        white-space: nowrap !important;
     }
     div.st-key-btn_my_db_scroll > button:hover { 
-        background-color: transparent !important; 
         color: #D35400 !important; 
         text-decoration: underline !important;
+        background-color: transparent !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -148,12 +155,22 @@ st.markdown("""
         padding: 10px !important;
     }
 
-    /* 모바일 최적화 CSS */
+    /* 🔥 모바일 최적화 (3단 분리 디자인) */
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
+        
+        div.st-key-btn_my_db_scroll {
+            justify-content: flex-start !important; /* 모바일은 왼쪽 정렬 */
+            margin-bottom: -15px !important;
+            margin-top: 5px !important;
+        }
+        div.st-key-btn_my_db_scroll > button {
+            text-align: left !important;
+            font-size: 14px !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -210,9 +227,6 @@ def safe_int(val, default):
     try: return int(float(val)) if val != "" and not pd.isna(val) else default
     except: return default
 
-# -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 
-# -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     sender_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
@@ -249,9 +263,6 @@ def send_welcome_email(to_email, user_name):
         return True
     except Exception: return False
 
-# -----------------------------------------------------------------------------
-# 유틸리티 (물리 엔진 및 데이터 연동)
-# -----------------------------------------------------------------------------
 def get_dqdv(cat_sel, v_tc, m_df=None):
     v_axis = np.linspace(2.0, 4.2, 150); dqdv = np.zeros_like(v_axis); p1, p2 = 3.15, 0.0 
     if m_df is not None and not m_df.empty and 'Name' in m_df.columns:
@@ -334,19 +345,20 @@ for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-h_l, h_r = st.columns([0.72, 0.28], gap="small") 
+is_pro = st.session_state.logged_in
 
-with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
-    if st.button("홈으로", key="btn_home_overlay"):
-        st.session_state.show_reg = False; st.session_state.show_profile = False
-        st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
-
-with h_r:
-    is_pro = st.session_state.logged_in
-    if not is_pro:
-        # 💡 로그인/가입 버튼 동일 사이즈 5:5 정렬
-        c1, c2 = st.columns([1, 1])
+# 🔥 헤더 상단 비율 및 버튼 최적화 로직 적용
+if not is_pro:
+    # 비로그인 상태 (타이틀 0.72 / 우측버튼 0.28)
+    h_l, h_r = st.columns([0.72, 0.28], gap="small") 
+    with h_l:
+        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
+        if st.button("홈으로", key="btn_home_overlay"):
+            st.session_state.show_reg = False; st.session_state.show_profile = False
+            st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
+    with h_r:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([1, 1]) # 정확히 5:5 
         with c1.popover("🔑 Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
@@ -396,11 +408,17 @@ with h_r:
         with c2:
             if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
                 st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
-    else:
-        # 💡 [1.5 : 1 : 1] 비율 적용 -> 버튼 2개는 동일 사이즈, 텍스트 공간 확보
-        r_name, r_my, r_out = st.columns([1.5, 1, 1], gap="small")
-        
-        # 💡 지시사항 반영 (이름 + 등급 + 소속)
+else:
+    # 💡 로그인 완료 상태 (좌측 0.35 / 중앙 이름 0.37 / 우측 버튼 0.28)
+    h_l, h_mid, h_r = st.columns([0.35, 0.37, 0.28], gap="small")
+    
+    with h_l:
+        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
+        if st.button("홈으로", key="btn_home_overlay"):
+            st.session_state.show_reg = False; st.session_state.show_profile = False
+            st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
+            
+    with h_mid:
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
             display_name = f"👤 {st.session_state.user_name} (Pro Max Mode) [{st.session_state.workspace.capitalize()} DB Center]"
         elif st.session_state.user_tier == "Pro":
@@ -408,10 +426,13 @@ with h_r:
         else:
             display_name = f"👤 {st.session_state.user_name} (Admin Mode)"
 
-        with r_name: 
-            # 💡 텍스트형 스크롤 링크 버튼
-            if st.button(display_name, key="btn_my_db_scroll", use_container_width=True):
-                st.session_state.scroll_to_data = True
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        if st.button(display_name, key="btn_my_db_scroll", use_container_width=True):
+            st.session_state.scroll_to_data = True
+
+    with h_r:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        r_my, r_out = st.columns([1, 1]) # 정확히 5:5 
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
@@ -419,6 +440,7 @@ with h_r:
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
 
+    # 봇 토글 스위치 유지
     bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
     if bot_active != st.session_state.show_bot:
         st.session_state.show_bot = bot_active; st.rerun()
