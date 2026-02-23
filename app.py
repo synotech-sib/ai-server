@@ -25,18 +25,10 @@ try:
 except ImportError:
     OpenAI = None
 
-# [쿠키 세션 매니저 예외 처리 - 모바일 끊김 방지용]
-try:
-    import extra_streamlit_components as stx
-except ImportError:
-    stx = None
-
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
-
-cookie_manager = stx.CookieManager(key="syno_cookie_mgr") if stx else None
 
 st.markdown("""
     <style>
@@ -330,31 +322,9 @@ default_vars = {
     'bot_user_input': "", 'scroll_to_result': False 
 }
 
-# 🔥 모바일 로그인 쿠키 유지 연동 로직
-saved_session = cookie_manager.get(cookie="syno_session_email") if cookie_manager else None
-
 for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
-
-# 쿠키 기반 자동 로그인
-if saved_session and not st.session_state.logged_in:
-    df_u = get_user_db()
-    if not df_u.empty:
-        valid = df_u[(df_u['Email'].str.strip() == saved_session)]
-        if not valid.empty:
-            promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
-            if promax_flag != 'Out':
-                domain = saved_session.split('@')[1].split('.')[0].lower()
-                vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                tier_str = "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"
-                st.session_state.update({
-                    'logged_in': True, 'user_name': str(valid['Name'].values[0]), 
-                    'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 
-                    'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
-                    'user_tier': tier_str
-                })
-                st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
 
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
@@ -381,7 +351,6 @@ with h_r:
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall', 'user_tier': 'Admin'})
-                        if cookie_manager: cookie_manager.set("syno_session_email", u_id_clean, expires_at=datetime.now() + timedelta(days=7))
                         st.session_state.history = load_user_history(u_id_clean, 'material_overall'); st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -398,7 +367,6 @@ with h_r:
                                     'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
                                     'user_tier': tier_str
                                 })
-                                if cookie_manager: cookie_manager.set("syno_session_email", u_id_clean, expires_at=datetime.now() + timedelta(days=7))
                                 st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace); st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
@@ -415,7 +383,6 @@ with h_r:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
             if st.button("Logout", key="btn_logout_m", use_container_width=True): 
-                if cookie_manager: cookie_manager.delete("syno_session_email")
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
 
@@ -593,7 +560,7 @@ with col_main:
                 st.markdown("---")
                 st.markdown("""<div style='background-color: #e8f4f8; padding: 15px; border-radius: 5px; border: 1px solid #b8dae6; margin-bottom: 10px;'>
                     <span style='font-size:15px; font-weight:bold; color:#1A729A;'>📝 VIP 가입 (Pro Max Mode)</span><br>
-                    <span style='font-size:13px; color:#555;'>VIP 가입을 통해 나의 회사 단독 DB를 보관하고 관리할 수 있습니다. 소재 및 조건 등을 입력하고 그에 맞는 시뮬레이션과 데이터 관리가 가능합니다.</span></div>""", unsafe_allow_html=True)
+                    <span style='font-size:13px; color:#555;'>VIP 가입을 통해 나의 회사 단독 DB를 보관하고 관리할 수 있습니다. 소재 및 조건 등을 입력하고 그에 맞는 시뮬레이션과 데이터 관리 및 시노봇 상담이 가능합니다.</span></div>""", unsafe_allow_html=True)
                 is_vip_request = st.checkbox(":red[Pro Max Mode] 가입합니다.")
 
                 st.markdown("---")
@@ -617,7 +584,6 @@ with col_main:
                         if domain not in [str(x).lower().strip() for x in vip_df['Company'].dropna()]:
                             new_vip = pd.DataFrame([{"Company": domain}])
                             conn.update(spreadsheet=URL_USERS, worksheet="VIPs", data=pd.concat([vip_df, new_vip], ignore_index=True))
-                            # 신규 탭 생성 초기화 (에러방지용 try-except)
                             try:
                                 init_df = pd.DataFrame(columns=["Name", "Category", "Cap_Def", "Volt_Def", "Den_Def"])
                                 conn.update(spreadsheet=URL_MATS, worksheet=domain, data=init_df)
@@ -647,19 +613,16 @@ with col_main:
                 del_check = del_col.checkbox("⚠️ 탈퇴 신청 (체크 시 비활성화)")
                 del_reason = reason_col.text_input("탈퇴 사유", placeholder="탈퇴 사유를 기입해주세요.", disabled=not del_check, label_visibility="collapsed")
 
-                # 하단 버튼부 동일 사이즈 5:5 배치
                 b1, b2 = st.columns(2)
                 if b1.button("개인정보 수정 완료", use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
                     
-                    if del_check: # 탈퇴 처리
+                    if del_check: 
                         df_update.at[idx, 'ProMax_Req'] = 'Out'
-                        # 사유 저장이 필요하면 Purpose나 기타 비고란에 붙일 수 있습니다.
                         if del_reason: df_update.at[idx, 'Purpose'] = f"[탈퇴사유] {del_reason}"
                         conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear() 
                         st.success("탈퇴 처리되었습니다. 이용해 주셔서 감사합니다.")
-                        if cookie_manager: cookie_manager.delete("syno_session_email")
                         time.sleep(1)
                         for key, val in default_vars.items(): st.session_state[key] = val
                         st.rerun()
@@ -898,7 +861,7 @@ with col_main:
                             time.sleep(0.6) 
                             st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
                             st.session_state.trigger_auto_bot = True; 
-                            st.session_state.scroll_to_result = True # 🔥 연산 후 스크롤 변수 활성화
+                            st.session_state.scroll_to_result = True 
                             st.rerun()
 
                 if st.session_state.history:
