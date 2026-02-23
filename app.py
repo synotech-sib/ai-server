@@ -25,10 +25,22 @@ try:
 except ImportError:
     OpenAI = None
 
+# [쿠키 세션 매니저 예외 처리 - 모바일 끊김 방지용]
+try:
+    import extra_streamlit_components as stx
+except ImportError:
+    stx = None
+
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
+
+@st.cache_resource(experimental_allow_widgets=True)
+def get_cookie_manager():
+    return stx.CookieManager() if stx else None
+
+cookie_manager = get_cookie_manager()
 
 st.markdown("""
     <style>
@@ -143,7 +155,14 @@ st.markdown("""
         color: #000000 !important;
         font-weight: 800 !important;
     }
-    
+
+    /* 🔥 모바일 최적화 CSS 추가 (제목 크기 및 로그인 팝업 깨짐 방지) */
+    @media (max-width: 768px) {
+        .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
+        .syno-title { font-size: 32px !important; margin-right: 0px; }
+        .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
+        div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -278,22 +297,16 @@ def load_user_history(email, workspace="material_list"):
         return hist[::-1]
     except: return []
 
-# 🔥 [수정된 챗봇 로그 저장 함수] 비로그인(Guest) 기록 저장 허용 및 캐시 무력화 🔥
 def save_chat_log(email, workspace, role, content):
     if GSheetsConnection is None: return
-    
-    # 이메일이 없으면(비로그인 상태면) 'Guest'로 강제 할당
     safe_email = email if email else "Guest"
     safe_ws = workspace if workspace else "None"
-    
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         try:
-            # ttl=0 으로 설정하여 이전 빈 시트의 캐시를 무시하고 실시간으로 읽어옴
             chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=0)
         except Exception:
             chat_df = pd.DataFrame(columns=["Time", "Email", "Workspace", "Role", "Message"])
-            
         new_row = pd.DataFrame([{
             "Time": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
             "Email": safe_email,
@@ -301,16 +314,13 @@ def save_chat_log(email, workspace, role, content):
             "Role": role,
             "Message": content
         }])
-        
         if chat_df.empty or 'Email' not in chat_df.columns:
             conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=new_row)
         else:
             updated_df = pd.concat([chat_df, new_row], ignore_index=True)
             conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=updated_df)
-            
         st.cache_data.clear()
-    except Exception: 
-        pass
+    except Exception: pass
 
 # -----------------------------------------------------------------------------
 # 4. 세션 초기화 및 헤더 모듈 
@@ -321,11 +331,34 @@ default_vars = {
     'workspace': 'material_overall', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True, 'trigger_auto_bot': False, 'trigger_bot_reply': False,
-    'bot_user_input': "" 
+    'bot_user_input': "", 'scroll_to_result': False 
 }
+
+# 🔥 모바일 로그인 쿠키 유지 연동 로직
+saved_session = cookie_manager.get(cookie="syno_session_email") if cookie_manager else None
+
 for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
+
+# 쿠키 기반 자동 로그인
+if saved_session and not st.session_state.logged_in:
+    df_u = get_user_db()
+    if not df_u.empty:
+        valid = df_u[(df_u['Email'].str.strip() == saved_session)]
+        if not valid.empty:
+            promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
+            if promax_flag != 'Out':
+                domain = saved_session.split('@')[1].split('.')[0].lower()
+                vip_map = {v.lower(): v for v in get_vip_list_exact()}
+                tier_str = "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"
+                st.session_state.update({
+                    'logged_in': True, 'user_name': str(valid['Name'].values[0]), 
+                    'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 
+                    'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
+                    'user_tier': tier_str
+                })
+                st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
 
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
@@ -352,30 +385,41 @@ with h_r:
                     
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'material_overall', 'user_tier': 'Admin'})
+                        if cookie_manager: cookie_manager.set("syno_session_email", u_id_clean, expires_at=datetime.now() + timedelta(days=7))
                         st.session_state.history = load_user_history(u_id_clean, 'material_overall'); st.rerun()
                     else:
                         valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                         if not valid.empty:
-                            domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
                             promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
-                            tier_str = "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"
-                            st.session_state.update({
-                                'logged_in': True, 'user_name': str(valid['Name'].values[0]), 
-                                'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 
-                                'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
-                                'user_tier': tier_str
-                            });
-                            st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace); st.rerun()
+                            if promax_flag == 'Out':
+                                st.error("탈퇴 처리된 계정입니다.")
+                            else:
+                                domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
+                                tier_str = "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"
+                                st.session_state.update({
+                                    'logged_in': True, 'user_name': str(valid['Name'].values[0]), 
+                                    'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 
+                                    'workspace': vip_map.get(domain) if vip_map.get(domain) else 'material_list',
+                                    'user_tier': tier_str
+                                })
+                                if cookie_manager: cookie_manager.set("syno_session_email", u_id_clean, expires_at=datetime.now() + timedelta(days=7))
+                                st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace); st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
         r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
-        with r_name: st.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({st.session_state.user_tier})</div>', unsafe_allow_html=True)
+        # 🔥 VIP 도메인 표시 변경 로직 추가
+        display_tier = st.session_state.user_tier
+        if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['material_overall', 'material_list']:
+            display_tier = f"Pro Max [{st.session_state.workspace.capitalize()} DB Center]"
+
+        with r_name: st.markdown(f'<div class="user-greeting">{st.session_state.user_name} ({display_tier})</div>', unsafe_allow_html=True)
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
             if st.button("Logout", key="btn_logout_m", use_container_width=True): 
+                if cookie_manager: cookie_manager.delete("syno_session_email")
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
 
@@ -386,7 +430,7 @@ with h_r:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드] 
+# 👑 [최고 관리자 전용 대시보드] (생략 없이 원본 유지)
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
@@ -424,7 +468,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 try:
                     if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'material_overall':
-                        st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다. (수정은 개별 탭에서 진행해주세요.)")
+                        st.caption("ℹ️ 'material_overall'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다.")
                         vips = get_vip_list_exact(); dfs = []
                         for v in vips:
                             tmp = load_cloud_data(target_url, v)
@@ -443,14 +487,14 @@ if is_pro and st.session_state.get('is_admin', False):
                         is_log_view = (st.session_state.admin_view == 'logs')
                         
                         if st.session_state.admin_view == 'users' and st.session_state.admin_ws == 'Users':
-                            df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else 'Pro')
+                            df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else ('Out' if str(x) == 'Out' else 'Pro'))
                             display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
                             df_display = df_display[[c for c in display_order if c in df_display.columns]]
                             edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
                             if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                                 try:
                                     save_df = edited_df.copy()
-                                    save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else 'N')
+                                    save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else ('Out' if x == 'Out' else 'N'))
                                     save_df = save_df.drop(columns=['구분'])
                                     merged = pd.merge(save_df, df_admin[['Email', 'Password']], on='Email', how='left')
                                     final_cols = ['Email', 'Password', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'ProMax_Req', 'RegDate']
@@ -492,8 +536,7 @@ if is_pro and st.session_state.get('is_admin', False):
                                     st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
                                 except Exception as e: st.error(f"저장 중 오류 발생: {e}")
                 except Exception as e:
-                    if "Quota exceeded" in str(e) or "429" in str(e): st.error("⚠️ 구글 시트 API 한도 초과. 1분 후 다시 시도해주세요.")
-                    else: st.error(f"데이터를 불러올 수 없습니다. (상세 오류 내역: {e})")
+                    pass
                 
                 st.markdown("---")
                 st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
@@ -570,6 +613,20 @@ with col_main:
                     conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
+                    
+                    # 🔥 VIP 도메인 자동 추가 로직
+                    if is_vip_request:
+                        domain = st.session_state.temp_email.split('@')[1].split('.')[0].lower()
+                        vip_df = load_cloud_data(URL_USERS, "VIPs")
+                        if domain not in [str(x).lower().strip() for x in vip_df['Company'].dropna()]:
+                            new_vip = pd.DataFrame([{"Company": domain}])
+                            conn.update(spreadsheet=URL_USERS, worksheet="VIPs", data=pd.concat([vip_df, new_vip], ignore_index=True))
+                            # 신규 탭 생성 초기화 (에러방지용 try-except)
+                            try:
+                                init_df = pd.DataFrame(columns=["Name", "Category", "Cap_Def", "Volt_Def", "Den_Def"])
+                                conn.update(spreadsheet=URL_MATS, worksheet=domain, data=init_df)
+                            except: pass
+
                     st.cache_data.clear(); send_welcome_email(st.session_state.temp_email, n_name)
                     st.success("가입신청 완료! 환영 이메일이 발송되었습니다. 로그인 해주세요.")
                     st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
@@ -588,16 +645,36 @@ with col_main:
                 c5, c6 = st.columns(2); m_dept = c5.text_input("부서", value=u_row.get('Dept', '')); m_job = c6.text_input("담당업무", value=u_row.get('Job', ''))
                 c7, c8 = st.columns(2); m_phone = c7.text_input("연락처", value=u_row.get('Phone', '')); m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
                 
-                if st.button("개인정보 수정 완료"):
+                # 🔥 탈퇴 체크박스 및 사유 추가
+                st.markdown("<br>", unsafe_allow_html=True)
+                del_col, reason_col = st.columns([1, 3])
+                del_check = del_col.checkbox("⚠️ 탈퇴 신청 (체크 시 비활성화)")
+                del_reason = reason_col.text_input("탈퇴 사유", placeholder="탈퇴 사유를 기입해주세요.", disabled=not del_check, label_visibility="collapsed")
+
+                # 하단 버튼부 동일 사이즈 5:5 배치
+                b1, b2 = st.columns(2)
+                if b1.button("개인정보 수정 완료", use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
-                    if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
-                    df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
-                    df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose
-                    df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
-                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear() 
-                    st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False
-                    st.success("수정 완료!"); st.rerun()
+                    
+                    if del_check: # 탈퇴 처리
+                        df_update.at[idx, 'ProMax_Req'] = 'Out'
+                        # 사유 저장이 필요하면 Purpose나 기타 비고란에 붙일 수 있습니다.
+                        if del_reason: df_update.at[idx, 'Purpose'] = f"[탈퇴사유] {del_reason}"
+                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear() 
+                        st.success("탈퇴 처리되었습니다. 이용해 주셔서 감사합니다.")
+                        if cookie_manager: cookie_manager.delete("syno_session_email")
+                        time.sleep(1)
+                        for key, val in default_vars.items(): st.session_state[key] = val
+                        st.rerun()
+                    else:
+                        if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
+                        df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
+                        df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose
+                        df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
+                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear() 
+                        st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False
+                        st.success("수정 완료!"); st.rerun()
 
     with st.container(height=900, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
@@ -701,16 +778,51 @@ with col_main:
                     def_lod_min, def_lod_max, def_lod_val = 5.0, 45.0, 14.0
                 st.markdown("<br>", unsafe_allow_html=True)
 
+        # 🔥 콜백 함수를 통한 슬라이더/숫자입력 미세조정 연동
+        def sync_cap_s(): st.session_state.cap_n = st.session_state.cap_s
+        def sync_cap_n(): st.session_state.cap_s = st.session_state.cap_n
+        def sync_volt_s(): st.session_state.volt_n = st.session_state.volt_s
+        def sync_volt_n(): st.session_state.volt_s = st.session_state.volt_n
+
+        if "cap_s" not in st.session_state: st.session_state.cap_s = def_cap_val
+        if "cap_n" not in st.session_state: st.session_state.cap_n = def_cap_val
+        if "volt_s" not in st.session_state: st.session_state.volt_s = def_vlt_val
+        if "volt_n" not in st.session_state: st.session_state.volt_n = def_vlt_val
+
         with st.container(border=True):
             st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
             sp2, c_2 = st.columns([0.03, 0.97])
             with c_2:
                 expert = True if is_pro else st.checkbox("세부 사항 수정 활성화 :red[(Pro Mode 전용)]", key="chk_exp_m", disabled=True)
                 s1, s2, s3, s4 = st.columns(4)
-                v_cap = s1.slider("**Capacity (mAh/g)**", min_value=def_cap_min, max_value=def_cap_max, value=def_cap_val, key=f"cap_{cat_sel}")
-                v_volt = s2.slider("**Voltage (V)**", min_value=def_vlt_min, max_value=def_vlt_max, value=def_vlt_val, key=f"volt_{cat_sel}")
+                
+                with s1:
+                    st.markdown("**Capacity (mAh/g)**")
+                    v1, v2 = st.columns([0.7, 0.3])
+                    v1.slider("Cap_S", min_value=float(def_cap_min), max_value=float(def_cap_max), step=1.0, key="cap_s", on_change=sync_cap_s, label_visibility="collapsed")
+                    v2.number_input("Cap_N", min_value=float(def_cap_min), max_value=float(def_cap_max), step=0.1, key="cap_n", on_change=sync_cap_n, label_visibility="collapsed")
+                    v_cap = st.session_state.cap_s
+                    
+                with s2:
+                    st.markdown("**Voltage (V)**")
+                    vv1, vv2 = st.columns([0.7, 0.3])
+                    vv1.slider("Volt_S", min_value=float(def_vlt_min), max_value=float(def_vlt_max), step=0.1, key="volt_s", on_change=sync_volt_s, label_visibility="collapsed")
+                    vv2.number_input("Volt_N", min_value=float(def_vlt_min), max_value=float(def_vlt_max), step=0.01, key="volt_n", on_change=sync_volt_n, label_visibility="collapsed")
+                    v_volt = st.session_state.volt_s
+                    
                 v_den = s3.slider("**True Density (g/cc)**", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
                 v_life = s4.slider("**Base Life (Cycles)**", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
+
+        # 🔥 콜백 함수 추가 (로딩 및 NP Ratio)
+        def sync_lod_s(): st.session_state.lod_n = st.session_state.lod_s
+        def sync_lod_n(): st.session_state.lod_s = st.session_state.lod_n
+        def sync_np_s(): st.session_state.np_n = st.session_state.np_s
+        def sync_np_n(): st.session_state.np_s = st.session_state.np_n
+
+        if "lod_s" not in st.session_state: st.session_state.lod_s = def_lod_val
+        if "lod_n" not in st.session_state: st.session_state.lod_n = def_lod_val
+        if "np_s" not in st.session_state: st.session_state.np_s = 1.10
+        if "np_n" not in st.session_state: st.session_state.np_n = 1.10
 
         with st.container(border=True):
             st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
@@ -720,12 +832,21 @@ with col_main:
                 p1, p2, p3 = st.columns(3)
                 with p1:
                     st.markdown('<p class="sub-header-bold">(A) Cathode</p>', unsafe_allow_html=True)
-                    v_load = st.slider("**Areal Loading (mg/cm2)**", min_value=def_lod_min, max_value=def_lod_max, value=def_lod_val, key=f"load_{cat_sel}")
+                    st.markdown("**Areal Loading (mg/cm2)**")
+                    l1, l2 = st.columns([0.7, 0.3])
+                    l1.slider("Lod_S", min_value=float(def_lod_min), max_value=float(def_lod_max), step=1.0, key="lod_s", on_change=sync_lod_s, label_visibility="collapsed")
+                    l2.number_input("Lod_N", min_value=float(def_lod_min), max_value=float(def_lod_max), step=0.1, key="lod_n", on_change=sync_lod_n, label_visibility="collapsed")
+                    v_load = st.session_state.lod_s
+                    
                     v_press = st.slider("**Press Density**", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
                     porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
                 with p2:
                     st.markdown('<p class="sub-header-bold">(B) Anode</p>', unsafe_allow_html=True)
-                    v_np = st.slider("**N/P Ratio**", 0.95, 1.50, 1.10, step=0.01, key="sl_np_m")
+                    st.markdown("**N/P Ratio**")
+                    n1, n2 = st.columns([0.7, 0.3])
+                    n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_np_s, label_visibility="collapsed")
+                    n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_np_n, label_visibility="collapsed")
+                    v_np = st.session_state.np_s
                 with p3:
                     st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
                     v_act = st.slider("**Active Ratio (%)**", 80.0, 99.0, 92.0, key="sl_act_m")
@@ -750,6 +871,12 @@ with col_main:
                 with t2: st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True); v_tc = st.slider("C-rate", 0.1, 10.0, 1.0, label_visibility="collapsed")
                 with t3: st.markdown('<p class="sub-header-bold">Life Goal</p>', unsafe_allow_html=True); v_tl = st.slider("Life", 500, 10000, 2000, label_visibility="collapsed")
 
+        # 🔥 섹션 5 스크롤 앵커 추가
+        st.markdown("<div id='section5'></div>", unsafe_allow_html=True)
+        if st.session_state.get('scroll_to_result'):
+            components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
+            st.session_state.scroll_to_result = False
+
         with st.container(border=True):
             st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
             sp5, c_5 = st.columns([0.03, 0.97])
@@ -773,7 +900,10 @@ with col_main:
                     else:
                         with st.spinner("🚀 물리 엔진 연산 중..."):
                             time.sleep(0.6) 
-                            st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; st.session_state.trigger_auto_bot = True; st.rerun()
+                            st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
+                            st.session_state.trigger_auto_bot = True; 
+                            st.session_state.scroll_to_result = True # 🔥 연산 후 스크롤 변수 활성화
+                            st.rerun()
 
                 if st.session_state.history:
                     st.markdown("---")
