@@ -68,7 +68,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button {
+    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: none !important;
         white-space: nowrap !important;
@@ -89,11 +89,23 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
     
+    /* 🔥 텍스트 링크처럼 보이게 만드는 CSS 매직 */
     div.st-key-btn_my_db_scroll > button {
-        background-color: transparent !important; color: #1A729A !important; 
-        border: 1px solid #1A729A !important; font-weight: bold !important;
+        background-color: transparent !important; 
+        color: #1A729A !important; 
+        border: none !important; 
+        font-weight: bold !important; 
+        font-size: 14px !important;
+        text-align: right !important;
+        justify-content: flex-end !important;
+        box-shadow: none !important;
+        padding-right: 5px !important;
     }
-    div.st-key-btn_my_db_scroll > button:hover { background-color: #e8f4f8 !important; }
+    div.st-key-btn_my_db_scroll > button:hover { 
+        background-color: transparent !important; 
+        color: #D35400 !important; 
+        text-decoration: underline !important;
+    }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
@@ -136,7 +148,7 @@ st.markdown("""
         padding: 10px !important;
     }
 
-    /* 🔥 모바일 최적화 CSS 추가 */
+    /* 모바일 최적화 CSS */
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
         .syno-title { font-size: 32px !important; margin-right: 0px; }
@@ -259,7 +271,6 @@ def load_user_history(email, workspace="general_user"):
         conn = st.connection("gsheets", type=GSheetsConnection)
         db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
         if db_df.empty or 'Email' not in db_df.columns: return []
-        # 과거 material_list 데이터 호환성 유지 
         my_logs = db_df[(db_df['Email'] == email) & (db_df.get('Workspace', 'general_user').isin([workspace, 'material_list']))]
         hist = []
         for _, row in my_logs.iterrows():
@@ -281,7 +292,7 @@ def load_user_history(email, workspace="general_user"):
 
 def save_chat_log(email, workspace, role, content):
     if GSheetsConnection is None: return
-    safe_email = email if email else "guest"  # 💡 지시사항 반영: guest 소문자
+    safe_email = email if email else "guest"
     safe_ws = workspace if workspace else "general_user"
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -290,7 +301,6 @@ def save_chat_log(email, workspace, role, content):
         except Exception:
             chat_df = pd.DataFrame(columns=["Time", "Workspace", "Email", "Role", "Message"])
         
-        # 💡 지시사항 반영: Time, Workspace, Email, Role, Message 순서 배열
         new_row = pd.DataFrame([{
             "Time": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
             "Workspace": safe_ws,
@@ -314,10 +324,10 @@ def save_chat_log(email, workspace, role, content):
 default_vars = {
     'logged_in': False, 'show_reg': False, 'reg_stage': 0, 'v_code': "", 'temp_email': "",
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
-    'workspace': 'general_user', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",  # 💡 Default 변경
+    'workspace': 'general_user', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",  
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'show_bot': True, 'trigger_auto_bot': False, 'trigger_bot_reply': False,
-    'bot_user_input': "", 'scroll_to_result': False, 'scroll_to_data': False # 💡 추가 스크롤 변수
+    'bot_user_input': "", 'scroll_to_result': False, 'scroll_to_data': False 
 }
 
 for key, val in default_vars.items():
@@ -335,8 +345,9 @@ with h_l:
 with h_r:
     is_pro = st.session_state.logged_in
     if not is_pro:
+        # 💡 로그인/가입 버튼 동일 사이즈 5:5 정렬
         c1, c2 = st.columns([1, 1])
-        with c1.popover("🔑 Login"):
+        with c1.popover("🔑 Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -350,7 +361,6 @@ with h_r:
                     if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                         st.session_state.history = load_user_history(u_id_clean, 'admin_master')
-                        # 💡 챗봇 초기화 및 Admin 환영 메시지
                         welcome_msg = f"안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드]로 접속되었습니다. 전체 시스템 통합 브리핑을 시작하겠습니다."
                         st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
                         save_chat_log(u_id_clean, "admin_master", "AI_auto", "- " + welcome_msg)
@@ -374,7 +384,6 @@ with h_r:
                                 })
                                 st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
                                 
-                                # 💡 로그인 시 대화 컨텍스트 완전 초기화 및 VIP 환영 메시지 전송
                                 if target_ws != 'general_user':
                                     welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 보안 워크스페이스로 전환되었습니다. 귀사만의 전용 소재 데이터를 바탕으로 브리핑을 시작하겠습니다."
                                 else:
@@ -384,17 +393,24 @@ with h_r:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", "- " + welcome_msg)
                                 st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
-        if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
-            st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
+        with c2:
+            if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
+                st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
-        r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
-        display_tier = st.session_state.user_tier
+        # 💡 [1.5 : 1 : 1] 비율 적용 -> 버튼 2개는 동일 사이즈, 텍스트 공간 확보
+        r_name, r_my, r_out = st.columns([1.5, 1, 1], gap="small")
+        
+        # 💡 지시사항 반영 (이름 + 등급 + 소속)
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            display_tier = f"Pro Max [{st.session_state.workspace.capitalize()} DB Center]"
+            display_name = f"👤 {st.session_state.user_name} (Pro Max Mode) [{st.session_state.workspace.capitalize()} DB Center]"
+        elif st.session_state.user_tier == "Pro":
+            display_name = f"👤 {st.session_state.user_name} (Pro Mode)"
+        else:
+            display_name = f"👤 {st.session_state.user_name} (Admin Mode)"
 
         with r_name: 
-            # 💡 VIP 텍스트를 클릭 가능한 버튼으로 변경 (Data Management 스크롤)
-            if st.button(f"👤 {st.session_state.user_name} ({display_tier})", key="btn_my_db_scroll", use_container_width=True):
+            # 💡 텍스트형 스크롤 링크 버튼
+            if st.button(display_name, key="btn_my_db_scroll", use_container_width=True):
                 st.session_state.scroll_to_data = True
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
@@ -431,14 +447,13 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.session_state.admin_view = None if st.session_state.admin_view == 'param' else 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
             if a4.button("💾 로그 DB", use_container_width=True):
                 st.session_state.admin_view = None if st.session_state.admin_view == 'logs' else 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
-            if a5.button("💬 시노봇 로그 DB", use_container_width=True): # 💡 명칭 변경
+            if a5.button("💬 시노봇 로그 DB", use_container_width=True): 
                 st.session_state.admin_view = None if st.session_state.admin_view == 'chat' else 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
 
             if st.session_state.admin_view:
                 st.markdown("---")
                 st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
                 
-                # 💡 Admin 패널 ws_options 변경
                 if st.session_state.admin_view == 'users': target_url = URL_USERS; ws_options = ["Users", "VIPs"]
                 elif st.session_state.admin_view == 'mats': target_url = URL_MATS; ws_options = ["admin_master", "general_user"] + get_vip_list_exact()
                 elif st.session_state.admin_view == 'param': target_url = URL_PARAM; ws_options = ["param_config"]
@@ -458,7 +473,7 @@ if is_pro and st.session_state.get('is_admin', False):
                         for v in vips:
                             tmp = load_cloud_data(target_url, v)
                             if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
-                        tmp_public = load_cloud_data(target_url, "material_list") # 물리 탭 매핑
+                        tmp_public = load_cloud_data(target_url, "material_list") 
                         if not tmp_public.empty: dfs.append(tmp_public)
                         df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
                         df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
@@ -622,7 +637,6 @@ with col_main:
             st.markdown(f'<p class="main-header">1. Material Selection<span style="font-size:16px; color:#888;">{ws_badge}</span></p>', unsafe_allow_html=True)
             sp1, c_1 = st.columns([0.02, 0.98])
             with c_1:
-                # 💡 물리 탭 매핑 로직 수정
                 if is_pro and st.session_state.workspace == "admin_master":
                     vips = get_vip_list_exact(); dfs = []
                     for v in vips:
@@ -921,7 +935,7 @@ with col_main:
                     if not df_history.empty and 'Time' in df_history.columns: df_history['Time'] = df_history['Time'].astype(str)
                     st.dataframe(df_history, use_container_width=True, column_config={"Time": st.column_config.TextColumn("Time")})
 
-        # 🔥 섹션 6 스크롤 앵커 및 이동 로직 (버튼 클릭 시 작동)
+        # 🔥 섹션 6 스크롤 앵커 
         st.markdown("<div id='section6'></div>", unsafe_allow_html=True)
         if st.session_state.get('scroll_to_data'):
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
@@ -940,7 +954,6 @@ with col_main:
                         if not db_df_all.empty and 'Email' in db_df_all.columns:
                             today_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                             if 'Time' in db_df_all.columns: db_df_all['Time'] = db_df_all['Time'].replace("", today_str).fillna(today_str)
-                            # 워크스페이스 호환 매핑 확인 (새 워크스페이스 구조)
                             my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'general_user').isin([st.session_state.workspace, 'material_list']))]
                             if not my_saved_data.empty:
                                 my_saved_data = my_saved_data.sort_values(by='Time', ascending=False)
@@ -1010,7 +1023,6 @@ def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
     if user_input.strip():
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
-        # 💡 지시사항 반영: Role은 명확히 user로 기록
         save_chat_log(st.session_state.user_email, st.session_state.workspace, "user", user_input)
         st.session_state.trigger_bot_reply = True
         st.session_state.bot_user_input = "" 
@@ -1042,7 +1054,6 @@ if col_bot:
                                 bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                                 if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
-                                # 💡 지시사항 반영: Role은 AI_auto (소문자 a)
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
                             except Exception: pass
                     st.rerun()
@@ -1056,7 +1067,6 @@ if col_bot:
                             try:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                # 💡 지시사항 반영: 일반 수동 대답 Role은 AI
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                             except Exception: pass
                     st.rerun()
