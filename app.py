@@ -36,11 +36,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
 
-@st.cache_resource(experimental_allow_widgets=True)
-def get_cookie_manager():
-    return stx.CookieManager() if stx else None
-
-cookie_manager = get_cookie_manager()
+cookie_manager = stx.CookieManager(key="syno_cookie_mgr") if stx else None
 
 st.markdown("""
     <style>
