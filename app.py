@@ -239,11 +239,10 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 🔥 발송 보장을 위해 wschoi@synotech.co.kr 로 원복
+# ✉️ [이메일 발송 시스템] 🔥 로그인/발송자 모두 wschoi@synotech.co.kr 로 변경
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    display_email = "wschoi@synotech.co.kr"
-    login_email = "wschoi@synotech.co.kr"
+    sender_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "")
     
     if not sender_password:
@@ -251,7 +250,7 @@ def send_verification_email(to_email, code):
         
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{display_email}>"
+        msg['From'] = f"SynoCore <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
@@ -259,27 +258,27 @@ def send_verification_email(to_email, code):
         
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(login_email, sender_password.replace(" ", "")) 
+        server.login(sender_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return "SUCCESS"
     except Exception as e: 
+        print(f"Email Error: {e}") 
         return f"이메일 서버 오류: {e}"
 
 def send_welcome_email(to_email, user_name):
-    display_email = "wschoi@synotech.co.kr"
-    login_email = "wschoi@synotech.co.kr"
+    sender_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{display_email}>"
+        msg['From'] = f"SynoCore <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(login_email, sender_password.replace(" ", "")) 
+        server.login(sender_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
@@ -446,7 +445,6 @@ else:
     with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
         
-        # 💡 [핵심] 유저정보 영역과 계정 버튼들을 가로로 나란히 배치
         r_info, r_my, r_out = st.columns([1.8, 1, 1], gap="small")
         
         with r_info:
@@ -673,12 +671,11 @@ with col_main:
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
                     st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
                 
-                # 🔥 탈퇴 로직 (수정완료 밑에 배치)
                 st.markdown("<br><hr>", unsafe_allow_html=True)
                 del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
                 if del_check:
                     del_col1, del_col2 = st.columns([0.7, 0.3])
-                    del_reason = del_col1.text_input("탈퇴 사유", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
+                    del_reason = del_col1.text_input("탈퇴 사유 입력", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
                     if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
                         conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                         idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
@@ -1072,7 +1069,7 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 (토글 위치 이동됨)
+# 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
@@ -1091,7 +1088,6 @@ def handle_chat_submit():
 
 if col_bot:
     with col_bot:
-        # 🔥 시노봇 패널 타이틀과 토글 스위치를 가로로 나란히 배치
         bot_header_col1, bot_header_col2 = st.columns([0.6, 0.4])
         with bot_header_col1:
             st.markdown("#### 🤖 SynoBot (Beta)")
