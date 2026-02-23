@@ -68,7 +68,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 기본 버튼 디자인 */
+    /* 기본 버튼 디자인 및 로그인 팝업 박스 크기 동기화 */
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important;
@@ -90,37 +90,35 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
     
-    /* 🔥 [수정] 텍스트 링크 버튼 완벽 정렬 CSS */
-    div.st-key-btn_my_db_scroll {
-        display: flex;
-        justify-content: flex-end !important;
-        align-items: center;
-        height: 40px;
-        margin-top: 0px !important; /* 위아래 여백 강제 제거 */
-    }
-    div.st-key-btn_my_db_scroll > button {
+    /* 🔥 [핵심 CSS 수정] 파란 박스 완전 제거 & 텍스트 우측 밀착 */
+    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button {
         background-color: transparent !important; 
+        background: transparent !important;
         border: none !important; 
         box-shadow: none !important;
+        display: flex !important;
+        justify-content: flex-end !important; /* 박스 내부 텍스트 우측 끝 밀착 */
         padding: 0 5px 0 0 !important;
-        text-align: right !important;
-        height: auto !important; /* 버튼 높이 자동 조절로 레이아웃 파괴 방지 */
     }
-    div.st-key-btn_my_db_scroll > button:hover { 
+    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:hover,
+    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:active,
+    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:focus {
         background-color: transparent !important; 
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
     }
-    div.st-key-btn_my_db_scroll > button p {
+    
+    /* 텍스트 기본 컬러(검정) 설정 */
+    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button p {
         color: #000000 !important;
         font-weight: bold !important; 
         font-size: 15px !important;
-        white-space: nowrap !important;
         margin: 0 !important;
-        line-height: 40px !important; /* 버튼 텍스트 수직 중앙 정렬 */
+        white-space: nowrap !important;
     }
-    div.st-key-btn_my_db_scroll > button p span {
-        color: #1A729A !important; 
-    }
-    div.st-key-btn_my_db_scroll > button:hover p span {
+    /* 마우스 오버 시 파란색 텍스트(DB링크)에만 밑줄 & 주황색 변경 */
+    div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:hover p span {
         text-decoration: underline !important;
         color: #D35400 !important;
     }
@@ -177,10 +175,7 @@ st.markdown("""
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
         
-        div.st-key-btn_my_db_scroll { justify-content: flex-start !important; margin-bottom: 5px !important; height: auto !important; }
-        div[data-testid="stButton"].st-key-btn_my_db_scroll > button,
-        div[data-testid="stButton"].st-key-btn_my_db_scroll > button div[data-testid="stMarkdownContainer"],
-        div[data-testid="stButton"].st-key-btn_my_db_scroll > button p {
+        div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button {
             justify-content: flex-start !important; 
             text-align: left !important;
         }
@@ -243,39 +238,41 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 발송자: synocore@synotech.co.kr
+# ✉️ [이메일 발송 시스템] 🔥 보조 이메일(Alias) 적용 완료
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    sender_email = "synocore@synotech.co.kr"
+    display_email = "synocore@synotech.co.kr"
+    login_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{sender_email}>"
+        msg['From'] = f"SynoCore <{display_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(sender_email, sender_password.replace(" ", "")) 
+        server.login(login_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
     except Exception: return False
 
 def send_welcome_email(to_email, user_name):
-    sender_email = "synocore@synotech.co.kr"
+    display_email = "synocore@synotech.co.kr"
+    login_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{sender_email}>"
+        msg['From'] = f"SynoCore <{display_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(sender_email, sender_password.replace(" ", "")) 
+        server.login(login_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
@@ -434,7 +431,7 @@ if not is_pro:
             st.session_state.show_bot = bot_active; st.rerun()
 
 else:
-    # 💡 3단 분리 레이아웃 
+    # 💡 3단 분리 (좌측 0.35 / 중앙 이름 0.37 / 우측 버튼 0.28) 
     h_l, h_info, h_btn = st.columns([0.35, 0.37, 0.28], gap="small")
     
     with h_l:
@@ -444,15 +441,16 @@ else:
             st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
             
     with h_info:
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) # 줄맞춤 높이 조절
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
+        # 💡 :blue[] 를 통해 DB센터만 파란색 하이퍼링크 처리 (기본 글자는 검정색)
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            display_name_md = f"👤 {st.session_state.user_name} (Pro Max Mode) <span>[{st.session_state.workspace.capitalize()} DB Center]</span>"
+            display_name_md = f"👤 {st.session_state.user_name} (Pro Max Mode) :blue[[{st.session_state.workspace.capitalize()} DB Center]]"
         elif st.session_state.user_tier == "Pro":
             display_name_md = f"👤 {st.session_state.user_name} (Pro Mode)"
         else:
             display_name_md = f"👤 {st.session_state.user_name} (Admin Mode)"
 
-        # CSS로 완벽히 제어되는 텍스트 링크 버튼 생성
+        # CSS로 완벽히 제어되는 텍스트 링크 버튼 생성 (우측 밀착됨)
         if st.button(display_name_md, key="btn_my_db_scroll", use_container_width=True):
             st.session_state.scroll_to_data = True
 
