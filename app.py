@@ -28,7 +28,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 1.9 (beta)", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 2.2", layout="wide")
 
 st.markdown("""
     <style>
@@ -68,9 +68,10 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button {
+    /* 기본 버튼 디자인 */
+    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
-        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: none !important;
+        font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important;
         white-space: nowrap !important;
         padding: 0 5px !important;
     }
@@ -82,18 +83,52 @@ st.markdown("""
     }
     div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
 
-    div.st-key-btn_del_sel > button {
+    /* 탈퇴 확인 등 강조 버튼 */
+    div.st-key-btn_del_sel > button, div.st-key-btn_withdraw > button {
         height: 40px !important; background-color: #D35400 !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
         white-space: nowrap !important;
     }
-    div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
+    div.st-key-btn_del_sel > button:hover, div.st-key-btn_withdraw > button:hover { background-color: #B04600 !important; }
     
-    div.st-key-btn_my_db_scroll > button {
-        background-color: transparent !important; color: #1A729A !important; 
-        border: 1px solid #1A729A !important; font-weight: bold !important;
+    /* 🔥 VIP 이름 및 링크를 일반 텍스트처럼 표시하고 우측 정렬 */
+    .user-info-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        height: 100%;
+        margin-top: 5px;
     }
-    div.st-key-btn_my_db_scroll > button:hover { background-color: #e8f4f8 !important; }
+    .user-info-text {
+        color: #333 !important;
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 2px;
+        white-space: nowrap;
+    }
+    /* 버튼 껍데기 완전히 날리기 */
+    div.st-key-btn_my_db_scroll > button {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    div.st-key-btn_my_db_scroll > button:hover {
+        background-color: transparent !important;
+    }
+    div.st-key-btn_my_db_scroll > button p {
+        color: #1A729A !important;
+        font-size: 14px;
+        font-weight: bold;
+        margin: 0;
+        text-decoration: underline;
+    }
+    div.st-key-btn_my_db_scroll > button:hover p {
+        color: #D35400 !important;
+    }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important;
@@ -104,20 +139,22 @@ st.markdown("""
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px; }
     
+    /* 토글 스위치 하단 정렬 */
+    div.st-key-bot_toggle_ui_bottom {
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin-top: 5px !important;
+    }
     div[data-testid="stToggle"] {
         display: flex !important;
         justify-content: flex-end !important;
-        margin-left: auto !important;
-        float: right !important;
         width: 100% !important;
         padding: 0px !important;
         background-color: transparent !important; 
         border: none !important;
-        margin-top: 5px !important;
     }
     div[data-testid="stToggle"] > label { 
         margin-bottom: 0px !important; font-size: 14px !important; color: #333 !important; 
-        display: flex; justify-content: flex-end;
     }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
@@ -141,6 +178,8 @@ st.markdown("""
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
+        .user-info-container { align-items: flex-start; margin-bottom: 10px;}
+        div.st-key-btn_my_db_scroll > button { justify-content: flex-start !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -198,16 +237,13 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템 - 디버깅 버전]
+# ✉️ [이메일 발송 시스템] 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
     sender_email = "wschoi@synotech.co.kr"
-    
-    # 1. 비밀번호가 Streamlit Secrets에 제대로 있는지 확인
     sender_password = st.secrets.get("EMAIL_PASSWORD", "")
-    if not sender_password or sender_password == "여기에_16자리_앱비밀번호를_입력하세요":
-        return "에러: Streamlit Secrets에 EMAIL_PASSWORD가 설정되지 않았습니다."
-
+    if not sender_password: return "비밀번호가 Secrets에 설정되지 않았습니다."
+        
     try:
         msg = MIMEMultipart()
         msg['From'] = f"SynoCore <{sender_email}>"
@@ -215,16 +251,13 @@ def send_verification_email(to_email, code):
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
-        
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(sender_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return "SUCCESS"
-    except Exception as e: 
-        # 2. 무슨 에러인지 상세 메시지 반환
-        return str(e)
+    except Exception as e: return f"이메일 서버 오류: {str(e)}"
 
 def send_welcome_email(to_email, user_name):
     sender_email = "wschoi@synotech.co.kr"
@@ -329,19 +362,20 @@ for key, val in default_vars.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-h_l, h_r = st.columns([0.72, 0.28], gap="small") 
+is_pro = st.session_state.logged_in
 
-with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
-    if st.button("홈으로", key="btn_home_overlay"):
-        st.session_state.show_reg = False; st.session_state.show_profile = False
-        st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
-
-with h_r:
-    is_pro = st.session_state.logged_in
-    if not is_pro:
-        c1, c2 = st.columns([1, 1])
-        with c1.popover("🔑 Login"):
+# 🔥 헤더 레이아웃 구성
+if not is_pro:
+    h_l, h_r = st.columns([0.72, 0.28], gap="small") 
+    with h_l:
+        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
+        if st.button("홈으로", key="btn_home_overlay"):
+            st.session_state.show_reg = False; st.session_state.show_profile = False
+            st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
+    with h_r:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([1, 1]) 
+        with c1.popover("🔑 Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -387,27 +421,47 @@ with h_r:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", "- " + welcome_msg)
                                 st.rerun()
                         else: st.error("아이디 또는 비밀번호를 확인해주세요.")
-        if c2.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
-            st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
-    else:
-        r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
-        display_tier = st.session_state.user_tier
-        if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            display_tier = f"Pro Max [{st.session_state.workspace.capitalize()} DB Center]"
+        with c2:
+            if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
+                st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
 
-        with r_name: 
-            if st.button(f"👤 {st.session_state.user_name} ({display_tier})", key="btn_my_db_scroll", use_container_width=True):
-                st.session_state.scroll_to_data = True
+else:
+    # 💡 로그인 완료 시 헤더 (좌측 타이틀 / 우측 이름 + 계정버튼)
+    h_l, h_r = st.columns([0.60, 0.40], gap="small")
+    
+    with h_l:
+        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
+        if st.button("홈으로", key="btn_home_overlay"):
+            st.session_state.show_reg = False; st.session_state.show_profile = False
+            st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
+            
+    with h_r:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
+        
+        r_info, r_my, r_out = st.columns([1.8, 1, 1], gap="small")
+        
+        with r_info:
+            if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
+                user_desc = f"👤 {st.session_state.user_name} (Pro Max Mode)"
+                link_text = f"[{st.session_state.workspace.capitalize()} DB Center]"
+            elif st.session_state.user_tier == "Pro":
+                user_desc = f"👤 {st.session_state.user_name} (Pro Mode)"
+                link_text = ""
+            else:
+                user_desc = f"👤 {st.session_state.user_name} (Admin Mode)"
+                link_text = ""
+
+            st.markdown(f'<div class="user-info-container"><div class="user-info-text">{user_desc}</div></div>', unsafe_allow_html=True)
+            if link_text:
+                if st.button(link_text, key="btn_my_db_scroll", use_container_width=False):
+                    st.session_state.scroll_to_data = True
+                    
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
             if st.button("Logout", key="btn_logout_m", use_container_width=True): 
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
-
-    bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
-    if bot_active != st.session_state.show_bot:
-        st.session_state.show_bot = bot_active; st.rerun()
 
 st.markdown("---")
 
@@ -573,10 +627,24 @@ with col_main:
                 c1, c2 = st.columns(2); n_name = c1.text_input("3. 이름"); n_comp = c2.text_input("4. Company (회사명)")
                 c3, c4 = st.columns(2); n_dept = c3.text_input("5. 부서"); n_job = c4.text_input("6. 직책/담당업무")
                 c5, c6 = st.columns(2); n_phone = c5.text_input("7. 연락처"); n_purpose = c6.text_input("8. 사용용도")
+                
+                # 🔥 [복원] Pro Max 안내 및 개인정보 처리 동의 상세 내역 
                 st.markdown("---")
-                is_vip_request = st.checkbox(":red[Pro Max Mode] 가입합니다. (VIP 전용 DB 구축)")
-                agree_sec = st.checkbox("보안 및 개인정보 처리 사항에 동의합니다.")
-                if st.button("가입신청", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
+                st.markdown("#### 💎 Pro Max 계정 승인 요청 (선택)")
+                st.info("Pro Max 계정은 귀사만의 독립적인 프라이빗 소재/공정 보안 데이터베이스(DB Center)를 구축해 드리는 VIP 서비스입니다.")
+                is_vip_request = st.checkbox(":red[네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 후 VIP 전용 DB 생성)]")
+                
+                st.markdown("---")
+                st.markdown("#### 🔒 보안 및 개인정보 처리 동의 (필수)")
+                terms_text = """[SynoCore Pro Max 개인정보 수집 및 이용 동의]
+1. 수집 항목: 이름, 회사명, 부서, 직책, 연락처, 이메일, 사용용도
+2. 이용 목적: 플랫폼 서비스 제공 및 유저 식별, VIP 전용 DB 권한 부여, 시스템 보안 유지
+3. 보유 기간: 회원 탈퇴 시까지 영구 안전 보관 (탈퇴 즉시 파기)"""
+                st.text_area("보안 및 개인정보 처리 방침", value=terms_text, height=120, disabled=True, label_visibility="collapsed")
+                agree_sec = st.checkbox("위 보안 및 개인정보 처리 사항을 확인하였으며, 이에 동의합니다. (필수)")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("가입신청 완료", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
@@ -601,21 +669,31 @@ with col_main:
                 c3, c4 = st.columns(2); m_name = c3.text_input("이름", value=u_row.get('Name', '')); m_comp = c4.text_input("Company", value=u_row.get('Company', ''))
                 c5, c6 = st.columns(2); m_dept = c5.text_input("부서", value=u_row.get('Dept', '')); m_job = c6.text_input("담당업무", value=u_row.get('Job', ''))
                 c7, c8 = st.columns(2); m_phone = c7.text_input("연락처", value=u_row.get('Phone', '')); m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
-                st.markdown("<br>", unsafe_allow_html=True); del_col, reason_col = st.columns([1, 3])
-                del_check = del_col.checkbox("⚠️ 탈퇴 신청 (체크 시 비활성화)"); del_reason = reason_col.text_input("탈퇴 사유", placeholder="사유 기입", disabled=not del_check, label_visibility="collapsed")
+                
                 if st.button("개인정보 수정 완료", use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
-                    if del_check: 
-                        df_update.at[idx, 'ProMax_Req'] = 'Out'; df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}"
-                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear(); st.success("탈퇴 처리되었습니다."); time.sleep(1)
+                    if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
+                    df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
+                    df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose; df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
+                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
+                    st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                
+                # 🔥 탈퇴 로직 (수정완료 밑에 배치, 안내 텍스트/버튼 나란히)
+                st.markdown("<br><hr>", unsafe_allow_html=True)
+                del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
+                if del_check:
+                    del_col1, del_col2 = st.columns([0.7, 0.3])
+                    del_reason = del_col1.text_input("탈퇴 사유 입력", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
+                    if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
+                        conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+                        idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+                        df_update.at[idx, 'ProMax_Req'] = 'Out'
+                        df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}" if del_reason else "[탈퇴] 사유 없음"
+                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
+                        st.success("탈퇴 처리되었습니다. 이용해 주셔서 감사합니다."); time.sleep(1.5)
                         for key, val in default_vars.items(): st.session_state[key] = val
                         st.rerun()
-                    else:
-                        if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
-                        df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
-                        df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose; df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
-                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear(); st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
     # --- 메인 시뮬레이터 패널 시작 ---
     with st.container(height=900, border=False):
@@ -1019,7 +1097,14 @@ def handle_chat_submit():
 
 if col_bot:
     with col_bot:
-        st.markdown("#### 🤖 SynoBot (Beta)")
+        bot_header_col1, bot_header_col2 = st.columns([0.6, 0.4])
+        with bot_header_col1:
+            st.markdown("#### 🤖 SynoBot (Beta)")
+        with bot_header_col2:
+            bot_active = st.toggle("**활성화**", value=st.session_state.show_bot, key="bot_toggle_ui_bottom")
+            if bot_active != st.session_state.show_bot:
+                st.session_state.show_bot = bot_active; st.rerun()
+                
         c_in1, c_in2 = st.columns([0.75, 0.25])
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
