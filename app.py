@@ -90,10 +90,10 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
     
-    /* 🔥 [핵심 CSS 수정] 파란 박스 완전 제거 & 텍스트 우측 밀착 */
+    /* 🔥 [수정] VIP 정보 텍스트 버튼: 흰색 배경, 검정 글자, 우측 밀착 */
     div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button {
-        background-color: transparent !important; 
-        background: transparent !important;
+        background-color: #FFFFFF !important; /* 배경을 무색(흰색)으로 변경 */
+        background: #FFFFFF !important;
         border: none !important; 
         box-shadow: none !important;
         display: flex !important;
@@ -103,8 +103,8 @@ st.markdown("""
     div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:hover,
     div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:active,
     div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button:focus {
-        background-color: transparent !important; 
-        background: transparent !important;
+        background-color: #FFFFFF !important; 
+        background: #FFFFFF !important;
         border: none !important;
         box-shadow: none !important;
     }
@@ -238,41 +238,43 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 🔥 보조 이메일(Alias) 적용 완료
+# ✉️ [이메일 발송 시스템] 🔥 로그인/발송자 모두 admin@synotech.co.kr 로 통일
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    display_email = "synocore@synotech.co.kr"
-    login_email = "wschoi@synotech.co.kr"
+    # 💡 인증 불일치 에러 방지를 위해 발송/로그인 이메일 동일하게 세팅
+    email_account = "admin@synotech.co.kr"
+    # 앱 비밀번호는 admin@synotech.co.kr 에서 발급받은 것을 Secrets에 등록해야 합니다.
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{display_email}>"
+        msg['From'] = f"SynoCore <{email_account}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(login_email, sender_password.replace(" ", "")) 
+        server.login(email_account, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
-    except Exception: return False
+    except Exception as e: 
+        print(f"Email Error: {e}") # 터미널 디버깅용
+        return False
 
 def send_welcome_email(to_email, user_name):
-    display_email = "synocore@synotech.co.kr"
-    login_email = "wschoi@synotech.co.kr"
+    email_account = "admin@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{display_email}>"
+        msg['From'] = f"SynoCore <{email_account}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(login_email, sender_password.replace(" ", "")) 
+        server.login(email_account, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
@@ -450,7 +452,7 @@ else:
         else:
             display_name_md = f"👤 {st.session_state.user_name} (Admin Mode)"
 
-        # CSS로 완벽히 제어되는 텍스트 링크 버튼 생성 (우측 밀착됨)
+        # CSS로 흰색 배경, 검정 글자, 우측 밀착 제어
         if st.button(display_name_md, key="btn_my_db_scroll", use_container_width=True):
             st.session_state.scroll_to_data = True
 
@@ -616,7 +618,7 @@ with col_main:
                             v_code = str(random.randint(100000, 999999))
                             with st.spinner("📧 이메일을 발송 중입니다..."):
                                 if send_verification_email(e_in, v_code): st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
-                                else: st.error("이메일 발송 실패. 관리자에게 문의하세요.")
+                                else: st.error("이메일 발송 실패. (16자리 앱 비밀번호와 이메일 계정을 확인하세요)")
             elif st.session_state.reg_stage == 1:
                 st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
                 with st.form("form_reg_code", border=False):
