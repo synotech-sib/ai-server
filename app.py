@@ -272,7 +272,8 @@ def load_user_history(email, workspace="material_list"):
         for _, row in my_logs.iterrows():
             row_dict = row.to_dict(); row_dict.pop('Email', None); row_dict.pop('Workspace', None)
             try:
-                for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
+                for k in ['Cap(mAh/g)', 'Volt(V)', 'Load(mg)', 'N/P Ratio', 'Active(%)', 'Binder(%)', 'Cond(%)', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: 
+                    row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
                 
                 time_str = str(row_dict.get('Time', '')).strip()
@@ -373,7 +374,6 @@ with h_r:
             st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
     else:
         r_name, r_my, r_out = st.columns([1.3, 1, 1], gap="small")
-        # 🔥 VIP 도메인 표시 변경 로직 추가
         display_tier = st.session_state.user_tier
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['material_overall', 'material_list']:
             display_tier = f"Pro Max [{st.session_state.workspace.capitalize()} DB Center]"
@@ -391,6 +391,13 @@ with h_r:
         st.session_state.show_bot = bot_active; st.rerun()
 
 st.markdown("---")
+
+# 🔥 양방향 슬라이더/숫자입력 동기화를 위한 통합 콜백 함수
+def sync_s_to_n(s_key, n_key):
+    st.session_state[n_key] = st.session_state[s_key]
+
+def sync_n_to_s(s_key, n_key):
+    st.session_state[s_key] = st.session_state[n_key]
 
 # -----------------------------------------------------------------------------
 # 👑 [최고 관리자 전용 대시보드] (생략 없이 원본 유지)
@@ -577,7 +584,6 @@ with col_main:
                     new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                     
-                    # 🔥 VIP 도메인 자동 추가 로직
                     if is_vip_request:
                         domain = st.session_state.temp_email.split('@')[1].split('.')[0].lower()
                         vip_df = load_cloud_data(URL_USERS, "VIPs")
@@ -607,7 +613,6 @@ with col_main:
                 c5, c6 = st.columns(2); m_dept = c5.text_input("부서", value=u_row.get('Dept', '')); m_job = c6.text_input("담당업무", value=u_row.get('Job', ''))
                 c7, c8 = st.columns(2); m_phone = c7.text_input("연락처", value=u_row.get('Phone', '')); m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
                 
-                # 🔥 탈퇴 체크박스 및 사유 추가
                 st.markdown("<br>", unsafe_allow_html=True)
                 del_col, reason_col = st.columns([1, 3])
                 del_check = del_col.checkbox("⚠️ 탈퇴 신청 (체크 시 비활성화)")
@@ -727,26 +732,26 @@ with col_main:
                     def_cap_min, def_cap_max, def_cap_val = safe_float(row.get('Cap_Min'), 100.0), safe_float(row.get('Cap_Max'), 250.0), safe_float(row.get('Cap_Def'), 160.0)
                     def_vlt_min, def_vlt_max, def_vlt_val = safe_float(row.get('Volt_Min'), 2.0), safe_float(row.get('Volt_Max'), 4.5), safe_float(row.get('Volt_Def'), 3.05)
                     def_den_min, def_den_max, def_den_val = safe_float(row.get('Den_Min'), 1.0), safe_float(row.get('Den_Max'), 5.0), safe_float(row.get('Den_Def'), 4.5)
-                    def_lif_min, def_lif_max, def_lif_val = safe_int(row.get('Life_Min'), 500), safe_int(row.get('Life_Max'), 10000), safe_int(row.get('Life_Def'), 4000)
+                    def_lif_min, def_lif_max, def_lif_val = safe_float(row.get('Life_Min'), 500.0), safe_float(row.get('Life_Max'), 10000.0), safe_float(row.get('Life_Def'), 4000.0)
                     def_lod_min, def_lod_max, def_lod_val = safe_float(row.get('Load_Min'), 5.0), safe_float(row.get('Load_Max'), 45.0), safe_float(row.get('Load_Def'), 14.0)
                 else:
                     st.warning("Cloud 소재 로드 실패. 앱이 기본값으로 작동합니다.")
                     cat_sel, ano_sel = "Sample Cathode", "Sample Anode"
                     def_cap_min, def_cap_max, def_cap_val = 100.0, 250.0, 160.0; def_vlt_min, def_vlt_max, def_vlt_val = 2.0, 4.5, 3.05
-                    def_den_min, def_den_max, def_den_val = 1.0, 5.0, 4.5; def_lif_min, def_lif_max, def_lif_val = 500, 10000, 4000
+                    def_den_min, def_den_max, def_den_val = 1.0, 5.0, 4.5; def_lif_min, def_lif_max, def_lif_val = 500.0, 10000.0, 4000.0
                     def_lod_min, def_lod_max, def_lod_val = 5.0, 45.0, 14.0
                 st.markdown("<br>", unsafe_allow_html=True)
 
-        # 🔥 콜백 함수를 통한 슬라이더/숫자입력 미세조정 연동
-        def sync_cap_s(): st.session_state.cap_n = st.session_state.cap_s
-        def sync_cap_n(): st.session_state.cap_s = st.session_state.cap_n
-        def sync_volt_s(): st.session_state.volt_n = st.session_state.volt_s
-        def sync_volt_n(): st.session_state.volt_s = st.session_state.volt_n
-
-        if "cap_s" not in st.session_state: st.session_state.cap_s = def_cap_val
-        if "cap_n" not in st.session_state: st.session_state.cap_n = def_cap_val
-        if "volt_s" not in st.session_state: st.session_state.volt_s = def_vlt_val
-        if "volt_n" not in st.session_state: st.session_state.volt_n = def_vlt_val
+        # 🔥 전체 슬라이더-숫자입력 동기화 세션 초기화
+        init_vals = {
+            "cap": float(def_cap_val), "volt": float(def_vlt_val), "den": float(def_den_val), "life": float(def_lif_val),
+            "lod": float(def_lod_val), "press": 2.5, "np": 1.10,
+            "act": 92.0, "bin": 4.0, "con": 4.0, "ec": 3.5,
+            "te": 250.0, "tc": 1.0, "tl": 2000.0
+        }
+        for k, v in init_vals.items():
+            if f"{k}_s" not in st.session_state: st.session_state[f"{k}_s"] = v
+            if f"{k}_n" not in st.session_state: st.session_state[f"{k}_n"] = v
 
         with st.container(border=True):
             st.markdown('<p class="main-header">2. Material Specs Expert Mode</p>', unsafe_allow_html=True)
@@ -758,30 +763,30 @@ with col_main:
                 with s1:
                     st.markdown("**Capacity (mAh/g)**")
                     v1, v2 = st.columns([0.7, 0.3])
-                    v1.slider("Cap_S", min_value=float(def_cap_min), max_value=float(def_cap_max), step=1.0, key="cap_s", on_change=sync_cap_s, label_visibility="collapsed")
-                    v2.number_input("Cap_N", min_value=float(def_cap_min), max_value=float(def_cap_max), step=0.1, key="cap_n", on_change=sync_cap_n, label_visibility="collapsed")
+                    v1.slider("Cap_S", min_value=float(def_cap_min), max_value=float(def_cap_max), step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n"), label_visibility="collapsed")
+                    v2.number_input("Cap_N", min_value=float(def_cap_min), max_value=float(def_cap_max), step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n"), label_visibility="collapsed")
                     v_cap = st.session_state.cap_s
                     
                 with s2:
                     st.markdown("**Voltage (V)**")
                     vv1, vv2 = st.columns([0.7, 0.3])
-                    vv1.slider("Volt_S", min_value=float(def_vlt_min), max_value=float(def_vlt_max), step=0.1, key="volt_s", on_change=sync_volt_s, label_visibility="collapsed")
-                    vv2.number_input("Volt_N", min_value=float(def_vlt_min), max_value=float(def_vlt_max), step=0.01, key="volt_n", on_change=sync_volt_n, label_visibility="collapsed")
+                    vv1.slider("Volt_S", min_value=float(def_vlt_min), max_value=float(def_vlt_max), step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n"), label_visibility="collapsed")
+                    vv2.number_input("Volt_N", min_value=float(def_vlt_min), max_value=float(def_vlt_max), step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n"), label_visibility="collapsed")
                     v_volt = st.session_state.volt_s
                     
-                v_den = s3.slider("**True Density (g/cc)**", min_value=def_den_min, max_value=def_den_max, value=def_den_val, key=f"dens_{cat_sel}", disabled=not expert)
-                v_life = s4.slider("**Base Life (Cycles)**", min_value=def_lif_min, max_value=def_lif_max, value=def_lif_val, key=f"life_{cat_sel}", disabled=not expert)
-
-        # 🔥 콜백 함수 추가 (로딩 및 NP Ratio)
-        def sync_lod_s(): st.session_state.lod_n = st.session_state.lod_s
-        def sync_lod_n(): st.session_state.lod_s = st.session_state.lod_n
-        def sync_np_s(): st.session_state.np_n = st.session_state.np_s
-        def sync_np_n(): st.session_state.np_s = st.session_state.np_n
-
-        if "lod_s" not in st.session_state: st.session_state.lod_s = def_lod_val
-        if "lod_n" not in st.session_state: st.session_state.lod_n = def_lod_val
-        if "np_s" not in st.session_state: st.session_state.np_s = 1.10
-        if "np_n" not in st.session_state: st.session_state.np_n = 1.10
+                with s3:
+                    st.markdown("**True Density (g/cc)**")
+                    d1, d2 = st.columns([0.7, 0.3])
+                    d1.slider("Den_S", min_value=float(def_den_min), max_value=float(def_den_max), step=0.1, key="den_s", on_change=sync_s_to_n, args=("den_s", "den_n"), label_visibility="collapsed", disabled=not expert)
+                    d2.number_input("Den_N", min_value=float(def_den_min), max_value=float(def_den_max), step=0.01, key="den_n", on_change=sync_n_to_s, args=("den_s", "den_n"), label_visibility="collapsed", disabled=not expert)
+                    v_den = st.session_state.den_s
+                    
+                with s4:
+                    st.markdown("**Base Life (Cycles)**")
+                    lf1, lf2 = st.columns([0.7, 0.3])
+                    lf1.slider("Life_S", min_value=float(def_lif_min), max_value=float(def_lif_max), step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n"), label_visibility="collapsed", disabled=not expert)
+                    lf2.number_input("Life_N", min_value=float(def_lif_min), max_value=float(def_lif_max), step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n"), label_visibility="collapsed", disabled=not expert)
+                    v_life = st.session_state.life_s
 
         with st.container(border=True):
             st.markdown('<p class="main-header">3. Process Parameters</p>', unsafe_allow_html=True)
@@ -789,32 +794,65 @@ with col_main:
             with c_3:
                 show_adv = True if is_pro else st.checkbox("세부 파라미터 수정 활성화 :red[(Pro Mode 전용)]", key="chk_adv_m", disabled=True)
                 p1, p2, p3 = st.columns(3)
+                
                 with p1:
                     st.markdown('<p class="sub-header-bold">(A) Cathode</p>', unsafe_allow_html=True)
                     st.markdown("**Areal Loading (mg/cm2)**")
                     l1, l2 = st.columns([0.7, 0.3])
-                    l1.slider("Lod_S", min_value=float(def_lod_min), max_value=float(def_lod_max), step=1.0, key="lod_s", on_change=sync_lod_s, label_visibility="collapsed")
-                    l2.number_input("Lod_N", min_value=float(def_lod_min), max_value=float(def_lod_max), step=0.1, key="lod_n", on_change=sync_lod_n, label_visibility="collapsed")
+                    l1.slider("Lod_S", min_value=float(def_lod_min), max_value=float(def_lod_max), step=1.0, key="lod_s", on_change=sync_s_to_n, args=("lod_s", "lod_n"), label_visibility="collapsed")
+                    l2.number_input("Lod_N", min_value=float(def_lod_min), max_value=float(def_lod_max), step=0.1, key="lod_n", on_change=sync_n_to_s, args=("lod_s", "lod_n"), label_visibility="collapsed")
                     v_load = st.session_state.lod_s
                     
-                    v_press = st.slider("**Press Density**", 1.5, 4.0, 2.5, key="ad_c_den_m", disabled=not show_adv)
+                    st.markdown("**Press Density (g/cc)**")
+                    pr1, pr2 = st.columns([0.7, 0.3])
+                    pr1.slider("Press_S", 1.5, 4.0, step=0.1, key="press_s", on_change=sync_s_to_n, args=("press_s", "press_n"), label_visibility="collapsed", disabled=not show_adv)
+                    pr2.number_input("Press_N", 1.5, 4.0, step=0.01, key="press_n", on_change=sync_n_to_s, args=("press_s", "press_n"), label_visibility="collapsed", disabled=not show_adv)
+                    v_press = st.session_state.press_s
+                    
                     porosity = max(0.0, (1 - (v_press / v_den)) * 100) if v_den > 0 else 0
+                    
                 with p2:
                     st.markdown('<p class="sub-header-bold">(B) Anode</p>', unsafe_allow_html=True)
                     st.markdown("**N/P Ratio**")
                     n1, n2 = st.columns([0.7, 0.3])
-                    n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_np_s, label_visibility="collapsed")
-                    n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_np_n, label_visibility="collapsed")
+                    n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n"), label_visibility="collapsed")
+                    n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n"), label_visibility="collapsed")
                     v_np = st.session_state.np_s
+                    
                 with p3:
-                    st.markdown('<p class="sub-header-bold">(C) Cell</p>', unsafe_allow_html=True)
-                    v_act = st.slider("**Active Ratio (%)**", 80.0, 99.0, 92.0, key="sl_act_m")
-                    v_ec = st.slider("**E/C Ratio (g/Ah)**", 1.0, 8.0, 3.5, key="ad_ec_m", disabled=not show_adv)
+                    st.markdown('<p class="sub-header-bold">(C) Cell Mix & Electrolyte</p>', unsafe_allow_html=True)
+                    
+                    st.markdown("**Active Ratio (%)**")
+                    a1, a2 = st.columns([0.7, 0.3])
+                    a1.slider("Act_S", 80.0, 99.0, step=0.5, key="act_s", on_change=sync_s_to_n, args=("act_s", "act_n"), label_visibility="collapsed")
+                    a2.number_input("Act_N", 80.0, 99.0, step=0.1, key="act_n", on_change=sync_n_to_s, args=("act_s", "act_n"), label_visibility="collapsed")
+                    v_act = st.session_state.act_s
+                    
+                    st.markdown("**Binder Ratio (%)**")
+                    b1, b2 = st.columns([0.7, 0.3])
+                    b1.slider("Bin_S", 0.0, 10.0, step=0.5, key="bin_s", on_change=sync_s_to_n, args=("bin_s", "bin_n"), label_visibility="collapsed")
+                    b2.number_input("Bin_N", 0.0, 10.0, step=0.1, key="bin_n", on_change=sync_n_to_s, args=("bin_s", "bin_n"), label_visibility="collapsed")
+                    v_bin = st.session_state.bin_s
+                    
+                    st.markdown("**Conductive Carbon (%)**")
+                    c1, c2 = st.columns([0.7, 0.3])
+                    c1.slider("Con_S", 0.0, 10.0, step=0.5, key="con_s", on_change=sync_s_to_n, args=("con_s", "con_n"), label_visibility="collapsed")
+                    c2.number_input("Con_N", 0.0, 10.0, step=0.1, key="con_n", on_change=sync_n_to_s, args=("con_s", "con_n"), label_visibility="collapsed")
+                    v_con = st.session_state.con_s
+                    
+                    st.markdown("**E/C Ratio (g/Ah)**")
+                    e1, e2 = st.columns([0.7, 0.3])
+                    e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n"), label_visibility="collapsed", disabled=not show_adv)
+                    e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n"), label_visibility="collapsed", disabled=not show_adv)
+                    v_ec = st.session_state.ec_s
                     
                 st.caption(f"**예상 공극률 (Porosity): {porosity:.1f}%**")
                 w1, w2, w3 = st.columns(3)
                 with w1:
                     if porosity < 20.0: st.error("⚠️ 공극률 부족: 전해액 침투 불량 위험!")
+                    total_mix = v_act + v_bin + v_con
+                    if abs(total_mix - 100.0) > 0.1:
+                        st.error(f"⚠️ 소재 믹스 비율 오류 (현재: {total_mix:.1f}%)")
                 with w2:
                     if v_np < 1.05: st.error("⚠️ N/P Ratio 위험: 나트륨 석출(Na-Plating) 및 단락 위험!")
                     elif v_np >= 1.15: st.warning("⚠️ N/P Ratio 과다: 에너지 밀도 하락!")
@@ -826,9 +864,26 @@ with col_main:
             sp4, c_4 = st.columns([0.03, 0.97])
             with c_4:
                 t1, t2, t3 = st.columns(3)
-                with t1: st.markdown('<p class="sub-header-bold">Energy (Wh/kg)</p>', unsafe_allow_html=True); v_te = st.slider("Energy", 100, 350, 250, label_visibility="collapsed")
-                with t2: st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True); v_tc = st.slider("C-rate", 0.1, 10.0, 1.0, label_visibility="collapsed")
-                with t3: st.markdown('<p class="sub-header-bold">Life Goal</p>', unsafe_allow_html=True); v_tl = st.slider("Life", 500, 10000, 2000, label_visibility="collapsed")
+                with t1: 
+                    st.markdown('<p class="sub-header-bold">Energy (Wh/kg)</p>', unsafe_allow_html=True)
+                    te1, te2 = st.columns([0.7, 0.3])
+                    te1.slider("TE_S", 100.0, 350.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n"), label_visibility="collapsed")
+                    te2.number_input("TE_N", 100.0, 350.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n"), label_visibility="collapsed")
+                    v_te = st.session_state.te_s
+                    
+                with t2: 
+                    st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True)
+                    tc1, tc2 = st.columns([0.7, 0.3])
+                    tc1.slider("TC_S", 0.1, 10.0, step=0.5, key="tc_s", on_change=sync_s_to_n, args=("tc_s", "tc_n"), label_visibility="collapsed")
+                    tc2.number_input("TC_N", 0.1, 10.0, step=0.1, key="tc_n", on_change=sync_n_to_s, args=("tc_s", "tc_n"), label_visibility="collapsed")
+                    v_tc = st.session_state.tc_s
+                    
+                with t3: 
+                    st.markdown('<p class="sub-header-bold">Life Goal</p>', unsafe_allow_html=True)
+                    tl1, tl2 = st.columns([0.7, 0.3])
+                    tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n"), label_visibility="collapsed")
+                    tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n"), label_visibility="collapsed")
+                    v_tl = st.session_state.tl_s
 
         # 🔥 섹션 5 스크롤 앵커 추가
         st.markdown("<div id='section5'></div>", unsafe_allow_html=True)
@@ -849,11 +904,18 @@ with col_main:
                     cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
-                    log_data = {"Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel, "Cap(mAh/g)": round(v_cap, 1), "Volt(V)": round(v_volt, 2), "Load(mg)": round(v_load, 1), "N/P Ratio": v_np, "Active(%)": v_act, "C-rate": v_tc, "Wh/kg": round(res_whkg, 1), "Wh/L": round(whl, 1), "Cell_V": round(cell_v, 2), "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Briefing": ""}
+                    log_data = {
+                        "Time": cur_time, "Cathode": cat_sel, "Anode": ano_sel, 
+                        "Cap(mAh/g)": round(v_cap, 1), "Volt(V)": round(v_volt, 2), "Load(mg)": round(v_load, 1), 
+                        "N/P Ratio": round(v_np, 2), "Active(%)": round(v_act, 1), "Binder(%)": round(v_bin, 1), "Cond(%)": round(v_con, 1), 
+                        "C-rate": round(v_tc, 1), "Wh/kg": round(res_whkg, 1), "Wh/L": round(whl, 1), "Cell_V": round(cell_v, 2), 
+                        "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Briefing": ""
+                    }
                     
                     is_dup = False
                     if st.session_state.history:
-                        if all(log_data[k] == st.session_state.history[0].get(k) for k in ["Cathode", "Anode", "Cap(mAh/g)", "Volt(V)", "Load(mg)", "N/P Ratio", "Active(%)", "C-rate"]): is_dup = True
+                        if all(log_data[k] == st.session_state.history[0].get(k) for k in ["Cathode", "Anode", "Cap(mAh/g)", "Volt(V)", "Load(mg)", "N/P Ratio", "Active(%)", "Binder(%)", "Cond(%)", "C-rate"]): 
+                            is_dup = True
 
                     if is_dup: st.warning("⚠️ 이전 실행과 동일한 조건입니다.")
                     else:
@@ -875,7 +937,7 @@ with col_main:
                     r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{round(res['Wh/kg'] - v_te, 1):+} Wh/kg")
                     r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L", delta=" - ", delta_color="off")
                     r3.metric("Cell Voltage", f"{res['Cell_V']} V", delta=f"{round(res['Cell_V'] - v_volt, 2):+} V", delta_color="inverse")
-                    r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{res['Life(Cyc)'] - v_tl:+} Cyc")
+                    r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{int(res['Life(Cyc)'] - v_tl):+} Cyc")
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     g1, g2, g3 = st.columns(3)
@@ -926,7 +988,7 @@ with col_main:
                                 original_comments = df_display['User Comment'].tolist()
                                 disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 
-                                st.caption("💡 **Tip:** 아래 테이블의 `📝 코멘트 입력` 열을 더블클릭하여 메모를 남기고 `Enter`를 누르면 클라우드에 자동 저장됩니다.")
+                                st.caption("💡 **Tip:** 아래 테이블의 `📝 코멘트 입력` 열을 더블클릭하여 메모 기입 후 `Enter`를 누르면 클라우드에 자동 저장됩니다.")
                                 edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True, disabled=disabled_cols, column_config={"Time": st.column_config.TextColumn("Time", disabled=True), "User Comment": st.column_config.TextColumn("📝 코멘트 입력 (더블클릭)", width="large")})
                                 
                                 if edited_df['User Comment'].tolist() != original_comments:
