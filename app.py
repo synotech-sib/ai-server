@@ -91,16 +91,17 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover, div.st-key-btn_withdraw > button:hover { background-color: #B04600 !important; }
 
-    /* 🔥 [핵심] VIP 이름 텍스트 버튼 강제 투명화 및 우측 정렬 오버라이딩 */
+    /* 🔥 [핵심] VIP DB 센터 하단 텍스트 링크 전용 버튼 */
     div.st-key-btn_my_db_scroll button {
         background-color: transparent !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         display: flex !important;
-        justify-content: flex-end !important; /* 우측 정렬 완벽 적용 */
-        padding: 0 5px 0 0 !important;
+        justify-content: flex-end !important;
+        padding: 0 !important;
         height: auto !important;
+        min-height: 0 !important;
     }
     div.st-key-btn_my_db_scroll button:hover,
     div.st-key-btn_my_db_scroll button:focus,
@@ -111,18 +112,14 @@ st.markdown("""
         box-shadow: none !important;
     }
     div.st-key-btn_my_db_scroll button p {
-        color: #000000 !important; /* 기본 검정색 지정 */
+        color: #1A729A !important; 
         font-weight: bold !important;
-        font-size: 15px !important;
+        font-size: 14px !important;
         margin: 0 !important;
-        white-space: nowrap !important;
-    }
-    div.st-key-btn_my_db_scroll button p span {
-        color: #1A729A !important; /* 파란색 링크 처리 */
-    }
-    div.st-key-btn_my_db_scroll button:hover p span {
         text-decoration: underline !important;
-        color: #D35400 !important; /* 마우스 오버 시 주황색 밑줄 */
+    }
+    div.st-key-btn_my_db_scroll button:hover p {
+        color: #D35400 !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -133,24 +130,6 @@ st.markdown("""
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px; }
-    
-    /* 챗봇 토글 하단 정렬 최적화 */
-    div.st-key-bot_toggle_ui_bottom {
-        display: flex !important;
-        justify-content: flex-end !important;
-        margin-top: 5px !important;
-    }
-    div[data-testid="stToggle"] {
-        display: flex !important;
-        justify-content: flex-end !important;
-        width: 100% !important;
-        padding: 0px !important;
-        background-color: transparent !important; 
-        border: none !important;
-    }
-    div[data-testid="stToggle"] > label { 
-        margin-bottom: 0px !important; font-size: 14px !important; color: #333 !important; 
-    }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) {
         scrollbar-width: none !important; 
@@ -173,7 +152,7 @@ st.markdown("""
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
-        div.st-key-btn_my_db_scroll button { justify-content: flex-start !important; }
+        div.st-key-btn_my_db_scroll button { justify-content: flex-end !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -354,7 +333,7 @@ default_vars = {
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'general_user', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",  
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'show_bot': True, 'trigger_auto_bot': False, 'trigger_bot_reply': False,
+    'trigger_auto_bot': False, 'trigger_bot_reply': False,
     'bot_user_input': "", 'scroll_to_result': False, 'scroll_to_data': False 
 }
 
@@ -364,16 +343,19 @@ for key, val in default_vars.items():
 
 is_pro = st.session_state.logged_in
 
+# 로그인 전/후 모두 폭 동일하게 유지하여 UI 흔들림 방지
+h_l, h_r = st.columns([0.72, 0.28], gap="small") 
+
+with h_l:
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
+    if st.button("홈으로", key="btn_home_overlay"):
+        st.session_state.show_reg = False; st.session_state.show_profile = False
+        st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
+
 if not is_pro:
-    h_l, h_r = st.columns([0.72, 0.28], gap="small") 
-    with h_l:
-        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
-        if st.button("홈으로", key="btn_home_overlay"):
-            st.session_state.show_reg = False; st.session_state.show_profile = False
-            st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
     with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        c1, c2 = st.columns([1, 1]) 
+        c1, c2 = st.columns([1, 1], gap="small") 
         with c1.popover("🔑 Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
@@ -423,41 +405,25 @@ if not is_pro:
         with c2:
             if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): 
                 st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
-
 else:
-    # 💡 2단 분리 (좌측 타이틀 / 우측 텍스트+버튼 정렬)
-    h_l, h_r = st.columns([0.55, 0.45], gap="small")
-    
-    with h_l:
-        st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">1.9 (beta)</span></div>', unsafe_allow_html=True)
-        if st.button("홈으로", key="btn_home_overlay"):
-            st.session_state.show_reg = False; st.session_state.show_profile = False
-            st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
-            
     with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
         
-        r_info, r_my, r_out = st.columns([1.8, 1, 1], gap="small")
-        
-        with r_info:
-            # 💡 [핵심] 완전 투명 배경, 검정 글자, 우측 밀착 링크 텍스트 버튼
-            if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-                display_name_md = f"👤 {st.session_state.user_name} (Pro Max) <span>[{st.session_state.workspace.capitalize()} DB Center]</span>"
-            elif st.session_state.user_tier == "Pro":
-                display_name_md = f"👤 {st.session_state.user_name} (Pro)"
-            else:
-                display_name_md = f"👤 {st.session_state.user_name} (Admin)"
-
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-            if st.button(display_name_md, key="btn_my_db_scroll", use_container_width=True):
-                st.session_state.scroll_to_data = True
-                    
+        r_my, r_out = st.columns([1, 1], gap="small")
         with r_my:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
             if st.button("Logout", key="btn_logout_m", use_container_width=True): 
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
+        
+        # 버튼 밑 이름/등급 표기 (html 노출 방지를 위해 순수 텍스트 처리 및 스타일 지정)
+        st.markdown(f"<div style='text-align: right; font-weight: bold; color: #333; font-size: 15px; margin-top: 5px; margin-bottom: 2px;'>👤 {st.session_state.user_name} ({st.session_state.user_tier})</div>", unsafe_allow_html=True)
+        
+        # Pro Max 유저일 경우 이름 하단에 DB Center 링크 표시
+        if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
+            if st.button(f"[{st.session_state.workspace.capitalize()} DB Center]", key="btn_my_db_scroll", use_container_width=True):
+                st.session_state.scroll_to_data = True
 
 st.markdown("---")
 
@@ -581,13 +547,9 @@ if is_pro and st.session_state.get('is_admin', False):
                     st.session_state.workspace = sel_ws; st.session_state.history = load_user_history(st.session_state.user_email, sel_ws); st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문
+# 5. 시뮬레이터 본문 & 봇 UI 구조 
 # -----------------------------------------------------------------------------
-if st.session_state.get('show_bot', True):
-    col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
-else:
-    col_left, col_main = st.columns([0.02, 0.98], gap="small")
-    col_bot = None
+col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 
 with col_left: st.empty() 
 
@@ -624,7 +586,6 @@ with col_main:
                 c3, c4 = st.columns(2); n_dept = c3.text_input("5. 부서"); n_job = c4.text_input("6. 직책/담당업무")
                 c5, c6 = st.columns(2); n_phone = c5.text_input("7. 연락처"); n_purpose = c6.text_input("8. 사용용도")
                 
-                # 🔥 [복원] Pro Max 안내 및 개인정보 처리 동의 상세 내역 
                 st.markdown("---")
                 st.markdown("#### 💎 Pro Max 계정 승인 요청 (선택)")
                 st.info("Pro Max 계정은 일반 Pro와 달리 귀사만의 독립적인 소재/공정 데이터베이스(VIP 전용 DB Center)를 별도 구축해 드리는 기업 맞춤형 서비스입니다.")
@@ -675,7 +636,6 @@ with col_main:
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
                     st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
                 
-                # 🔥 탈퇴 신청 UI 개선 (수정완료 밑에 배치)
                 st.markdown("---")
                 del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
                 if del_check:
@@ -955,6 +915,7 @@ with col_main:
                     else:
                         with st.spinner("🚀 물리 엔진 연산 중..."):
                             time.sleep(0.6) 
+                            # 💡 가장 최신 시뮬레이션 결과가 최상단에 오도록 보장 (0번 인덱스에 삽입)
                             st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
                             st.session_state.trigger_auto_bot = True; 
                             st.session_state.scroll_to_result = True 
@@ -1020,6 +981,7 @@ with col_main:
                             if 'Time' in db_df_all.columns: db_df_all['Time'] = db_df_all['Time'].replace("", today_str).fillna(today_str)
                             my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'general_user').isin([st.session_state.workspace, 'material_list']))]
                             if not my_saved_data.empty:
+                                # 💡 항상 최신 기록이 최상단에 보이도록 시간 기준 내림차순(최신순) 정렬 보장
                                 my_saved_data = my_saved_data.sort_values(by='Time', ascending=False)
                                 df_display = my_saved_data.drop(columns=['Email', 'Workspace', 'dq_x', 'dq_y'], errors='ignore').copy()
                                 df_display['User Comment'] = df_display.get('User Comment', "").fillna("")
@@ -1093,13 +1055,7 @@ def handle_chat_submit():
 
 if col_bot:
     with col_bot:
-        bot_header_col1, bot_header_col2 = st.columns([0.6, 0.4])
-        with bot_header_col1:
-            st.markdown("#### 🤖 SynoBot (Beta)")
-        with bot_header_col2:
-            bot_active = st.toggle("**활성화**", value=st.session_state.show_bot, key="bot_toggle_ui_bottom")
-            if bot_active != st.session_state.show_bot:
-                st.session_state.show_bot = bot_active; st.rerun()
+        st.markdown("#### 🤖 SynoBot (Beta)")
                 
         c_in1, c_in2 = st.columns([0.75, 0.25])
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...", key="bot_user_input", on_change=handle_chat_submit)
