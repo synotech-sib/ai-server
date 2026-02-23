@@ -68,7 +68,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 기본 버튼 디자인 및 로그인 팝업 박스 크기 동기화 */
+    /* 기본 버튼 디자인 */
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
         height: 40px !important; background-color: #1A729A !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important;
@@ -90,50 +90,39 @@ st.markdown("""
     }
     div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
     
-    /* 🔥 [핵심] VIP 정보 텍스트 버튼 완전 투명화 및 우측 밀착 강제 적용 */
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button {
-        background-color: transparent !important;
-        background: transparent !important;
-        border: none !important;
+    /* 🔥 [수정] 텍스트 링크 버튼 완벽 정렬 CSS */
+    div.st-key-btn_my_db_scroll {
+        display: flex;
+        justify-content: flex-end !important;
+        align-items: center;
+        height: 40px;
+        margin-top: 0px !important; /* 위아래 여백 강제 제거 */
+    }
+    div.st-key-btn_my_db_scroll > button {
+        background-color: transparent !important; 
+        border: none !important; 
         box-shadow: none !important;
-        display: flex !important;
-        justify-content: flex-end !important; /* 박스 안에서 완전히 우측으로 밀착 */
         padding: 0 5px 0 0 !important;
+        text-align: right !important;
+        height: auto !important; /* 버튼 높이 자동 조절로 레이아웃 파괴 방지 */
     }
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button:hover,
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button:active,
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button:focus {
-        background-color: transparent !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        color: inherit !important;
+    div.st-key-btn_my_db_scroll > button:hover { 
+        background-color: transparent !important; 
     }
-    
-    /* 텍스트 컨테이너 우측 정렬 */
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button div[data-testid="stMarkdownContainer"] {
-        width: 100% !important;
-        display: flex !important;
-        justify-content: flex-end !important; 
-    }
-    
-    /* 이름/등급 텍스트 폰트 설정 (기본 검정색) */
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button p {
+    div.st-key-btn_my_db_scroll > button p {
         color: #000000 !important;
         font-weight: bold !important; 
         font-size: 15px !important;
-        margin: 0 !important;
-        text-align: right !important;
         white-space: nowrap !important;
+        margin: 0 !important;
+        line-height: 40px !important; /* 버튼 텍스트 수직 중앙 정렬 */
     }
-    
-    /* :blue[] 로 매핑된 DB센터 링크 파란색 지정 */
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button p span {
+    div.st-key-btn_my_db_scroll > button p span {
         color: #1A729A !important; 
     }
-    div[data-testid="stButton"].st-key-btn_my_db_scroll > button:hover p span {
+    div.st-key-btn_my_db_scroll > button:hover p span {
         text-decoration: underline !important;
-        color: #D35400 !important; /* 마우스 오버 시 주황색 */
+        color: #D35400 !important;
     }
 
     div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -151,6 +140,7 @@ st.markdown("""
         justify-content: flex-end !important;
         margin-top: 5px !important;
         margin-bottom: 0px !important;
+        padding-right: 0px !important;
     }
     div[data-testid="stToggle"] {
         display: flex !important;
@@ -180,14 +170,14 @@ st.markdown("""
         padding: 10px !important;
     }
 
-    /* 🔥 모바일 반응형 자연스러운 3단 분리 정렬 */
+    /* 모바일 반응형 3단 분리 정렬 */
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
         
-        /* 모바일에서는 링크 텍스트 좌측 정렬 유지 */
+        div.st-key-btn_my_db_scroll { justify-content: flex-start !important; margin-bottom: 5px !important; height: auto !important; }
         div[data-testid="stButton"].st-key-btn_my_db_scroll > button,
         div[data-testid="stButton"].st-key-btn_my_db_scroll > button div[data-testid="stMarkdownContainer"],
         div[data-testid="stButton"].st-key-btn_my_db_scroll > button p {
@@ -253,10 +243,10 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 발송자 admin@synotech.co.kr
+# ✉️ [이메일 발송 시스템] 발송자: synocore@synotech.co.kr
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    sender_email = "admin@synotech.co.kr"
+    sender_email = "synocore@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
@@ -274,7 +264,7 @@ def send_verification_email(to_email, code):
     except Exception: return False
 
 def send_welcome_email(to_email, user_name):
-    sender_email = "admin@synotech.co.kr"
+    sender_email = "synocore@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
@@ -444,7 +434,7 @@ if not is_pro:
             st.session_state.show_bot = bot_active; st.rerun()
 
 else:
-    # 💡 3단 분리 (좌측 0.35 / 중앙 이름 0.37 / 우측 버튼 0.28) - 중앙 텍스트가 우측으로 완전히 밀착됨
+    # 💡 3단 분리 레이아웃 
     h_l, h_info, h_btn = st.columns([0.35, 0.37, 0.28], gap="small")
     
     with h_l:
@@ -454,15 +444,15 @@ else:
             st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
             
     with h_info:
-        # 💡 :blue[] 를 통해 부분적으로만 파란색 하이퍼링크 느낌 구현
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) # 줄맞춤 높이 조절
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            display_name_md = f"👤 {st.session_state.user_name} (Pro Max Mode) :blue[[{st.session_state.workspace.capitalize()} DB Center]]"
+            display_name_md = f"👤 {st.session_state.user_name} (Pro Max Mode) <span>[{st.session_state.workspace.capitalize()} DB Center]</span>"
         elif st.session_state.user_tier == "Pro":
             display_name_md = f"👤 {st.session_state.user_name} (Pro Mode)"
         else:
             display_name_md = f"👤 {st.session_state.user_name} (Admin Mode)"
 
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        # CSS로 완벽히 제어되는 텍스트 링크 버튼 생성
         if st.button(display_name_md, key="btn_my_db_scroll", use_container_width=True):
             st.session_state.scroll_to_data = True
 
@@ -477,7 +467,7 @@ else:
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
 
-        # 💡 우측 계정 버튼부 바로 아래에 토글 스위치 우측 정렬
+        # 💡 시노봇 토글을 버튼 바로 아래 우측으로 정렬
         bot_active = st.toggle("**💬 SynoBot 활성화**", value=st.session_state.show_bot, key="bot_toggle_ui")
         if bot_active != st.session_state.show_bot:
             st.session_state.show_bot = bot_active; st.rerun()
