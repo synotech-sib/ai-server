@@ -83,12 +83,13 @@ st.markdown("""
     }
     div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
 
-    div.st-key-btn_del_sel > button {
+    /* 탈퇴 확인 버튼 등 강조 버튼 */
+    div.st-key-btn_del_sel > button, div.st-key-btn_withdraw > button {
         height: 40px !important; background-color: #D35400 !important; color: white !important; 
         font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100%; border: 1px solid #B04600 !important;
         white-space: nowrap !important;
     }
-    div.st-key-btn_del_sel > button:hover { background-color: #B04600 !important; }
+    div.st-key-btn_del_sel > button:hover, div.st-key-btn_withdraw > button:hover { background-color: #B04600 !important; }
     
     /* 🔥 [수정] VIP 정보 텍스트 버튼: 흰색 배경, 검정 글자, 우측 밀착 */
     div.st-key-btn_my_db_scroll div[data-testid="stButton"] > button {
@@ -188,7 +189,7 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # 2. 클라우드 DB 연동 설정
 # -----------------------------------------------------------------------------
-ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연", "admin@synotech.co.kr": "시스템관리자"}
+ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
 ADMIN_PW = st.secrets.get("ADMIN_PW", "Please_Set_Password_In_Secrets")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
@@ -238,43 +239,43 @@ def safe_int(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템] 🔥 로그인/발송자 모두 admin@synotech.co.kr 로 통일
+# ✉️ [이메일 발송 시스템] 🔥 발송자: synocore / 로그인: wschoi 
 # -----------------------------------------------------------------------------
 def send_verification_email(to_email, code):
-    # 💡 인증 불일치 에러 방지를 위해 발송/로그인 이메일 동일하게 세팅
-    email_account = "admin@synotech.co.kr"
-    # 앱 비밀번호는 admin@synotech.co.kr 에서 발급받은 것을 Secrets에 등록해야 합니다.
+    display_email = "synocore@synotech.co.kr"
+    login_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{email_account}>"
+        msg['From'] = f"SynoCore <{display_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         body = f"안녕하세요. SynoCore Pro Max 플랫폼 회원가입을 위한 인증번호 안내입니다.\n\n▶ 인증번호 : {code}\n\n위 인증번호 6자리를 회원가입 창에 입력해 주시기 바랍니다.\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(email_account, sender_password.replace(" ", "")) 
+        server.login(login_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
     except Exception as e: 
-        print(f"Email Error: {e}") # 터미널 디버깅용
+        print(f"Email Error: {e}") 
         return False
 
 def send_welcome_email(to_email, user_name):
-    email_account = "admin@synotech.co.kr"
+    display_email = "synocore@synotech.co.kr"
+    login_email = "wschoi@synotech.co.kr"
     sender_password = st.secrets.get("EMAIL_PASSWORD", "여기에_16자리_앱비밀번호를_입력하세요")
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"SynoCore <{email_account}>"
+        msg['From'] = f"SynoCore <{display_email}>"
         msg['To'] = to_email
         msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         body = f"안녕하세요 {user_name}님,\n\nSynoCore Pro Max 플랫폼의 회원가입이 성공적으로 완료되었습니다.\n이제 설정하신 계정으로 로그인하여 차세대 배터리 시뮬레이션 서비스를 이용해 보시기 바랍니다.\n\n감사합니다."
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(email_account, sender_password.replace(" ", "")) 
+        server.login(login_email, sender_password.replace(" ", "")) 
         server.send_message(msg)
         server.quit()
         return True
@@ -660,21 +661,31 @@ with col_main:
                 c3, c4 = st.columns(2); m_name = c3.text_input("이름", value=u_row.get('Name', '')); m_comp = c4.text_input("Company", value=u_row.get('Company', ''))
                 c5, c6 = st.columns(2); m_dept = c5.text_input("부서", value=u_row.get('Dept', '')); m_job = c6.text_input("담당업무", value=u_row.get('Job', ''))
                 c7, c8 = st.columns(2); m_phone = c7.text_input("연락처", value=u_row.get('Phone', '')); m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
-                st.markdown("<br>", unsafe_allow_html=True); del_col, reason_col = st.columns([1, 3])
-                del_check = del_col.checkbox("⚠️ 탈퇴 신청 (체크 시 비활성화)"); del_reason = reason_col.text_input("탈퇴 사유", placeholder="사유 기입", disabled=not del_check, label_visibility="collapsed")
+                
                 if st.button("개인정보 수정 완료", use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
-                    if del_check: 
-                        df_update.at[idx, 'ProMax_Req'] = 'Out'; df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}"
-                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear(); st.success("탈퇴 처리되었습니다."); time.sleep(1)
+                    if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
+                    df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
+                    df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose; df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
+                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
+                    st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                
+                # 🔥 탈퇴 로직 UI/UX 개선 (수정완료 버튼 아래 위치)
+                st.markdown("---")
+                del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
+                if del_check:
+                    del_col1, del_col2 = st.columns([0.7, 0.3])
+                    del_reason = del_col1.text_input("탈퇴 사유", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
+                    if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
+                        conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+                        idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+                        df_update.at[idx, 'ProMax_Req'] = 'Out'
+                        df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}" if del_reason else "[탈퇴] 사유 없음"
+                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
+                        st.success("탈퇴 처리되었습니다. 이용해 주셔서 감사합니다."); time.sleep(1.5)
                         for key, val in default_vars.items(): st.session_state[key] = val
                         st.rerun()
-                    else:
-                        if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
-                        df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
-                        df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose; df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
-                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear(); st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
 
     # --- 메인 시뮬레이터 패널 시작 ---
     with st.container(height=900, border=False):
