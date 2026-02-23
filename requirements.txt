@@ -7,3 +7,4 @@ openpyxl
 plotly
 st-gsheets-connection
 openai
+extra-streamlit-components
