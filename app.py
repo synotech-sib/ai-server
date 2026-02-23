@@ -112,13 +112,18 @@ st.markdown("""
         box-shadow: none !important;
     }
     div.st-key-btn_my_db_scroll button p {
-        color: #1A729A !important; 
+        color: #333 !important; 
         font-weight: bold !important;
-        font-size: 14px !important;
+        font-size: 15px !important;
         margin: 0 !important;
+    }
+    div.st-key-btn_my_db_scroll button p span {
         text-decoration: underline !important;
     }
     div.st-key-btn_my_db_scroll button:hover p {
+        color: #D35400 !important;
+    }
+    div.st-key-btn_my_db_scroll button:hover p span {
         color: #D35400 !important;
     }
 
@@ -417,13 +422,13 @@ else:
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
         
-        # 버튼 밑 이름/등급 표기 (html 노출 방지를 위해 순수 텍스트 처리 및 스타일 지정)
-        st.markdown(f"<div style='text-align: right; font-weight: bold; color: #333; font-size: 15px; margin-top: 5px; margin-bottom: 2px;'>👤 {st.session_state.user_name} ({st.session_state.user_tier})</div>", unsafe_allow_html=True)
-        
-        # Pro Max 유저일 경우 이름 하단에 DB Center 링크 표시
+        # 🔥 버튼 밑 이름+등급+DB센터 링크를 "한 줄"로 표기 (마크다운 포맷 활용)
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-            if st.button(f"[{st.session_state.workspace.capitalize()} DB Center]", key="btn_my_db_scroll", use_container_width=True):
+            display_text = f"👤 {st.session_state.user_name} (Pro Max) :blue[[{st.session_state.workspace.capitalize()} DB Center]]"
+            if st.button(display_text, key="btn_my_db_scroll", use_container_width=True):
                 st.session_state.scroll_to_data = True
+        else:
+            st.markdown(f"<div style='text-align: right; font-weight: bold; color: #333; font-size: 15px; margin-top: 5px; margin-bottom: 2px;'>👤 {st.session_state.user_name} ({st.session_state.user_tier})</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -881,9 +886,9 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_result = False
 
-        # [섹션 5] Simulation Control & Analysis
+        # 🔥 [섹션 5] 제목 변경 적용 
         with st.container(border=True):
-            st.markdown('<p class="main-header">5. Simulation Control & Analysis</p>', unsafe_allow_html=True)
+            st.markdown('<p class="main-header">5. Simulation Management</p>', unsafe_allow_html=True)
             sp5, c_5 = st.columns([0.03, 0.97])
             with c_5:
                 btn_text = "🚀 RUN SIMULATION" if st.session_state.history else "🚀 RUN SIMULATION ㅡ 아직 실행 이력이 없습니다."
@@ -966,10 +971,10 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # [섹션 6] Data Management & Past Records (Pro)
+        # 🔥 [섹션 6] 제목 변경 적용 
         if is_pro and st.session_state.history:
             with st.container(border=True):
-                st.markdown('<p class="main-header">6. Data Management & Past Records (Pro)</p>', unsafe_allow_html=True)
+                st.markdown('<p class="main-header">6. Data Management</p>', unsafe_allow_html=True)
                 sp6, c_6 = st.columns([0.03, 0.97])
                 with c_6:
                     db_df_all = pd.DataFrame(); selected_times = []
