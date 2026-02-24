@@ -62,9 +62,14 @@ st.markdown("""
     div.st-key-btn_my_db_scroll button p span { text-decoration: underline !important; }
 
     div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important; border-radius: 12px !important; padding: 25px 25px 15px 25px !important; margin-bottom: 20px !important; }
+    
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
-    .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
-    .param-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px; }
+    
+    /* 🔥 폰트 크기 확대 적용 영역 */
+    div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
+    .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
+    .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
+    div[data-testid="stExpander"] summary p { font-size: 18px !important; font-weight: 800 !important; color: #1A729A !important; }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
@@ -156,9 +161,8 @@ def send_welcome_email(to_email, user_name):
 def send_admin_notification(subject, body_text):
     try:
         msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"
-        # ⚠️ 현재는 최우석 대표님 단독 수신 설정. 추후 필요 시 아래 주석을 활용하세요.
         msg['To'] = "wschoi@synotech.co.kr" 
-        # msg['To'] = "wschoi@synotech.co.kr, seoyeon@synotech.co.kr"
+        # msg['To'] = "wschoi@synotech.co.kr, seoyeon@synotech.co.kr" # 필요시 주석 해제
         
         msg['Subject'] = f"🚨 [Admin Alert] {subject}"
         msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
@@ -258,7 +262,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.3</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.4</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -411,6 +415,7 @@ with col_main:
                 st.info("Pro Max 계정은 일반 Pro와 달리 귀사만의 독립적인 소재/공정 데이터베이스(VIP 전용 DB Center)를 별도 구축해 드리는 기업 맞춤형 서비스입니다.")
                 is_vip_request = st.checkbox(":blue[네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)]")
                 
+                # 🔥 흐린 텍스트 박스 문제를 해결한 뚜렷한 디자인의 약관 박스 적용
                 st.markdown("---")
                 st.markdown("#### 🔒 보안 및 개인정보 처리 방침 (필수)")
                 terms_text = """[SynoCore Pro Max 개인정보 수집 및 이용 동의]
@@ -418,7 +423,7 @@ with col_main:
 2. 이용 목적: B2B 서비스 제공, 본인 확인, VIP DB 권한 부여, 고객 대응
 3. 보유 기간: 회원 탈퇴 시까지 영구 안전 보관 (탈퇴 즉시 보안 정책에 따라 파기 처리)"""
                 with st.expander("개인정보 처리 방침 상세 내용 보기"):
-                    st.text_area("", value=terms_text, height=100, disabled=True, label_visibility="collapsed")
+                    st.markdown(f"<div style='background-color: #f4f6f9; border: 1px solid #ced4da; border-radius: 5px; padding: 15px; font-size: 15px; color: #212529; height: 120px; overflow-y: auto; line-height: 1.6;'>{terms_text.replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                 agree_sec = st.checkbox("위 보안 및 개인정보 처리 사항을 확인하였으며, 이에 동의합니다. (필수)")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -497,7 +502,7 @@ with col_main:
     with st.container(height=1000, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
-        # 🔥 [섹션 1] 제목 박스 외부 분리 및 0.03 들여쓰기 적용
+        # [섹션 1]
         st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
@@ -519,10 +524,10 @@ with col_main:
                     if any(p in name for p in ["Tiamat", "Altris", "HiNa"]): prefix += "☑️ "
                     return f"{prefix}{name}"
                 
-                with m1: cat_sel = st.selectbox("**Cathode**", cat_list, format_func=format_mat_name, key="sel_cat_m")
-                with m2: ano_sel = st.selectbox("**Anode**", ano_list, format_func=format_mat_name, key="sel_ano_m")
-                with m3: st.selectbox("**Electrolyte**", ["Sample Elec"], key="sel_ele_m")
-                with m4: st.selectbox("**Separator**", ["Sample Sep"], key="sel_sep_m")
+                with m1: cat_sel = st.selectbox("Cathode", cat_list, format_func=format_mat_name, key="sel_cat_m")
+                with m2: ano_sel = st.selectbox("Anode", ano_list, format_func=format_mat_name, key="sel_ano_m")
+                with m3: st.selectbox("Electrolyte", ["Sample Elec"], key="sel_ele_m")
+                with m4: st.selectbox("Separator", ["Sample Sep"], key="sel_sep_m")
                 
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                 init_vals = {
@@ -540,7 +545,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # 🔥 [섹션 2] 지능형 아코디언 (HTML 툴팁으로 :help[] 버그 해결)
+        # [섹션 2] 지능형 아코디언 
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -661,7 +666,7 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_result = False
 
-        # 🔥 [섹션 3] 제목 박스 외부 분리 및 0.03 들여쓰기 적용
+        # 🔥 [섹션 3] (그래프 여백 최적화)
         st.markdown('<p class="main-header" style="margin-top:20px;">3. Simulation & Analysis</p>', unsafe_allow_html=True)
         sp5, c_5 = st.columns([0.03, 0.97])
         with c_5:
@@ -699,7 +704,10 @@ with col_main:
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{int(res['Life(Cyc)'] - v_tl):+} Cyc")
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
-                    g1, g2, g3 = st.columns(3)
+                    
+                    # 🔥 그래프 사이에 투명한 컬럼(0.08 비율) 삽입하여 여백(Spacing) 생성
+                    g1, sp_g1, g2, sp_g2, g3 = st.columns([1, 0.08, 1, 0.08, 1])
+                    
                     with g1:
                         st.markdown('<p class="sub-header-bold" style="text-align: center;">Discharge Profile</p>', unsafe_allow_html=True)
                         fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
@@ -723,7 +731,7 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # 🔥 [섹션 4] 제목 박스 외부 분리 및 0.03 들여쓰기 적용
+        # [섹션 4]
         if is_pro and st.session_state.history:
             st.markdown('<p class="main-header" style="margin-top:20px;">4. Data Management Center</p>', unsafe_allow_html=True)
             sp6, c_6 = st.columns([0.03, 0.97])
