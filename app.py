@@ -112,7 +112,7 @@ st.markdown("""
 # 2. 클라우드 DB 연동 및 캐싱
 # -----------------------------------------------------------------------------
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
-ADMIN_PW = st.secrets.get("ADMIN_PW", "Please_Set_Password_In_Secrets")
+ADMIN_PW = st.secrets.get("ADMIN_PW", "1234")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
@@ -245,7 +245,8 @@ default_vars = {
     'workspace': 'general_user', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",  
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
-    'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1
+    'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1,
+    'engine_choice': "Gemini 1.5 Flash (기본/쾌속)"  # 엔진 스위치 기본값
 }
 
 for key, val in default_vars.items():
@@ -339,12 +340,23 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
-# 👑 최고 관리자 패널
+# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재)
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+            
+            # [신규 추가: AI 엔진 마스터 스위치]
+            st.session_state.engine_choice = st.radio(
+                "🧠 AI 엔진 마스터 스위치",
+                ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"],
+                index=0 if "Gemini" in st.session_state.engine_choice else 1,
+                horizontal=True
+            )
+            st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 파일")
+            st.markdown("---")
+            
             a1, a2, a3, a4, a5 = st.columns(5)
             if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
             if a2.button("🔋 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
@@ -390,14 +402,14 @@ if is_pro and st.session_state.get('is_admin', False):
                 except Exception as e: pass
 
 # -----------------------------------------------------------------------------
-# 5. 메인 UI 및 시뮬레이터 본문
+# 5. 메인 UI 및 시뮬레이터 본문 (이전 코드 동일)
 # -----------------------------------------------------------------------------
 col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 
 with col_left: st.empty() 
 
 with col_main:
-    # --- 가입 및 프로필 영역 ---
+    # --- 가입 및 프로필 영역 (생략 없이 원본 유지) ---
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
@@ -559,7 +571,6 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # 🔥 [섹션 2] 프로세스 파라미터 간격 10% 증대 및 하단 여백 추가
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -607,14 +618,13 @@ with col_main:
                     cl1, cl2 = st.columns([0.7, 0.3])
                     cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                     cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
-                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True) # 간격 10% 증가
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                     st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc) ❔</p>", unsafe_allow_html=True)
                     cpr1, cpr2 = st.columns([0.7, 0.3])
                     cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     
-                    # 🔥 양극 기공률 하단 마진 25px 적용으로 넉넉한 여백 제공
                     c_poro = (1 - st.session_state.c_press_s / st.session_state.c_den_s) * 100 if st.session_state.c_den_s > 0 else 0
                     st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
                     
@@ -654,7 +664,6 @@ with col_main:
                     apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     
-                    # 🔥 음극 기공률 하단 마진 25px 적용
                     a_poro = (1 - st.session_state.a_press_s / st.session_state.a_den_s) * 100 if st.session_state.a_den_s > 0 else 0
                     st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
                     
@@ -910,15 +919,8 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 
+# 🤖 시노봇 (SynoBot) AI 패널 [듀얼 엔진 & 스트리밍 적용]
 # -----------------------------------------------------------------------------
-SYSTEM_KNOWLEDGE = """
-You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
-Answer questions accurately and professionally in Korean based on SIB knowledge.
-- 반드시 SIB 수석 연구원(엔지니어)의 전문적인 브리핑 스타일로 작성하되, 사무적이고 정중한 '합쇼체(~입니다, ~합니다)'로 답변하십시오.
-- 모든 답변은 도트 블릿('- ')을 사용하여 핵심을 명확히 나열하십시오.
-- "아래는 분석 내용입니다", "다음은 데이터에 대한 브리핑입니다" 등과 같은 불필요한 서론이나 인사말은 절대 쓰지 말고, 곧바로 핵심 데이터 분석 본론부터 출력하십시오.
-"""
 
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
@@ -930,71 +932,80 @@ def handle_chat_submit():
 
 if col_bot:
     with col_bot:
-        st.markdown("#### 🤖 SynoBot (Beta)")
+        st.markdown("#### 🤖 SynoBot (Pro Max)")
         
         c_in1, c_in2 = st.columns([0.75, 0.25])
-        c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...", key="bot_user_input", on_change=handle_chat_submit)
+        c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="Tdb 문서나 SIB 기술에 대해 질문하세요...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
         
         chat_container = st.container(height=730, border=True) 
         with chat_container:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             
-            if OpenAI is None: st.error("⚠️ `openai` 라이브러리가 필요합니다.")
-            elif "OPENAI_API_KEY" not in st.secrets: st.warning("⚠️ API 키가 설정되지 않았습니다.")
+            # API 키 불러오기
+            try:
+                OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+                GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+            except Exception:
+                st.warning("⚠️ `.streamlit/secrets.toml`에 API 키를 설정해주세요.")
+                st.stop()
+
+            if not st.session_state.chat_messages: 
+                st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 글로벌 배터리 기술 참모 시노봇입니다.\n- 현재 연동된 Tdb 폴더 내의 알트리스 문서나 배터리 설계에 대해 자유롭게 질문해 주십시오. (영어 답변 가능)"}]
+
+            # 1. 시뮬레이션 직후 자동 브리핑 
+            if st.session_state.trigger_auto_bot and st.session_state.sim_result:
+                st.session_state.trigger_auto_bot = False 
+                if synobot: 
+                    with st.chat_message("assistant"):
+                        with st.spinner(f"{st.session_state.engine_choice.split(' ')[0]} 엔진으로 결과 분석 중..."):
+                            try:
+                                reply = synobot.generate_auto_briefing(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY)
+                                bot_reply = f"📊 **[실시간 AI 진단 ({st.session_state.engine_choice.split(' ')[0]})]**\n\n" + reply
+                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                                if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
+                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
+                            except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
+                time.sleep(0.5); st.rerun()
+
+            # 2. 일반 채팅 스트리밍 출력
+            if st.session_state.get('trigger_bot_reply'):
+                st.session_state.trigger_bot_reply = False
+                
+                # 기존 대화를 화면에 먼저 다 그림
+                for message in st.session_state.chat_messages[:-1]: # 마지막 질문 제외
+                    with st.chat_message(message["role"]):
+                        content = message["content"].replace("\n- ", "\n\n\- ")
+                        if content.startswith("- "): content = "\- " + content[2:]
+                        st.markdown(content)
+                
+                # 마지막 유저 메시지 그리기
+                with st.chat_message("user"):
+                    st.markdown(st.session_state.chat_messages[-1]["content"])
+                
+                # 봇의 답변을 스트리밍으로 출력
+                if synobot:
+                    with st.chat_message("assistant"):
+                        # [커스텀 로딩 메시지]
+                        with st.spinner("시노코어 기술 데이터베이스(Tdb) 분석 중..."):
+                            try:
+                                # API 전달용 메시지 리스트 생성
+                                messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
+                                
+                                if "Gemini" in st.session_state.engine_choice:
+                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, GEMINI_API_KEY)
+                                else:
+                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, OPENAI_API_KEY)
+                                
+                                # st.write_stream으로 실시간 타자 효과
+                                reply = st.write_stream(stream_gen)
+                                st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
+                                
+                            except Exception as e: st.error(f"AI 응답 오류: {e}")
+                # 스트리밍 후 멈춤 방지를 위해 rerun 하지 않고 다음 루프를 기다림
             else:
-                client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-                if not st.session_state.chat_messages: st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 결과 또는 SIB 지식에 대해 질문해 주십시오."}]
-
-                if st.session_state.trigger_auto_bot and st.session_state.sim_result:
-                    st.session_state.trigger_auto_bot = False 
-                    
-                    if synobot: 
-                        with st.chat_message("assistant"):
-                            with st.spinner("결과 분석 중..."):
-                                try:
-                                    reply = synobot.generate_auto_briefing(st.session_state.sim_result, st.secrets["OPENAI_API_KEY"])
-                                    bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
-                                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                    if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
-                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                                except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
-                    else:  
-                        api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "입력된 시뮬레이션 데이터를 분석하여 핵심 엔지니어링 브리핑을 작성해 주십시오."}]
-                        with st.chat_message("assistant"):
-                            with st.spinner("결과 분석 중..."):
-                                try:
-                                    reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
-                                    bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
-                                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                    if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
-                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                                except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
-                    time.sleep(0.5); st.rerun()
-
-                if st.session_state.get('trigger_bot_reply'):
-                    st.session_state.trigger_bot_reply = False
-                    
-                    if synobot:
-                        with st.chat_message("assistant"):
-                            with st.spinner("답변 작성 중..."):
-                                try:
-                                    reply = synobot.generate_chat_reply(st.session_state.chat_messages, st.session_state.sim_result, st.secrets["OPENAI_API_KEY"])
-                                    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
-                                except Exception as e: st.error(f"AI 응답 오류: {e}")
-                    else:
-                        api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + (f"\n\n[State]\n{st.session_state.sim_result}" if st.session_state.sim_result else "")}]
-                        api_messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages])
-                        with st.chat_message("assistant"):
-                            with st.spinner("답변 작성 중..."):
-                                try:
-                                    reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
-                                    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
-                                except Exception as e: st.error(f"AI 응답 오류: {e}")
-                    time.sleep(0.5); st.rerun()
-
+                # 일반 렌더링 시
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
                         content = message["content"].replace("\n- ", "\n\n\- ")
