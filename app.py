@@ -69,7 +69,7 @@ st.markdown("""
     
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
     div[data-testid="stTextInput"] label, div[data-testid="stTextInput"] label * { font-size: 16px !important; font-weight: 500 !important; color: #222 !important; } 
-    div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
+    div[data-testid="stCheckbox"] label p { font-size: 16px !important; } 
     
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
@@ -78,7 +78,7 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
+    /* PDF 보고서 출력을 위한 인쇄 제어 */
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
@@ -263,7 +263,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -738,30 +738,26 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스 첫 줄 연결 UI)
+                    # 🔥 AI 진단 리포트 박스 (체크박스와 텍스트를 한 줄로 결합한 직관적 UI)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        col_text, col_chk = st.columns([0.48, 0.52])
-                        with col_text:
-                            st.markdown('<div style="font-size: 16px; font-weight: bold; color: #1A729A; padding-top: 6px;">🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</div>', unsafe_allow_html=True)
-                        with col_chk:
-                            show_ai = st.checkbox("**:red[펼쳐보기]**", value=False, key=f"chk_ai_report_{res['Time']}")
+                        # 체크박스 레이블 안에 텍스트를 한 번에 삽입하여 무조건 한 줄로 보이게 만듦
+                        show_ai = st.checkbox("**:red[펼쳐보기]** 🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
                             
                         if show_ai:
                             with st.container(border=True):
-                                # 🔥 혹시 남아있을지 모를 AI의 쓸데없는 인사말 삭제 처리
+                                # 불필요한 기계적 서론 문구 삭제 처리
                                 clean_briefing = res['AI_Briefing'].replace("아래는 주어진 데이터에 대한 분석 및 브리핑입니다.", "").strip()
                                 st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 당일 임시 누적 기록 테이블
+                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 제거 + 마우스 클릭 조회 연동)
                     if len(st.session_state.history) > 0:
-                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
+                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (선택하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
-                        df_session.insert(0, 'No.', range(len(df_session), 0, -1)) # 직관적인 역순 번호 삽입
+                        df_session.insert(0, 'No.', range(len(df_session), 0, -1))
                         
                         try:
-                            # 행 클릭 시 화면 재로딩(rerun) 되도록 연동
                             st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
                         except TypeError:
                             st.dataframe(df_session, use_container_width=True, hide_index=True)
@@ -848,13 +844,13 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
-# 🔥 프롬프트에 불필요한 서론 출력 방지 지시 추가
+# 🔥 프롬프트: 기계적인 서론 및 인사말 절대 사용 금지 명시
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on SIB knowledge.
 - 반드시 SIB 수석 연구원(엔지니어)의 전문적인 브리핑 스타일로 작성하되, 사무적이고 정중한 '합쇼체(~입니다, ~합니다)'로 답변하십시오.
 - 모든 답변은 도트 블릿('- ')을 사용하여 핵심을 명확히 나열하십시오.
-- "아래는 분석 내용입니다", "다음은 데이터에 대한 브리핑입니다" 같은 불필요한 서론이나 인사말은 절대 쓰지 말고, 즉시 데이터 분석 본론부터 시작하십시오.
+- "아래는 분석 내용입니다", "다음은 데이터에 대한 브리핑입니다" 등과 같은 불필요한 서론이나 인사말은 절대 쓰지 말고, 즉시 데이터 분석 본론부터 시작하십시오.
 """
 
 def handle_chat_submit():
