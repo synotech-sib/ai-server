@@ -53,6 +53,9 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
+    /* 🔥 3번 섹션 메트릭(Energy Density 등) 폰트 크기 확대 */
+    div[data-testid="stMetricLabel"] p { font-size: 18px !important; font-weight: bold !important; color: #333 !important; }
+    
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button { height: 40px !important; background-color: #1A729A !important; color: white !important; font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important; white-space: nowrap !important; padding: 0 5px !important; }
     div.st-key-btn_excel > button { background-color: #1A729A !important; border: 1px solid #155A7A !important; }
     div.st-key-btn_del_sel > button, div.st-key-btn_withdraw > button { background-color: #D35400 !important; border: 1px solid #B04600 !important; }
@@ -65,7 +68,7 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
-    /* 🔥 폰트 크기 확대 적용 영역 */
+    /* 폰트 크기 확대 적용 영역 */
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
@@ -84,7 +87,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. 클라우드 DB 연동 및 캐싱 (로그인 가속)
+# 2. 클라우드 DB 연동 및 캐싱
 # -----------------------------------------------------------------------------
 ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "최서연"}
 ADMIN_PW = st.secrets.get("ADMIN_PW", "Please_Set_Password_In_Secrets")
@@ -133,7 +136,7 @@ def safe_float(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ [이메일 발송 시스템 및 관리자 알림]
+# ✉️ 이메일 발송 시스템
 # -----------------------------------------------------------------------------
 def get_smtp_server():
     sender_password = st.secrets.get("EMAIL_PASSWORD", "")
@@ -162,7 +165,7 @@ def send_admin_notification(subject, body_text):
     try:
         msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"
         msg['To'] = "wschoi@synotech.co.kr" 
-        # msg['To'] = "wschoi@synotech.co.kr, seoyeon@synotech.co.kr" # 필요시 주석 해제
+        # msg['To'] = "wschoi@synotech.co.kr, seoyeon@synotech.co.kr"
         
         msg['Subject'] = f"🚨 [Admin Alert] {subject}"
         msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
@@ -239,7 +242,7 @@ default_vars = {
 for key, val in default_vars.items():
     if key not in st.session_state: st.session_state[key] = val
 
-# 🔥 모바일 새로고침 방지: 세션 토큰 자동 로그인 
+# 모바일 새로고침 방지
 qp = st.query_params
 if "session_token" in qp and not st.session_state.logged_in:
     token = qp["session_token"]
@@ -262,7 +265,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.4</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.5</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -415,7 +418,6 @@ with col_main:
                 st.info("Pro Max 계정은 일반 Pro와 달리 귀사만의 독립적인 소재/공정 데이터베이스(VIP 전용 DB Center)를 별도 구축해 드리는 기업 맞춤형 서비스입니다.")
                 is_vip_request = st.checkbox(":blue[네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)]")
                 
-                # 🔥 흐린 텍스트 박스 문제를 해결한 뚜렷한 디자인의 약관 박스 적용
                 st.markdown("---")
                 st.markdown("#### 🔒 보안 및 개인정보 처리 방침 (필수)")
                 terms_text = """[SynoCore Pro Max 개인정보 수집 및 이용 동의]
@@ -666,7 +668,7 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_result = False
 
-        # 🔥 [섹션 3] (그래프 여백 최적화)
+        # [섹션 3] 
         st.markdown('<p class="main-header" style="margin-top:20px;">3. Simulation & Analysis</p>', unsafe_allow_html=True)
         sp5, c_5 = st.columns([0.03, 0.97])
         with c_5:
@@ -705,7 +707,6 @@ with col_main:
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     
-                    # 🔥 그래프 사이에 투명한 컬럼(0.08 비율) 삽입하여 여백(Spacing) 생성
                     g1, sp_g1, g2, sp_g2, g3 = st.columns([1, 0.08, 1, 0.08, 1])
                     
                     with g1:
@@ -737,6 +738,8 @@ with col_main:
             sp6, c_6 = st.columns([0.03, 0.97])
             with c_6:
                 with st.container(border=True):
+                    # 🔥 코멘트 입력 정중한 안내 문구 복구
+                    st.caption("ℹ️ 표 안의 **[User Comment]** 셀을 더블클릭하여 해당 시뮬레이션에 대한 메모를 남기실 수 있습니다.")
                     db_df_all = pd.DataFrame(); selected_times = []
                     try:
                         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -753,7 +756,7 @@ with col_main:
                                 original_comments = df_display['User Comment'].tolist()
                                 disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 
-                                edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True, disabled=disabled_cols, column_config={"Time": st.column_config.TextColumn("Time", disabled=True), "User Comment": st.column_config.TextColumn("📝 코멘트 입력 (더블클릭)", width="large")})
+                                edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True, disabled=disabled_cols, column_config={"Time": st.column_config.TextColumn("Time", disabled=True), "User Comment": st.column_config.TextColumn("📝 코멘트 입력", width="large")})
                                 
                                 if edited_df['User Comment'].tolist() != original_comments:
                                     if 'User Comment' not in db_df_all.columns: db_df_all['User Comment'] = ""
