@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 import os
 import hashlib
@@ -12,6 +12,9 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import streamlit.components.v1 as components 
+
+# [한국 표준시(KST) 강제 고정 셋팅]
+KST = timezone(timedelta(hours=9))
 
 # [구글 시트 라이브러리 예외 처리]
 try:
@@ -43,8 +46,10 @@ st.markdown("""
     .main .block-container { max-width: 1500px !important; padding-top: 2rem; padding-bottom: 2rem; margin: auto; }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 60px; }
-    .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
-    .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
+    
+    /* 🔥 타이틀 크기 확대 및 서브타이틀 색상 변경 적용 */
+    .syno-title { color: #1A729A; font-size: 50px !important; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
+    .syno-subtitle { color: #7F7F7F !important; font-size: 22px !important; font-weight: bold; padding-top: 20px; }
     
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
@@ -69,7 +74,7 @@ st.markdown("""
     
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
     div[data-testid="stTextInput"] label, div[data-testid="stTextInput"] label * { font-size: 16px !important; font-weight: 500 !important; color: #222 !important; } 
-    div[data-testid="stCheckbox"] label p { font-size: 16px !important; } 
+    div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
     
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
@@ -78,7 +83,7 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 보고서 출력을 위한 인쇄 제어 */
+    /* 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
@@ -92,7 +97,7 @@ st.markdown("""
 
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
-        .syno-title { font-size: 32px !important; margin-right: 0px; }
+        .syno-title { font-size: 38px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
     }
@@ -205,7 +210,7 @@ def load_user_history(email, workspace="general_user"):
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'C_Load', 'C_Press', 'C_Act', 'C_Bin', 'C_Con', 'N/P Ratio', 'A_Press', 'A_Act', 'A_Bin', 'A_Con', 'E/C Ratio', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
                 time_str = str(row_dict.get('Time', '')).strip()
-                if not time_str or time_str == "nan": time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M:%S")
+                if not time_str or time_str == "nan": time_str = datetime.now(KST).strftime("%m-%d %H:%M:%S")
                 row_dict['Time'] = time_str 
             except: pass
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0), pd.DataFrame())
@@ -220,7 +225,7 @@ def save_chat_log(email, workspace, role, content):
         conn = st.connection("gsheets", type=GSheetsConnection)
         try: chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=0)
         except: chat_df = pd.DataFrame(columns=["Time", "Workspace", "Email", "Role", "Message"])
-        new_row = pd.DataFrame([{"Time": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"), "Workspace": safe_ws, "Email": safe_email, "Role": role, "Message": content}])
+        new_row = pd.DataFrame([{"Time": datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S"), "Workspace": safe_ws, "Email": safe_email, "Role": role, "Message": content}])
         new_row = new_row[["Time", "Workspace", "Email", "Role", "Message"]]
         if chat_df.empty or 'Email' not in chat_df.columns: conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=new_row)
         else: updated_df = pd.concat([chat_df, new_row], ignore_index=True); conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=updated_df)
@@ -263,7 +268,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro Max 2.5</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -435,7 +440,7 @@ with col_main:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("가입신청 완료", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
-                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
+                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": datetime.now(KST).strftime("%Y-%m-%d")}])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                     
                     if is_vip_request:
@@ -680,7 +685,7 @@ with col_main:
                     res_whkg = ((v_cap * (v_c_act/100) * cell_v) / 2.5) * max(0.5, 1.0 - (v_tc * 0.015))
                     whl = res_whkg * v_c_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
-                    cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M:%S")
+                    cur_time = datetime.now(KST).strftime("%m-%d %H:%M:%S")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
                     log_data = {
@@ -701,7 +706,7 @@ with col_main:
                         st.rerun()
                         
                 if st.session_state.history:
-                    # 🔥 로그 테이블에서 마우스로 클릭한 과거 행(Row)의 데이터를 실시간으로 불러오는 로직
+                    # 🔥 로그 테이블에서 마우스 클릭 시 선택된 과거 데이터를 불러오는 로직
                     selected_idx = 0
                     if "log_table_sel" in st.session_state:
                         sel_rows = st.session_state.log_table_sel.get("selection", {}).get("rows", [])
@@ -738,11 +743,9 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스와 텍스트를 한 줄로 결합한 직관적 UI)
+                    # 🔥 AI 진단 리포트 박스: 체크박스 내부에 텍스트를 포함시켜 완벽히 한 줄로 표시
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        # 체크박스 레이블 안에 텍스트를 한 번에 삽입하여 무조건 한 줄로 보이게 만듦
                         show_ai = st.checkbox("**:red[펼쳐보기]** 🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
                             
                         if show_ai:
@@ -751,13 +754,14 @@ with col_main:
                                 clean_briefing = res['AI_Briefing'].replace("아래는 주어진 데이터에 대한 분석 및 브리핑입니다.", "").strip()
                                 st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 제거 + 마우스 클릭 조회 연동)
+                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 인덱스 제거 및 클릭 조회 기능)
                     if len(st.session_state.history) > 0:
-                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (선택하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
+                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
-                        df_session.insert(0, 'No.', range(len(df_session), 0, -1))
+                        df_session.insert(0, 'No.', range(len(df_session), 0, -1)) # 직관적인 역순 번호 삽입
                         
                         try:
+                            # 행 클릭 시 화면 재로딩(rerun) 되도록 연동
                             st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
                         except TypeError:
                             st.dataframe(df_session, use_container_width=True, hide_index=True)
@@ -807,7 +811,7 @@ with col_main:
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
-                    # 🔥 4번 당일 임시 기록 '전체' 저장 로직
+                    # 🔥 4번 당일 임시 기록 '전체' 클라우드 저장 로직
                     if btn1.button("💾 임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
@@ -833,9 +837,9 @@ with col_main:
                     buffer = io.BytesIO()
                     try:
                         with pd.ExcelWriter(buffer, engine='openpyxl') as writer: df_export.to_excel(writer, index=False)
-                        file_data = buffer.getvalue(); file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.xlsx"; mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        file_data = buffer.getvalue(); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.xlsx"; mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     except ImportError:
-                        file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
+                        file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
                     btn3.download_button("📥 당일 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
@@ -850,7 +854,7 @@ You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on SIB knowledge.
 - 반드시 SIB 수석 연구원(엔지니어)의 전문적인 브리핑 스타일로 작성하되, 사무적이고 정중한 '합쇼체(~입니다, ~합니다)'로 답변하십시오.
 - 모든 답변은 도트 블릿('- ')을 사용하여 핵심을 명확히 나열하십시오.
-- "아래는 분석 내용입니다", "다음은 데이터에 대한 브리핑입니다" 등과 같은 불필요한 서론이나 인사말은 절대 쓰지 말고, 즉시 데이터 분석 본론부터 시작하십시오.
+- "아래는 분석 내용입니다", "다음은 데이터에 대한 브리핑입니다" 등과 같은 불필요한 서론이나 인사말은 절대 쓰지 말고, 곧바로 핵심 데이터 분석 본론부터 출력하십시오.
 """
 
 def handle_chat_submit():
