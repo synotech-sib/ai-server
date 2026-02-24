@@ -65,19 +65,19 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
-    /* 🔥 폰트 크기 및 색상 통일 영역 */
+    /* 🔥 1. 선택창 (Cathode 등) 글자 크기/두께 */
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
-    div[data-testid="stTextInput"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } 
     
-    /* 3번 메트릭 폰트 동기화 (Cathode와 완전히 동일한 크기/두께) */
-    div[data-testid="stMetricLabel"] p, div[data-testid="stMetricLabel"] div { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } 
+    /* 🔥 2. 가입/My계정 폼 텍스트 입력창 (크기는 16px, 볼드 해제) */
+    div[data-testid="stTextInput"] label p { font-size: 16px !important; font-weight: 500 !important; color: #222 !important; } 
+    
+    /* 🔥 3. 메트릭(Energy Density 등) 폰트 강제 동기화 (Cathode와 완벽 일치) */
+    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } 
     
     div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
     
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
-    
-    /* Step 1 등 아코디언 제목 볼드체 해제, 크기/색상 유지 */
     div[data-testid="stExpander"] summary p { font-size: 18px !important; font-weight: normal !important; color: #1A729A !important; }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
@@ -171,7 +171,6 @@ def send_admin_notification(subject, body_text):
     try:
         msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"
         msg['To'] = "wschoi@synotech.co.kr" 
-        # msg['To'] = "wschoi@synotech.co.kr, seoyeon@synotech.co.kr" # 필요 시 주석 해제하여 최서연 수석님 추가 가능
         
         msg['Subject'] = f"🚨 [Admin Alert] {subject}"
         msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
@@ -248,7 +247,6 @@ default_vars = {
 for key, val in default_vars.items():
     if key not in st.session_state: st.session_state[key] = val
 
-# 모바일 새로고침 방지 (자동 로그인 토큰)
 qp = st.query_params
 if "session_token" in qp and not st.session_state.logged_in:
     token = qp["session_token"]
@@ -271,7 +269,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.7</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.8</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
