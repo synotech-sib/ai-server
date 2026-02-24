@@ -1,5 +1,4 @@
 # synobot.py
-
 import os
 import glob
 import streamlit as st
@@ -28,14 +27,11 @@ You are 'SynoBot', an elite SIB R&D engineer and global technical advisor for Sy
 # =====================================================================
 # [동적 지식 창고 연동] - SynoCore/SynoBot_db 폴더 읽기
 # =====================================================================
-# 현재 실행 위치가 SynoCore 폴더 내부라고 가정하고 하위 폴더인 SynoBot_db를 지정
 TDB_DIR = "./SynoBot_db" 
 
 def load_tdb_documents():
-    """SynoBot_db 폴더 내의 텍스트 파일들을 읽어옵니다."""
     context = ""
     if os.path.exists(TDB_DIR):
-        # 폴더 내 모든 txt 파일 검색
         txt_files = glob.glob(os.path.join(TDB_DIR, "**/*.txt"), recursive=True)
         for file_path in txt_files:
             try:
@@ -63,24 +59,20 @@ def get_gemini_response_stream(messages, sim_result, api_key):
         system_instruction=SYSTEM_PROMPT
     )
     
-    # 제미나이 형식으로 메시지 변환
     history = []
-    # 마지막 질문(마지막 유저 메시지)을 제외하고 히스토리에 담음
     for msg in messages[:-1]:
-        if msg["role"] == "system": continue # system 메시지는 무시
+        if msg["role"] == "system": continue 
         role = "user" if msg["role"] == "user" else "model"
         history.append({"role": role, "parts": [msg["content"]]})
         
     chat = model.start_chat(history=history)
     
-    # 마지막 유저 메시지 찾기
     last_user_msg = ""
     for msg in reversed(messages):
         if msg["role"] == "user":
             last_user_msg = msg["content"]
             break
             
-    # Tdb 문서 및 시뮬레이션 결과 불러오기
     retrieved_context = load_tdb_documents()
     full_prompt = f"[Retrieved Context]\n{retrieved_context}\n\n"
     if sim_result:
@@ -104,7 +96,6 @@ def get_openai_response_stream(messages, sim_result, api_key):
         
     client = OpenAI(api_key=api_key)
     
-    # Tdb 문서 및 시뮬레이션 결과 불러오기
     retrieved_context = load_tdb_documents()
     sys_content = SYSTEM_PROMPT + f"\n\n[Retrieved Context]\n{retrieved_context}"
     if sim_result:
@@ -112,13 +103,12 @@ def get_openai_response_stream(messages, sim_result, api_key):
         
     sys_msg = [{"role": "system", "content": sys_content}]
     
-    # 기존 메시지에서 system 롤을 제외하고 합침
     user_msgs = [m for m in messages if m["role"] != "system"]
     full_messages = sys_msg + user_msgs
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini", # 성능이 필요한 경우 gpt-4o로 변경 가능
+            model="gpt-4o-mini", 
             messages=full_messages,
             temperature=0.3,
             stream=True
