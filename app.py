@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 import os
 import hashlib
@@ -12,6 +12,16 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import streamlit.components.v1 as components 
+
+# 🔥 [추가] 생성한 synobot 모듈 연결
+try:
+    import synobot
+except ImportError:
+    synobot = None
+    st.error("⚠️ `synobot.py` 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 있는지 확인해 주세요.")
+
+# [한국 표준시(KST) 강제 고정 셋팅]
+KST = timezone(timedelta(hours=9))
 
 # [구글 시트 라이브러리 예외 처리]
 try:
@@ -43,8 +53,8 @@ st.markdown("""
     .main .block-container { max-width: 1500px !important; padding-top: 2rem; padding-bottom: 2rem; margin: auto; }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 60px; }
-    .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
-    .syno-subtitle { color: #D35400; font-size: 20px; font-weight: bold; padding-top: 16px; }
+    .syno-title { color: #1A729A; font-size: 50px !important; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
+    .syno-subtitle { color: #7F7F7F !important; font-size: 22px !important; font-weight: bold; padding-top: 20px; }
     
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
@@ -92,7 +102,7 @@ st.markdown("""
 
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
-        .syno-title { font-size: 32px !important; margin-right: 0px; }
+        .syno-title { font-size: 38px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
     }
@@ -205,7 +215,7 @@ def load_user_history(email, workspace="general_user"):
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'C_Load', 'C_Press', 'C_Act', 'C_Bin', 'C_Con', 'N/P Ratio', 'A_Press', 'A_Act', 'A_Bin', 'A_Con', 'E/C Ratio', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
                 time_str = str(row_dict.get('Time', '')).strip()
-                if not time_str or time_str == "nan": time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M:%S")
+                if not time_str or time_str == "nan": time_str = datetime.now(KST).strftime("%m-%d %H:%M:%S")
                 row_dict['Time'] = time_str 
             except: pass
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0), pd.DataFrame())
@@ -220,7 +230,7 @@ def save_chat_log(email, workspace, role, content):
         conn = st.connection("gsheets", type=GSheetsConnection)
         try: chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=0)
         except: chat_df = pd.DataFrame(columns=["Time", "Workspace", "Email", "Role", "Message"])
-        new_row = pd.DataFrame([{"Time": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"), "Workspace": safe_ws, "Email": safe_email, "Role": role, "Message": content}])
+        new_row = pd.DataFrame([{"Time": datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S"), "Workspace": safe_ws, "Email": safe_email, "Role": role, "Message": content}])
         new_row = new_row[["Time", "Workspace", "Email", "Role", "Message"]]
         if chat_df.empty or 'Email' not in chat_df.columns: conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=new_row)
         else: updated_df = pd.concat([chat_df, new_row], ignore_index=True); conn.update(spreadsheet=URL_LOGS, worksheet="ChatLogs", data=updated_df)
@@ -435,7 +445,7 @@ with col_main:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("가입신청 완료", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
-                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
+                    new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": datetime.now(KST).strftime("%Y-%m-%d")}])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                     
                     if is_vip_request:
@@ -550,7 +560,7 @@ with col_main:
         expert = True if is_pro else False
 
         # [섹션 2]
-        st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
+        st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
             with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
@@ -680,7 +690,7 @@ with col_main:
                     res_whkg = ((v_cap * (v_c_act/100) * cell_v) / 2.5) * max(0.5, 1.0 - (v_tc * 0.015))
                     whl = res_whkg * v_c_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
-                    cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M:%S")
+                    cur_time = datetime.now(KST).strftime("%m-%d %H:%M:%S")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
                     log_data = {
@@ -738,10 +748,9 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스와 텍스트를 한 줄로 결합한 직관적 UI)
+                    # 🔥 AI 진단 리포트 박스 (체크박스 라벨로 모든 텍스트를 흡수하여 무조건 한 줄로 연결)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
-                        
                         show_ai = st.checkbox("**:red[펼쳐보기]** 🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
                             
                         if show_ai:
@@ -750,14 +759,13 @@ with col_main:
                                 clean_briefing = res['AI_Briefing'].replace("아래는 주어진 데이터에 대한 분석 및 브리핑입니다.", "").strip()
                                 st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 인덱스 제거 및 클릭 조회 기능 연동)
+                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 제거 및 마우스 클릭 조회 연동)
                     if len(st.session_state.history) > 0:
                         st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
-                        df_session.insert(0, 'No.', range(len(df_session), 0, -1)) # 직관적인 역순 번호 삽입
+                        df_session.insert(0, 'No.', range(len(df_session), 0, -1))
                         
                         try:
-                            # 행 클릭 시 화면 재로딩(rerun) 되도록 연동
                             st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
                         except TypeError:
                             st.dataframe(df_session, use_container_width=True, hide_index=True)
@@ -807,7 +815,6 @@ with col_main:
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
-                    # 🔥 4번 당일 임시 기록 '전체' 클라우드 저장 로직
                     if btn1.button("💾 임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
@@ -844,7 +851,7 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
-# 🔥 프롬프트: 기계적인 서론 및 인사말 절대 사용 금지 명시
+# 🔥 프롬프트: 기계적인 서론/인사말 금지. synobot.py 도입 전까지 임시 적용
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on SIB knowledge.
@@ -881,31 +888,51 @@ if col_bot:
 
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
-                    api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "데이터를 분석하여 브리핑해 주십시오."}]
-                    with st.chat_message("assistant"):
-                        with st.spinner("결과 분석 중..."):
-                            try:
-                                reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
-                                bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
-                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
-                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                            except Exception as e:
-                                st.error(f"AI 브리핑 생성 오류: {e}")
+                    
+                    if synobot:  # synobot.py 파일이 있으면 신규 로직 호출
+                        with st.chat_message("assistant"):
+                            with st.spinner("결과 분석 중..."):
+                                try:
+                                    reply = synobot.generate_auto_briefing(st.session_state.sim_result, st.secrets["OPENAI_API_KEY"])
+                                    bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
+                                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                                    if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
+                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
+                                except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
+                    else:  # 파일이 아직 없으면 기존 로직 실행
+                        api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "입력된 시뮬레이션 데이터를 분석하여 핵심 엔지니어링 브리핑을 3~4줄로 명확히 작성해 주십시오. (서론 생략)"}]
+                        with st.chat_message("assistant"):
+                            with st.spinner("결과 분석 중..."):
+                                try:
+                                    reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
+                                    bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
+                                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                                    if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
+                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
+                                except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
                     time.sleep(0.5); st.rerun()
 
                 if st.session_state.get('trigger_bot_reply'):
                     st.session_state.trigger_bot_reply = False
-                    api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + (f"\n\n[State]\n{st.session_state.sim_result}" if st.session_state.sim_result else "")}]
-                    api_messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages])
-                    with st.chat_message("assistant"):
-                        with st.spinner("답변 작성 중..."):
-                            try:
-                                reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
-                                st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
-                            except Exception as e:
-                                st.error(f"AI 응답 오류: {e}")
+                    
+                    if synobot:
+                        with st.chat_message("assistant"):
+                            with st.spinner("답변 작성 중..."):
+                                try:
+                                    reply = synobot.generate_chat_reply(st.session_state.chat_messages, st.session_state.sim_result, st.secrets["OPENAI_API_KEY"])
+                                    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
+                                except Exception as e: st.error(f"AI 응답 오류: {e}")
+                    else:
+                        api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + (f"\n\n[State]\n{st.session_state.sim_result}" if st.session_state.sim_result else "")}]
+                        api_messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages])
+                        with st.chat_message("assistant"):
+                            with st.spinner("답변 작성 중..."):
+                                try:
+                                    reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
+                                    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
+                                except Exception as e: st.error(f"AI 응답 오류: {e}")
                     time.sleep(0.5); st.rerun()
 
                 for message in reversed(st.session_state.chat_messages):
