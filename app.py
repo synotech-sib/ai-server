@@ -49,9 +49,21 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 15px 15px 10px 15px; height: 120px; display: flex; flex-direction: column; justify-content: flex-start; }
-    div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
-    div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
+    /* 🔥 3번 메트릭 컨테이너 중앙 정렬 적용 */
+    div[data-testid="stMetric"] { 
+        background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; 
+        padding: 20px 10px; height: 120px; 
+        display: flex !important; flex-direction: column !important; 
+        justify-content: center !important; align-items: center !important; text-align: center !important; 
+    }
+    div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; text-align: center !important; justify-content: center !important; display: flex !important; width: 100%;} 
+    div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; justify-content: center !important; display: flex !important; width: 100%;}
+    
+    /* 🔥 3번 메트릭 라벨(Energy Density 등) 폰트 동기화 및 중앙 정렬 */
+    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { 
+        font-size: 16px !important; font-weight: bold !important; color: #222 !important; 
+        justify-content: center !important; text-align: center !important; display: flex !important; width: 100%;
+    } 
     
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button { height: 40px !important; background-color: #1A729A !important; color: white !important; font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important; white-space: nowrap !important; padding: 0 5px !important; }
     div.st-key-btn_excel > button { background-color: #1A729A !important; border: 1px solid #155A7A !important; }
@@ -65,19 +77,18 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
-    /* 🔥 1. 선택창 (Cathode 등) 글자 크기/두께 */
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
     
-    /* 🔥 2. 가입/My계정 폼 텍스트 입력창 (크기는 16px, 볼드 해제) */
-    div[data-testid="stTextInput"] label p { font-size: 16px !important; font-weight: 500 !important; color: #222 !important; } 
-    
-    /* 🔥 3. 메트릭(Energy Density 등) 폰트 강제 동기화 (Cathode와 완벽 일치) */
-    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } 
+    /* 🔥 가입/My계정 폼 텍스트 입력창 (Password 등) 완벽 통일 */
+    div[data-testid="stTextInput"] label, div[data-testid="stTextInput"] label * { 
+        font-size: 16px !important; font-weight: 500 !important; color: #222 !important; 
+    } 
     
     div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
     
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
+    
     div[data-testid="stExpander"] summary p { font-size: 18px !important; font-weight: normal !important; color: #1A729A !important; }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
@@ -269,7 +280,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.8</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.9</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -568,7 +579,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2]
+        # [섹션 2] 
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
