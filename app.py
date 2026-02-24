@@ -70,7 +70,7 @@ st.markdown("""
     div.st-key-btn_del_sel > button, div.st-key-btn_withdraw > button { background-color: #D35400 !important; border: 1px solid #B04600 !important; }
     div.st-key-btn_del_sel > button:hover, div.st-key-btn_withdraw > button:hover { background-color: #B04600 !important; }
 
-    /* VIP DB 센터 텍스트 링크 전용 버튼 (한 줄 통합용) */
+    /* VIP DB 센터 텍스트 링크 전용 버튼 */
     div.st-key-btn_my_db_scroll button { background-color: transparent !important; background: transparent !important; border: none !important; box-shadow: none !important; display: flex !important; justify-content: flex-end !important; padding: 0 !important; height: auto !important; min-height: 0 !important; }
     div.st-key-btn_my_db_scroll button:hover, div.st-key-btn_my_db_scroll button:focus, div.st-key-btn_my_db_scroll button:active { background-color: transparent !important; background: transparent !important; border: none !important; box-shadow: none !important; }
     div.st-key-btn_my_db_scroll button p { color: #333 !important; font-weight: bold !important; font-size: 15px !important; margin: 0 !important; }
@@ -331,6 +331,121 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
+# 👑 [최고 관리자 전용 대시보드 복원] 
+# -----------------------------------------------------------------------------
+if is_pro and st.session_state.get('is_admin', False):
+    if st.session_state.admin_view is not None or st.session_state.show_profile is False:
+        with st.container(border=True):
+            st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+            
+            a1, a2, a3, a4, a5 = st.columns(5)
+            
+            if a1.button("👥 유저 관리 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'users' else 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
+            if a2.button("🔋 소재 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'mats' else 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
+            if a3.button("⚙️ 파라미터 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'param' else 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
+            if a4.button("💾 로그 DB", use_container_width=True):
+                st.session_state.admin_view = None if st.session_state.admin_view == 'logs' else 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
+            if a5.button("💬 시노봇 로그 DB", use_container_width=True): 
+                st.session_state.admin_view = None if st.session_state.admin_view == 'chat' else 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
+
+            if st.session_state.admin_view:
+                st.markdown("---")
+                st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
+                
+                if st.session_state.admin_view == 'users': target_url = URL_USERS; ws_options = ["Users", "VIPs"]
+                elif st.session_state.admin_view == 'mats': target_url = URL_MATS; ws_options = ["admin_master", "general_user"] + get_vip_list_exact()
+                elif st.session_state.admin_view == 'param': target_url = URL_PARAM; ws_options = ["param_config"]
+                elif st.session_state.admin_view == 'logs': target_url = URL_LOGS; ws_options = ["myData"]
+                elif st.session_state.admin_view == 'chat': target_url = URL_LOGS; ws_options = ["ChatLogs"] 
+                
+                if len(ws_options) > 1:
+                    sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
+                    if sel_ws_admin != st.session_state.admin_ws:
+                        st.session_state.admin_ws = sel_ws_admin; st.rerun()
+                
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                try:
+                    if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'admin_master':
+                        st.caption("ℹ️ 'admin_master'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다.")
+                        vips = get_vip_list_exact(); dfs = []
+                        for v in vips:
+                            tmp = load_cloud_data(target_url, v)
+                            if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
+                        tmp_public = load_cloud_data(target_url, "material_list") 
+                        if not tmp_public.empty: dfs.append(tmp_public)
+                        df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                        df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
+                        st.dataframe(df_admin, use_container_width=True)
+                    else:
+                        read_ws = "material_list" if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'general_user' else st.session_state.admin_ws
+                        df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=600) 
+                        st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
+                        
+                        original_cols = df_admin.columns.tolist()
+                        df_display = df_admin.copy()
+                        is_log_view = (st.session_state.admin_view == 'logs')
+                        
+                        if st.session_state.admin_view == 'users' and st.session_state.admin_ws == 'Users':
+                            df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else ('Out' if str(x) == 'Out' else 'Pro'))
+                            display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
+                            df_display = df_display[[c for c in display_order if c in df_display.columns]]
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else ('Out' if x == 'Out' else 'N'))
+                                    save_df = save_df.drop(columns=['구분'])
+                                    merged = pd.merge(save_df, df_admin[['Email', 'Password']], on='Email', how='left')
+                                    final_cols = ['Email', 'Password', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'ProMax_Req', 'RegDate']
+                                    final_save = merged[[c for c in final_cols if c in merged.columns]].fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=final_save)
+                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
+
+                        elif is_log_view and not df_display.empty:
+                            front_cols = [c for c in ['Time', 'Workspace', 'Email'] if c in original_cols]
+                            other_cols = [c for c in original_cols if c not in front_cols]
+                            df_display = df_display[front_cols + other_cols]
+                            df_display = df_display.iloc[::-1].reset_index(drop=True)
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_logs")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    save_df = save_df.iloc[::-1].reset_index(drop=True)
+                                    if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
+                                    edited_df_safe = save_df.fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df_safe)
+                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
+                        
+                        elif st.session_state.admin_view != 'users':
+                            if st.session_state.admin_view == 'chat': 
+                                if not df_display.empty: df_display = df_display.iloc[::-1].reset_index(drop=True)
+                                
+                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
+                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                                try:
+                                    save_df = edited_df.copy()
+                                    if st.session_state.admin_view == 'chat' and not save_df.empty: save_df = save_df.iloc[::-1].reset_index(drop=True)
+                                    if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
+                                    edited_df_safe = save_df.fillna("")
+                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df_safe)
+                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
+                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
+                except Exception as e:
+                    pass
+                
+                st.markdown("---")
+                st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
+                vip_opts = ["admin_master", "general_user"] + get_vip_list_exact()
+                sel_ws = st.selectbox("**🔒 테스트 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
+                if sel_ws != st.session_state.workspace:
+                    st.session_state.workspace = sel_ws; st.session_state.history = load_user_history(st.session_state.user_email, sel_ws); st.rerun()
+
+# -----------------------------------------------------------------------------
 # 5. 시뮬레이터 본문 & 봇 UI 구조 
 # -----------------------------------------------------------------------------
 col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
@@ -338,7 +453,7 @@ col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 with col_left: st.empty() 
 
 with col_main:
-    # --- 가입 및 프로필 (기존 로직 유지, 알림 추가) ---
+    # --- 가입 및 프로필 영역 ---
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
@@ -402,41 +517,43 @@ with col_main:
     with st.container(height=900, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
-        # [섹션 1] Material Selection
+        # [섹션 1] Material Selection (들여쓰기 복구 적용)
         with st.container(border=True):
             st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
-            physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
-            df_vip = load_cloud_data(URL_MATS, physical_ws) if is_pro and st.session_state.workspace != "general_user" else pd.DataFrame()
-            _dfs = []
-            if not df_vip.empty: tmp_vip = df_vip.copy(); tmp_vip['Is_VIP'] = True; _dfs.append(tmp_vip.iloc[::-1])
-            if not mat_df_public.empty: tmp_pub = mat_df_public.copy(); tmp_pub['Is_VIP'] = False; _dfs.append(tmp_pub)
-            mat_df = pd.concat(_dfs, ignore_index=True).drop_duplicates(subset=['Name'], keep='first') if _dfs else pd.DataFrame()
+            sp1, c_1 = st.columns([0.03, 0.97])
+            with c_1:
+                physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
+                df_vip = load_cloud_data(URL_MATS, physical_ws) if is_pro and st.session_state.workspace != "general_user" else pd.DataFrame()
+                _dfs = []
+                if not df_vip.empty: tmp_vip = df_vip.copy(); tmp_vip['Is_VIP'] = True; _dfs.append(tmp_vip.iloc[::-1])
+                if not mat_df_public.empty: tmp_pub = mat_df_public.copy(); tmp_pub['Is_VIP'] = False; _dfs.append(tmp_pub)
+                mat_df = pd.concat(_dfs, ignore_index=True).drop_duplicates(subset=['Name'], keep='first') if _dfs else pd.DataFrame()
 
-            m1, m2, m3, m4 = st.columns(4)
-            cat_list = mat_df[mat_df['Category']=='Cathode']['Name'].tolist() if not mat_df.empty else ["Sample Cathode"]
-            ano_list = mat_df[mat_df['Category']=='Anode']['Name'].tolist() if not mat_df.empty else ["Sample Anode"]
-            vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
-            
-            # 🔥 공식 파트너사 인증 뱃지 로직
-            def format_mat_name(name): 
-                prefix = "💎 " if name in vip_names else ""
-                if any(p in name for p in ["Tiamat", "Altris", "HiNa"]): prefix += "☑️ "
-                return f"{prefix}{name}"
-            
-            with m1: cat_sel = st.selectbox("**Cathode**", cat_list, format_func=format_mat_name, key="sel_cat_m")
-            with m2: ano_sel = st.selectbox("**Anode**", ano_list, format_func=format_mat_name, key="sel_ano_m")
-            with m3: st.selectbox("**Electrolyte**", ["Sample Elec"], key="sel_ele_m")
-            with m4: st.selectbox("**Separator**", ["Sample Sep"], key="sel_sep_m")
-            
-            row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
-            init_vals = {
-                "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "den": safe_float(row.get('Den_Def'), 4.5), "life": safe_float(row.get('Life_Def'), 4000.0),
-                "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0,
-                "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5,
-                "ec": 3.5, "te": 160.0, "tc": 1.0, "tl": 2000.0 
-            }
+                m1, m2, m3, m4 = st.columns(4)
+                cat_list = mat_df[mat_df['Category']=='Cathode']['Name'].tolist() if not mat_df.empty else ["Sample Cathode"]
+                ano_list = mat_df[mat_df['Category']=='Anode']['Name'].tolist() if not mat_df.empty else ["Sample Anode"]
+                vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
+                
+                # 🔥 공식 파트너사 인증 뱃지 로직
+                def format_mat_name(name): 
+                    prefix = "💎 " if name in vip_names else ""
+                    if any(p in name for p in ["Tiamat", "Altris", "HiNa"]): prefix += "☑️ "
+                    return f"{prefix}{name}"
+                
+                with m1: cat_sel = st.selectbox("**Cathode**", cat_list, format_func=format_mat_name, key="sel_cat_m")
+                with m2: ano_sel = st.selectbox("**Anode**", ano_list, format_func=format_mat_name, key="sel_ano_m")
+                with m3: st.selectbox("**Electrolyte**", ["Sample Elec"], key="sel_ele_m")
+                with m4: st.selectbox("**Separator**", ["Sample Sep"], key="sel_sep_m")
+                
+                row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
+                init_vals = {
+                    "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "den": safe_float(row.get('Den_Def'), 4.5), "life": safe_float(row.get('Life_Def'), 4000.0),
+                    "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0,
+                    "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5,
+                    "ec": 3.5, "te": 160.0, "tc": 1.0, "tl": 2000.0 
+                }
 
-        # 🔥 세션 & URL 파라미터 초기화 적용
+        # 🔥 세션 & URL 파라미터 초기화
         qp = st.query_params
         for k, v in init_vals.items():
             param_val = float(qp[k]) if k in qp else v
@@ -445,115 +562,116 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # 🔥 지능형 아코디언 통합 UI (Step 1 ~ 3)
+        # [섹션 2] 지능형 아코디언 통합 UI (들여쓰기 적용)
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
-        
-        with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
-            s1, s2, s3, s4 = st.columns(4)
-            with s1:
-                st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
-                v1, v2 = st.columns([0.7, 0.3])
-                v1.slider("Cap_S", 100.0, 250.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
-                v2.number_input("Cap_N", 100.0, 250.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
-            with s2:
-                st.markdown("<p class='param-label'>Voltage (V)</p>", unsafe_allow_html=True)
-                vv1, vv2 = st.columns([0.7, 0.3])
-                vv1.slider("Volt_S", 2.0, 4.5, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
-                vv2.number_input("Volt_N", 2.0, 4.5, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
-            with s3:
-                st.markdown("<p class='param-label'>True Density (g/cc)</p>", unsafe_allow_html=True)
-                d1, d2 = st.columns([0.7, 0.3])
-                d1.slider("Den_S", 1.0, 5.0, step=0.1, key="den_s", on_change=sync_s_to_n, args=("den_s", "den_n", "den"), label_visibility="collapsed", disabled=not expert)
-                d2.number_input("Den_N", 1.0, 5.0, step=0.01, key="den_n", on_change=sync_n_to_s, args=("den_s", "den_n", "den"), label_visibility="collapsed", disabled=not expert)
-            with s4:
-                st.markdown("<p class='param-label'>Base Life (Cycles)</p>", unsafe_allow_html=True)
-                lf1, lf2 = st.columns([0.7, 0.3])
-                lf1.slider("Life_S", 500.0, 10000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
-                lf2.number_input("Life_N", 500.0, 10000.0, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
-            st.button("다음 단계: 공정 설계 ➡️", key="btn_next_1", on_click=change_acc_step, args=(2,))
+        sp2, c_2 = st.columns([0.03, 0.97])
+        with c_2:
+            with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
+                s1, s2, s3, s4 = st.columns(4)
+                with s1:
+                    st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
+                    v1, v2 = st.columns([0.7, 0.3])
+                    v1.slider("Cap_S", 100.0, 250.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
+                    v2.number_input("Cap_N", 100.0, 250.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
+                with s2:
+                    st.markdown("<p class='param-label'>Voltage (V)</p>", unsafe_allow_html=True)
+                    vv1, vv2 = st.columns([0.7, 0.3])
+                    vv1.slider("Volt_S", 2.0, 4.5, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
+                    vv2.number_input("Volt_N", 2.0, 4.5, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
+                with s3:
+                    st.markdown("<p class='param-label'>True Density (g/cc)</p>", unsafe_allow_html=True)
+                    d1, d2 = st.columns([0.7, 0.3])
+                    d1.slider("Den_S", 1.0, 5.0, step=0.1, key="den_s", on_change=sync_s_to_n, args=("den_s", "den_n", "den"), label_visibility="collapsed", disabled=not expert)
+                    d2.number_input("Den_N", 1.0, 5.0, step=0.01, key="den_n", on_change=sync_n_to_s, args=("den_s", "den_n", "den"), label_visibility="collapsed", disabled=not expert)
+                with s4:
+                    st.markdown("<p class='param-label'>Base Life (Cycles)</p>", unsafe_allow_html=True)
+                    lf1, lf2 = st.columns([0.7, 0.3])
+                    lf1.slider("Life_S", 500.0, 10000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
+                    lf2.number_input("Life_N", 500.0, 10000.0, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
+                st.button("다음 단계: 공정 설계 ➡️", key="btn_next_1", on_click=change_acc_step, args=(2,))
 
-        with st.expander(f"{'✅ ' if st.session_state.acc_step > 2 else ''}Step 2. 셀 공정 설계 (Process Parameters)", expanded=(st.session_state.acc_step == 2)):
-            p1, p2, p3 = st.columns(3)
-            with p1:
-                st.markdown('<p class="sub-header-bold">(A) Cathode Process</p>', unsafe_allow_html=True)
-                st.markdown("<p class='param-label'>Areal Loading (mg/cm2)</p>", unsafe_allow_html=True)
-                cl1, cl2 = st.columns([0.7, 0.3])
-                cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
-                cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
-                
-                st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True, help="합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.")
-                cpr1, cpr2 = st.columns([0.7, 0.3])
-                cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
-                cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
-                
-                st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
-                ca1, ca2 = st.columns([0.7, 0.3])
-                ca1.slider("CAct_S", 80.0, 99.0, step=0.5, key="c_act_s", on_change=sync_s_to_n, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
-                ca2.number_input("CAct_N", 80.0, 99.0, step=0.1, key="c_act_n", on_change=sync_n_to_s, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
-                
-                st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
-                cb1, cb2 = st.columns([0.7, 0.3])
-                cb1.slider("CBin_S", 0.0, 10.0, step=0.5, key="c_bin_s", on_change=sync_s_to_n, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
-                cb2.number_input("CBin_N", 0.0, 10.0, step=0.1, key="c_bin_n", on_change=sync_n_to_s, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
-                
-                st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
-                cc1, cc2 = st.columns([0.7, 0.3])
-                cc1.slider("CCon_S", 0.0, 10.0, step=0.5, key="c_con_s", on_change=sync_s_to_n, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
-                cc2.number_input("CCon_N", 0.0, 10.0, step=0.1, key="c_con_n", on_change=sync_n_to_s, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
-                
-            with p2:
-                st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
-                st.markdown("<p class='param-label'>N/P Ratio</p>", unsafe_allow_html=True, help="N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.")
-                n1, n2 = st.columns([0.7, 0.3])
-                n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
-                n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
-                
-                st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True)
-                apr1, apr2 = st.columns([0.7, 0.3])
-                apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
-                apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
-                
-                st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
-                aa1, aa2 = st.columns([0.7, 0.3])
-                aa1.slider("AAct_S", 80.0, 99.0, step=0.5, key="a_act_s", on_change=sync_s_to_n, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
-                aa2.number_input("AAct_N", 80.0, 99.0, step=0.1, key="a_act_n", on_change=sync_n_to_s, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
-                
-                st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
-                ab1, ab2 = st.columns([0.7, 0.3])
-                ab1.slider("ABin_S", 0.0, 10.0, step=0.5, key="a_bin_s", on_change=sync_s_to_n, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
-                ab2.number_input("ABin_N", 0.0, 10.0, step=0.1, key="a_bin_n", on_change=sync_n_to_s, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
-                
-                st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
-                ac1, ac2 = st.columns([0.7, 0.3])
-                ac1.slider("ACon_S", 0.0, 10.0, step=0.5, key="a_con_s", on_change=sync_s_to_n, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
-                ac2.number_input("ACon_N", 0.0, 10.0, step=0.1, key="a_con_n", on_change=sync_n_to_s, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
+            with st.expander(f"{'✅ ' if st.session_state.acc_step > 2 else ''}Step 2. 셀 공정 설계 (Process Parameters)", expanded=(st.session_state.acc_step == 2)):
+                p1, p2, p3 = st.columns(3)
+                with p1:
+                    st.markdown('<p class="sub-header-bold">(A) Cathode Process</p>', unsafe_allow_html=True)
+                    st.markdown("<p class='param-label'>Areal Loading (mg/cm2)</p>", unsafe_allow_html=True)
+                    cl1, cl2 = st.columns([0.7, 0.3])
+                    cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
+                    cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
+                    
+                    st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True, help="합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.")
+                    cpr1, cpr2 = st.columns([0.7, 0.3])
+                    cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
+                    cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
+                    
+                    st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
+                    ca1, ca2 = st.columns([0.7, 0.3])
+                    ca1.slider("CAct_S", 80.0, 99.0, step=0.5, key="c_act_s", on_change=sync_s_to_n, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
+                    ca2.number_input("CAct_N", 80.0, 99.0, step=0.1, key="c_act_n", on_change=sync_n_to_s, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
+                    
+                    st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
+                    cb1, cb2 = st.columns([0.7, 0.3])
+                    cb1.slider("CBin_S", 0.0, 10.0, step=0.5, key="c_bin_s", on_change=sync_s_to_n, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
+                    cb2.number_input("CBin_N", 0.0, 10.0, step=0.1, key="c_bin_n", on_change=sync_n_to_s, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
+                    
+                    st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
+                    cc1, cc2 = st.columns([0.7, 0.3])
+                    cc1.slider("CCon_S", 0.0, 10.0, step=0.5, key="c_con_s", on_change=sync_s_to_n, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
+                    cc2.number_input("CCon_N", 0.0, 10.0, step=0.1, key="c_con_n", on_change=sync_n_to_s, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
+                    
+                with p2:
+                    st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
+                    st.markdown("<p class='param-label'>N/P Ratio</p>", unsafe_allow_html=True, help="N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.")
+                    n1, n2 = st.columns([0.7, 0.3])
+                    n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
+                    n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
+                    
+                    st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True)
+                    apr1, apr2 = st.columns([0.7, 0.3])
+                    apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
+                    apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
+                    
+                    st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
+                    aa1, aa2 = st.columns([0.7, 0.3])
+                    aa1.slider("AAct_S", 80.0, 99.0, step=0.5, key="a_act_s", on_change=sync_s_to_n, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
+                    aa2.number_input("AAct_N", 80.0, 99.0, step=0.1, key="a_act_n", on_change=sync_n_to_s, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
+                    
+                    st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
+                    ab1, ab2 = st.columns([0.7, 0.3])
+                    ab1.slider("ABin_S", 0.0, 10.0, step=0.5, key="a_bin_s", on_change=sync_s_to_n, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
+                    ab2.number_input("ABin_N", 0.0, 10.0, step=0.1, key="a_bin_n", on_change=sync_n_to_s, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
+                    
+                    st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
+                    ac1, ac2 = st.columns([0.7, 0.3])
+                    ac1.slider("ACon_S", 0.0, 10.0, step=0.5, key="a_con_s", on_change=sync_s_to_n, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
+                    ac2.number_input("ACon_N", 0.0, 10.0, step=0.1, key="a_con_n", on_change=sync_n_to_s, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
 
-            with p3:
-                st.markdown('<p class="sub-header-bold">(C) Cell & Electrolyte</p>', unsafe_allow_html=True)
-                st.markdown("<p class='param-label'>E/C Ratio (g/Ah)</p>", unsafe_allow_html=True, help="전해액/용량 비율. 2.5 이하시 수명 급감 위험.")
-                e1, e2 = st.columns([0.7, 0.3])
-                e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
-                e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
-                
-            st.button("다음 단계: 타겟 성능 ➡️", key="btn_next_2", on_click=change_acc_step, args=(3,))
+                with p3:
+                    st.markdown('<p class="sub-header-bold">(C) Cell & Electrolyte</p>', unsafe_allow_html=True)
+                    st.markdown("<p class='param-label'>E/C Ratio (g/Ah)</p>", unsafe_allow_html=True, help="전해액/용량 비율. 2.5 이하시 수명 급감 위험.")
+                    e1, e2 = st.columns([0.7, 0.3])
+                    e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
+                    e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
+                    
+                st.button("다음 단계: 타겟 성능 ➡️", key="btn_next_2", on_click=change_acc_step, args=(3,))
 
-        with st.expander("Step 3. 타겟 성능 설정 (Target Settings)", expanded=(st.session_state.acc_step == 3)):
-            t1, t2, t3 = st.columns(3)
-            with t1: 
-                st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
-                te1, te2 = st.columns([0.7, 0.3])
-                te1.slider("TE_S", 100.0, 250.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n", "te"), label_visibility="collapsed")
-                te2.number_input("TE_N", 100.0, 250.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n", "te"), label_visibility="collapsed")
-            with t2: 
-                st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True)
-                tc1, tc2 = st.columns([0.7, 0.3])
-                tc1.slider("TC_S", 0.1, 10.0, step=0.5, key="tc_s", on_change=sync_s_to_n, args=("tc_s", "tc_n", "tc"), label_visibility="collapsed")
-                tc2.number_input("TC_N", 0.1, 10.0, step=0.1, key="tc_n", on_change=sync_n_to_s, args=("tc_s", "tc_n", "tc"), label_visibility="collapsed")
-            with t3: 
-                st.markdown('<p class="sub-header-bold">Cycle Life</p>', unsafe_allow_html=True)
-                tl1, tl2 = st.columns([0.7, 0.3])
-                tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
-                tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
+            with st.expander("Step 3. 타겟 성능 설정 (Target Settings)", expanded=(st.session_state.acc_step == 3)):
+                t1, t2, t3 = st.columns(3)
+                with t1: 
+                    st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
+                    te1, te2 = st.columns([0.7, 0.3])
+                    te1.slider("TE_S", 100.0, 250.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n", "te"), label_visibility="collapsed")
+                    te2.number_input("TE_N", 100.0, 250.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n", "te"), label_visibility="collapsed")
+                with t2: 
+                    st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True)
+                    tc1, tc2 = st.columns([0.7, 0.3])
+                    tc1.slider("TC_S", 0.1, 10.0, step=0.5, key="tc_s", on_change=sync_s_to_n, args=("tc_s", "tc_n", "tc"), label_visibility="collapsed")
+                    tc2.number_input("TC_N", 0.1, 10.0, step=0.1, key="tc_n", on_change=sync_n_to_s, args=("tc_s", "tc_n", "tc"), label_visibility="collapsed")
+                with t3: 
+                    st.markdown('<p class="sub-header-bold">Cycle Life</p>', unsafe_allow_html=True)
+                    tl1, tl2 = st.columns([0.7, 0.3])
+                    tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
+                    tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
 
         # 🔥 세션 변수 할당 (아코디언에서 업데이트 된 값들)
         v_cap, v_volt, v_den, v_life = st.session_state.cap_s, st.session_state.volt_s, st.session_state.den_s, st.session_state.life_s
@@ -566,7 +684,7 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_result = False
 
-        # [섹션 3] Simulation & Analysis (기존 5번, 메트릭스/그래프 완벽 복원)
+        # [섹션 3] Simulation & Analysis
         with st.container(border=True):
             st.markdown('<p class="main-header">3. Simulation & Analysis</p>', unsafe_allow_html=True)
             sp5, c_5 = st.columns([0.03, 0.97])
@@ -592,7 +710,7 @@ with col_main:
                     with st.spinner("🚀 물리 엔진 연산 중..."):
                         time.sleep(0.6) 
                         st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
-                        st.session_state.trigger_auto_bot = True;  # 🤖 시노봇 트리거 복구 완료
+                        st.session_state.trigger_auto_bot = True;  # 🤖 시노봇 트리거
                         st.session_state.scroll_to_result = True 
                         st.rerun()
 
@@ -630,7 +748,7 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # [섹션 4] Data Management Center (기존 6번, 4개 버튼 복구)
+        # [섹션 4] Data Management Center 
         if is_pro and st.session_state.history:
             with st.container(border=True):
                 st.markdown('<p class="main-header">4. Data Management Center</p>', unsafe_allow_html=True)
@@ -664,7 +782,7 @@ with col_main:
                             else: st.info("클라우드 DB에 이전에 저장된 데이터가 없습니다.")
                     except Exception as e: st.warning("데이터베이스 연결에 실패했습니다.")
 
-                    # 🔥 하단 4개 액션 버튼 복구
+                    # 🔥 하단 4개 액션 버튼
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
@@ -696,7 +814,7 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 (입력창 및 로직 완벽 복구)
+# 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
@@ -717,7 +835,6 @@ if col_bot:
     with col_bot:
         st.markdown("#### 🤖 SynoBot (Beta)")
         
-        # 🔥 누락되었던 시노봇 질문 입력창 복구 완료
         c_in1, c_in2 = st.columns([0.75, 0.25])
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="시노봇에게 질문하기...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
@@ -732,7 +849,6 @@ if col_bot:
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 if not st.session_state.chat_messages: st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 결과 또는 SIB 지식에 대해 질문해 주십시오."}]
 
-                # 🔥 시뮬레이션 RUN 클릭 시 AI 브리핑 자동 작동 로직 복구
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
                     api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "데이터를 분석하여 브리핑해 주십시오."}]
@@ -766,5 +882,5 @@ if col_bot:
                         if content.startswith("- "): content = "\- " + content[2:]
                         st.markdown(content)
 
-# 🔥 7. 푸터 (학술 보증 텍스트 추가)
+# 🔥 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.<br><i>* All simulation logic is based on verified electrochemical models (Newman-type) and official material data from partners.</i></div>", unsafe_allow_html=True)
