@@ -551,12 +551,13 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # 🔥 [섹션 2] 물리 엔진 업그레이드 파라미터 적용 완료
+        # 🔥 [섹션 2] 제목 변경 및 Step 1 레이아웃 3열+2열 최적화 완료
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
             with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
-                s1, s2, s3, s4, s5 = st.columns(5)
+                # 윗줄 (주요 전기적/성능 물성 3개)
+                s1, s2, s3 = st.columns(3)
                 with s1:
                     st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
                     v1, v2 = st.columns([0.7, 0.3])
@@ -568,20 +569,28 @@ with col_main:
                     vv1.slider("Volt_S", 2.0, 4.5, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                     vv2.number_input("Volt_N", 2.0, 4.5, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                 with s3:
-                    st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
-                    d1, d2 = st.columns([0.7, 0.3])
-                    d1.slider("CDen_S", 1.0, 5.0, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
-                    d2.number_input("CDen_N", 1.0, 5.0, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
-                with s4:
-                    st.markdown("<p class='param-label'>Anode True Den (g/cc)</p>", unsafe_allow_html=True)
-                    ad1, ad2 = st.columns([0.7, 0.3])
-                    ad1.slider("ADen_S", 1.0, 5.0, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
-                    ad2.number_input("ADen_N", 1.0, 5.0, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
-                with s5:
                     st.markdown("<p class='param-label'>Base Life (Cycles)</p>", unsafe_allow_html=True)
                     lf1, lf2 = st.columns([0.7, 0.3])
                     lf1.slider("Life_S", 500.0, 10000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
                     lf2.number_input("Life_N", 500.0, 10000.0, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
+                
+                st.markdown("<br>", unsafe_allow_html=True) # 줄바꿈 간격
+                
+                # 아랫줄 (진밀도 등 물리적 특성 2개)
+                s4, s5, s6 = st.columns(3)
+                with s4:
+                    st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
+                    d1, d2 = st.columns([0.7, 0.3])
+                    d1.slider("CDen_S", 1.0, 5.0, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                    d2.number_input("CDen_N", 1.0, 5.0, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                with s5:
+                    st.markdown("<p class='param-label'>Anode True Den (g/cc)</p>", unsafe_allow_html=True)
+                    ad1, ad2 = st.columns([0.7, 0.3])
+                    ad1.slider("ADen_S", 1.0, 5.0, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                    ad2.number_input("ADen_N", 1.0, 5.0, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                with s6:
+                    st.empty() # 레이아웃 정렬을 위한 빈 공간
+                    
                 st.button("다음 단계: 공정 설계 ➡️", key="btn_next_1", on_click=change_acc_step, args=(2,))
 
             with st.expander(f"{'✅ ' if st.session_state.acc_step > 2 else ''}Step 2. 셀 공정 설계 (Process Parameters)", expanded=(st.session_state.acc_step == 2)):
@@ -598,7 +607,6 @@ with col_main:
                     cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     
-                    # 🔥 양극 기공률 자동 계산 출력
                     c_poro = (1 - st.session_state.c_press_s / st.session_state.c_den_s) * 100 if st.session_state.c_den_s > 0 else 0
                     st.markdown(f"<div style='background:#eaf2f8; padding:5px 10px; border-radius:4px; margin-bottom:10px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
                     
@@ -634,7 +642,6 @@ with col_main:
                     apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     
-                    # 🔥 음극 기공률 자동 계산 출력
                     a_poro = (1 - st.session_state.a_press_s / st.session_state.a_den_s) * 100 if st.session_state.a_den_s > 0 else 0
                     st.markdown(f"<div style='background:#eaf2f8; padding:5px 10px; border-radius:4px; margin-bottom:10px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
                     
@@ -710,28 +717,25 @@ with col_main:
                 if st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True):
                     cell_v = max(0.1, v_volt - (0.1 + (v_tc * 0.02)))
                     
-                    # 🔥 물리 기반 정밀 에너지 밀도 연산 엔진 (Pro Max Version)
-                    c_areal_cap = v_c_lod * (v_c_act / 100.0) * v_cap / 1000.0 # mAh/cm2
+                    c_areal_cap = v_c_lod * (v_c_act / 100.0) * v_cap / 1000.0 
                     a_areal_cap = c_areal_cap * v_np
-                    a_cap_default = 300.0 # Hard Carbon 기본 비용량 가정
-                    a_lod = a_areal_cap / (a_cap_default * (v_a_act / 100.0)) * 1000.0 # mg/cm2
+                    a_cap_default = 300.0 
+                    a_lod = a_areal_cap / (a_cap_default * (v_a_act / 100.0)) * 1000.0 
                     
-                    # 단위 면적당 질량(mg/cm2) 합산
                     m_cat = v_c_lod
                     m_ano = a_lod
-                    m_c_foil = v_c_foil * 0.27 # Al 밀도 2.7 g/cc 적용
+                    m_c_foil = v_c_foil * 0.27 
                     m_a_foil = v_a_foil * 0.27 
-                    m_sep = v_sep_thick * 0.05 # PE/PP 분리막 유효 밀도 가정
-                    m_elec = c_areal_cap * v_ec # E/C ratio (g/Ah = mg/mAh)
+                    m_sep = v_sep_thick * 0.05 
+                    m_elec = c_areal_cap * v_ec 
                     
                     total_mass = m_cat + m_ano + m_c_foil + m_a_foil + m_sep + m_elec
-                    effective_mass = total_mass / 0.8  # 셀 패키징 무게 계수(80%)
+                    effective_mass = total_mass / 0.8  
                     
-                    # 단위 면적당 두께(um) 합산
                     t_cat = (v_c_lod / v_c_press) * 10.0
                     t_ano = (a_lod / v_a_press) * 10.0
                     total_thick = t_cat + t_ano + v_c_foil + v_a_foil + v_sep_thick
-                    effective_thick = total_thick / 0.9  # 셀 패키징 부피 계수(90%)
+                    effective_thick = total_thick / 0.9  
                     
                     res_whkg = (c_areal_cap * cell_v) / effective_mass * 1000.0 * max(0.5, 1.0 - (v_tc * 0.015))
                     whl = (c_areal_cap * cell_v) / effective_thick * 10000.0 * max(0.5, 1.0 - (v_tc * 0.015))
