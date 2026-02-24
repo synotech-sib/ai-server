@@ -13,14 +13,13 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import streamlit.components.v1 as components 
 
-# 🔥 [추가] 생성한 synobot 모듈 연결
+# [신규 AI 모듈 연결]
 try:
     import synobot
 except ImportError:
     synobot = None
-    st.error("⚠️ `synobot.py` 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 있는지 확인해 주세요.")
 
-# [한국 표준시(KST) 강제 고정 셋팅]
+# [한국 표준시(KST) 셋팅]
 KST = timezone(timedelta(hours=9))
 
 # [구글 시트 라이브러리 예외 처리]
@@ -88,7 +87,7 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 보고서 출력을 위한 인쇄 제어 */
+    /* PDF 인쇄 제어 */
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
@@ -98,13 +97,6 @@ st.markdown("""
         div[data-testid="element-container"]:has(#section4-anchor),
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    }
-
-    @media (max-width: 768px) {
-        .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
-        .syno-title { font-size: 38px !important; margin-right: 0px; }
-        .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
-        div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -273,7 +265,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro Max 2.5</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro Max 2.6</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -398,7 +390,6 @@ col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 with col_left: st.empty() 
 
 with col_main:
-    # --- 가입 및 프로필 영역 ---
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
@@ -545,10 +536,11 @@ with col_main:
                 
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                 init_vals = {
-                    "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "den": safe_float(row.get('Den_Def'), 4.5), "life": safe_float(row.get('Life_Def'), 4000.0),
-                    "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0,
-                    "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5,
-                    "ec": 3.5, "te": 160.0, "tc": 1.0, "tl": 2000.0 
+                    "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "c_den": safe_float(row.get('Den_Def'), 4.5), 
+                    "a_den": 2.1, "life": safe_float(row.get('Life_Def'), 4000.0),
+                    "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
+                    "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
+                    "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
                 }
 
         qp = st.query_params
@@ -559,12 +551,12 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2]
+        # 🔥 [섹션 2] 물리 엔진 업그레이드 파라미터 적용 완료
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
             with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
-                s1, s2, s3, s4 = st.columns(4)
+                s1, s2, s3, s4, s5 = st.columns(5)
                 with s1:
                     st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
                     v1, v2 = st.columns([0.7, 0.3])
@@ -576,11 +568,16 @@ with col_main:
                     vv1.slider("Volt_S", 2.0, 4.5, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                     vv2.number_input("Volt_N", 2.0, 4.5, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                 with s3:
-                    st.markdown("<p class='param-label'>True Density (g/cc)</p>", unsafe_allow_html=True)
+                    st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
                     d1, d2 = st.columns([0.7, 0.3])
-                    d1.slider("Den_S", 1.0, 5.0, step=0.1, key="den_s", on_change=sync_s_to_n, args=("den_s", "den_n", "den"), label_visibility="collapsed", disabled=not expert)
-                    d2.number_input("Den_N", 1.0, 5.0, step=0.01, key="den_n", on_change=sync_n_to_s, args=("den_s", "den_n", "den"), label_visibility="collapsed", disabled=not expert)
+                    d1.slider("CDen_S", 1.0, 5.0, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                    d2.number_input("CDen_N", 1.0, 5.0, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
                 with s4:
+                    st.markdown("<p class='param-label'>Anode True Den (g/cc)</p>", unsafe_allow_html=True)
+                    ad1, ad2 = st.columns([0.7, 0.3])
+                    ad1.slider("ADen_S", 1.0, 5.0, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                    ad2.number_input("ADen_N", 1.0, 5.0, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                with s5:
                     st.markdown("<p class='param-label'>Base Life (Cycles)</p>", unsafe_allow_html=True)
                     lf1, lf2 = st.columns([0.7, 0.3])
                     lf1.slider("Life_S", 500.0, 10000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
@@ -600,6 +597,15 @@ with col_main:
                     cpr1, cpr2 = st.columns([0.7, 0.3])
                     cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
+                    
+                    # 🔥 양극 기공률 자동 계산 출력
+                    c_poro = (1 - st.session_state.c_press_s / st.session_state.c_den_s) * 100 if st.session_state.c_den_s > 0 else 0
+                    st.markdown(f"<div style='background:#eaf2f8; padding:5px 10px; border-radius:4px; margin-bottom:10px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
+                    
+                    st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
+                    cf1, cf2 = st.columns([0.7, 0.3])
+                    cf1.slider("CFoil_S", 8.0, 30.0, step=1.0, key="c_foil_s", on_change=sync_s_to_n, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
+                    cf2.number_input("CFoil_N", 8.0, 30.0, step=0.1, key="c_foil_n", on_change=sync_n_to_s, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
                     
                     st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
                     ca1, ca2 = st.columns([0.7, 0.3])
@@ -628,6 +634,15 @@ with col_main:
                     apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     
+                    # 🔥 음극 기공률 자동 계산 출력
+                    a_poro = (1 - st.session_state.a_press_s / st.session_state.a_den_s) * 100 if st.session_state.a_den_s > 0 else 0
+                    st.markdown(f"<div style='background:#eaf2f8; padding:5px 10px; border-radius:4px; margin-bottom:10px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
+                    
+                    st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
+                    af1, af2 = st.columns([0.7, 0.3])
+                    af1.slider("AFoil_S", 8.0, 30.0, step=1.0, key="a_foil_s", on_change=sync_s_to_n, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
+                    af2.number_input("AFoil_N", 8.0, 30.0, step=0.1, key="a_foil_n", on_change=sync_n_to_s, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
+                    
                     st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
                     aa1, aa2 = st.columns([0.7, 0.3])
                     aa1.slider("AAct_S", 80.0, 99.0, step=0.5, key="a_act_s", on_change=sync_s_to_n, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
@@ -650,6 +665,11 @@ with col_main:
                     e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                     e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                     
+                    st.markdown("<p class='param-label'>Separator Thickness (μm)</p>", unsafe_allow_html=True)
+                    st1, st2 = st.columns([0.7, 0.3])
+                    st1.slider("SepThick_S", 5.0, 30.0, step=1.0, key="sep_thick_s", on_change=sync_s_to_n, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
+                    st2.number_input("SepThick_N", 5.0, 30.0, step=0.1, key="sep_thick_n", on_change=sync_n_to_s, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
+                    
                 st.button("다음 단계: 타겟 성능 ➡️", key="btn_next_2", on_click=change_acc_step, args=(3,))
 
             with st.expander("Step 3. 타겟 성능 설정 (Target Settings)", expanded=(st.session_state.acc_step == 3)):
@@ -670,9 +690,11 @@ with col_main:
                     tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
                     tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
 
-        v_cap, v_volt, v_den, v_life = st.session_state.cap_s, st.session_state.volt_s, st.session_state.den_s, st.session_state.life_s
-        v_c_lod, v_c_press, v_c_act, v_c_bin, v_c_con = st.session_state.c_lod_s, st.session_state.c_press_s, st.session_state.c_act_s, st.session_state.c_bin_s, st.session_state.c_con_s
-        v_np, v_a_press, v_a_act, v_a_bin, v_a_con, v_ec = st.session_state.np_s, st.session_state.a_press_s, st.session_state.a_act_s, st.session_state.a_bin_s, st.session_state.a_con_s, st.session_state.ec_s
+        # 변수 할당
+        v_cap, v_volt, v_c_den, v_a_den, v_life = st.session_state.cap_s, st.session_state.volt_s, st.session_state.c_den_s, st.session_state.a_den_s, st.session_state.life_s
+        v_c_lod, v_c_press, v_c_act, v_c_bin, v_c_con, v_c_foil = st.session_state.c_lod_s, st.session_state.c_press_s, st.session_state.c_act_s, st.session_state.c_bin_s, st.session_state.c_con_s, st.session_state.c_foil_s
+        v_np, v_a_press, v_a_act, v_a_bin, v_a_con, v_a_foil = st.session_state.np_s, st.session_state.a_press_s, st.session_state.a_act_s, st.session_state.a_bin_s, st.session_state.a_con_s, st.session_state.a_foil_s
+        v_ec, v_sep_thick = st.session_state.ec_s, st.session_state.sep_thick_s
         v_te, v_tc, v_tl = st.session_state.te_s, st.session_state.tc_s, st.session_state.tl_s
 
         st.markdown("<div id='section5'></div>", unsafe_allow_html=True)
@@ -687,8 +709,33 @@ with col_main:
             with st.container(border=True):
                 if st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True):
                     cell_v = max(0.1, v_volt - (0.1 + (v_tc * 0.02)))
-                    res_whkg = ((v_cap * (v_c_act/100) * cell_v) / 2.5) * max(0.5, 1.0 - (v_tc * 0.015))
-                    whl = res_whkg * v_c_press * 0.8  
+                    
+                    # 🔥 물리 기반 정밀 에너지 밀도 연산 엔진 (Pro Max Version)
+                    c_areal_cap = v_c_lod * (v_c_act / 100.0) * v_cap / 1000.0 # mAh/cm2
+                    a_areal_cap = c_areal_cap * v_np
+                    a_cap_default = 300.0 # Hard Carbon 기본 비용량 가정
+                    a_lod = a_areal_cap / (a_cap_default * (v_a_act / 100.0)) * 1000.0 # mg/cm2
+                    
+                    # 단위 면적당 질량(mg/cm2) 합산
+                    m_cat = v_c_lod
+                    m_ano = a_lod
+                    m_c_foil = v_c_foil * 0.27 # Al 밀도 2.7 g/cc 적용
+                    m_a_foil = v_a_foil * 0.27 
+                    m_sep = v_sep_thick * 0.05 # PE/PP 분리막 유효 밀도 가정
+                    m_elec = c_areal_cap * v_ec # E/C ratio (g/Ah = mg/mAh)
+                    
+                    total_mass = m_cat + m_ano + m_c_foil + m_a_foil + m_sep + m_elec
+                    effective_mass = total_mass / 0.8  # 셀 패키징 무게 계수(80%)
+                    
+                    # 단위 면적당 두께(um) 합산
+                    t_cat = (v_c_lod / v_c_press) * 10.0
+                    t_ano = (a_lod / v_a_press) * 10.0
+                    total_thick = t_cat + t_ano + v_c_foil + v_a_foil + v_sep_thick
+                    effective_thick = total_thick / 0.9  # 셀 패키징 부피 계수(90%)
+                    
+                    res_whkg = (c_areal_cap * cell_v) / effective_mass * 1000.0 * max(0.5, 1.0 - (v_tc * 0.015))
+                    whl = (c_areal_cap * cell_v) / effective_thick * 10000.0 * max(0.5, 1.0 - (v_tc * 0.015))
+                    
                     life_cyc = int(v_life * (0.95 ** v_tc))
                     cur_time = datetime.now(KST).strftime("%m-%d %H:%M:%S")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
@@ -711,7 +758,6 @@ with col_main:
                         st.rerun()
                         
                 if st.session_state.history:
-                    # 🔥 로그 테이블에서 마우스 클릭 시 선택된 과거 데이터를 불러오는 로직
                     selected_idx = 0
                     if "log_table_sel" in st.session_state:
                         sel_rows = st.session_state.log_table_sel.get("selection", {}).get("rows", [])
@@ -748,27 +794,21 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스 라벨로 모든 텍스트를 흡수하여 무조건 한 줄로 연결)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
                         show_ai = st.checkbox("**:red[펼쳐보기]** 🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
                             
                         if show_ai:
                             with st.container(border=True):
-                                # 불필요한 기계적 서론 문구 삭제 처리
                                 clean_briefing = res['AI_Briefing'].replace("아래는 주어진 데이터에 대한 분석 및 브리핑입니다.", "").strip()
                                 st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 제거 및 마우스 클릭 조회 연동)
                     if len(st.session_state.history) > 0:
                         st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
                         df_session.insert(0, 'No.', range(len(df_session), 0, -1))
-                        
-                        try:
-                            st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
-                        except TypeError:
-                            st.dataframe(df_session, use_container_width=True, hide_index=True)
+                        try: st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
+                        except TypeError: st.dataframe(df_session, use_container_width=True, hide_index=True)
 
         st.markdown("<div id='section6'></div>", unsafe_allow_html=True)
         if st.session_state.get('scroll_to_data'):
@@ -851,7 +891,6 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
-# 🔥 프롬프트: 기계적인 서론/인사말 금지. synobot.py 도입 전까지 임시 적용
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on SIB knowledge.
@@ -889,7 +928,7 @@ if col_bot:
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
                     
-                    if synobot:  # synobot.py 파일이 있으면 신규 로직 호출
+                    if synobot: 
                         with st.chat_message("assistant"):
                             with st.spinner("결과 분석 중..."):
                                 try:
@@ -899,8 +938,8 @@ if col_bot:
                                     if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
                                     save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
                                 except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
-                    else:  # 파일이 아직 없으면 기존 로직 실행
-                        api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "입력된 시뮬레이션 데이터를 분석하여 핵심 엔지니어링 브리핑을 3~4줄로 명확히 작성해 주십시오. (서론 생략)"}]
+                    else:  
+                        api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "입력된 시뮬레이션 데이터를 분석하여 핵심 엔지니어링 브리핑을 작성해 주십시오."}]
                         with st.chat_message("assistant"):
                             with st.spinner("결과 분석 중..."):
                                 try:
