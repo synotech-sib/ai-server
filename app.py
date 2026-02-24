@@ -78,7 +78,7 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 보고서 출력을 위한 인쇄 제어 */
+    /* 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
@@ -88,6 +88,13 @@ st.markdown("""
         div[data-testid="element-container"]:has(#section4-anchor),
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+
+    @media (max-width: 768px) {
+        .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
+        .syno-title { font-size: 32px !important; margin-right: 0px; }
+        .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
+        div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -256,7 +263,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5.0</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -694,7 +701,7 @@ with col_main:
                         st.rerun()
                         
                 if st.session_state.history:
-                    # 🔥 로그 테이블에서 클릭한 항목의 인덱스 파악 (최신 기록 불러오기 연동)
+                    # 🔥 로그 테이블에서 마우스로 클릭한 과거 행(Row)의 데이터를 실시간으로 불러오는 로직
                     selected_idx = 0
                     if "log_table_sel" in st.session_state:
                         sel_rows = st.session_state.log_table_sel.get("selection", {}).get("rows", [])
@@ -731,31 +738,30 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스 첫 줄 미리보기형 UI 반영)
+                    # 🔥 AI 진단 리포트 박스 (체크박스 첫 줄 연결 UI)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown('<p style="font-size: 16px; font-weight: bold; color: #1A729A; margin-top: 5px;">🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</p>', unsafe_allow_html=True)
                         
-                        lines = [l for l in res['AI_Briefing'].split('\n') if l.strip() and "실시간 AI 진단" not in l]
-                        first_line = lines[0] if lines else "분석 결과를 확인하시려면 펼쳐보기를 눌러주세요."
-                        
-                        col_prev, col_chk = st.columns([0.85, 0.15])
-                        with col_prev:
-                            st.markdown(f"<div style='padding-top: 6px; font-size: 15px; color: #555;'>{first_line} ...</div>", unsafe_allow_html=True)
+                        col_text, col_chk = st.columns([0.48, 0.52])
+                        with col_text:
+                            st.markdown('<div style="font-size: 16px; font-weight: bold; color: #1A729A; padding-top: 6px;">🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</div>', unsafe_allow_html=True)
                         with col_chk:
-                            show_ai = st.checkbox("**펼쳐보기**", value=False, key=f"chk_ai_report_{res['Time']}")
+                            show_ai = st.checkbox("**:red[펼쳐보기]**", value=False, key=f"chk_ai_report_{res['Time']}")
                             
                         if show_ai:
                             with st.container(border=True):
-                                st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{res['AI_Briefing']}</div>", unsafe_allow_html=True)
+                                # 🔥 혹시 남아있을지 모를 AI의 쓸데없는 인사말 삭제 처리
+                                clean_briefing = res['AI_Briefing'].replace("아래는 주어진 데이터에 대한 분석 및 브리핑입니다.", "").strip()
+                                st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 제거 + 마우스 클릭 조회 연동)
+                    # 🔥 현재 세션 당일 임시 누적 기록 테이블
                     if len(st.session_state.history) > 0:
-                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 결과 조회 가능)</p>", unsafe_allow_html=True)
+                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
-                        df_session.insert(0, 'No.', range(len(df_session), 0, -1))
+                        df_session.insert(0, 'No.', range(len(df_session), 0, -1)) # 직관적인 역순 번호 삽입
                         
                         try:
+                            # 행 클릭 시 화면 재로딩(rerun) 되도록 연동
                             st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
                         except TypeError:
                             st.dataframe(df_session, use_container_width=True, hide_index=True)
@@ -805,7 +811,7 @@ with col_main:
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
-                    # 🔥 4번 당일 임시 기록 전체 저장 로직 반영 완료
+                    # 🔥 4번 당일 임시 기록 '전체' 저장 로직
                     if btn1.button("💾 임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
@@ -842,11 +848,13 @@ with col_main:
 # -----------------------------------------------------------------------------
 # 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
+# 🔥 프롬프트에 불필요한 서론 출력 방지 지시 추가
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
 Answer questions accurately and professionally in Korean based on SIB knowledge.
 - 반드시 SIB 수석 연구원(엔지니어)의 전문적인 브리핑 스타일로 작성하되, 사무적이고 정중한 '합쇼체(~입니다, ~합니다)'로 답변하십시오.
 - 모든 답변은 도트 블릿('- ')을 사용하여 핵심을 명확히 나열하십시오.
+- "아래는 분석 내용입니다", "다음은 데이터에 대한 브리핑입니다" 같은 불필요한 서론이나 인사말은 절대 쓰지 말고, 즉시 데이터 분석 본론부터 시작하십시오.
 """
 
 def handle_chat_submit():
@@ -888,8 +896,8 @@ if col_bot:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
                             except Exception as e:
                                 st.error(f"AI 브리핑 생성 오류: {e}")
-                    # AI 응답 후 페이지 재로딩 생략하여 UI 부드러움 극대화
-                
+                    time.sleep(0.5); st.rerun()
+
                 if st.session_state.get('trigger_bot_reply'):
                     st.session_state.trigger_bot_reply = False
                     api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + (f"\n\n[State]\n{st.session_state.sim_result}" if st.session_state.sim_result else "")}]
@@ -902,7 +910,7 @@ if col_bot:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                             except Exception as e:
                                 st.error(f"AI 응답 오류: {e}")
-                    st.rerun()
+                    time.sleep(0.5); st.rerun()
 
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
