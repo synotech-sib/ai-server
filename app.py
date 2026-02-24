@@ -28,7 +28,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 2.5", layout="wide")
 
 st.markdown("""
     <style>
@@ -78,7 +78,7 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* 🔥 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
+    /* 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         
@@ -268,7 +268,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5.0</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -554,7 +554,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2] 
+        # [섹션 2]
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -734,24 +734,26 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스 토글형 우측 배치)
+                    # 🔥 AI 진단 리포트 박스 (체크박스 토글형)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
                         col_text, col_chk = st.columns([0.85, 0.15])
                         with col_text:
                             st.markdown('<p style="font-size: 16px; font-weight: bold; color: #1A729A; margin-top: 5px;">🤖 고객님, 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</p>', unsafe_allow_html=True)
                         with col_chk:
-                            show_ai = st.checkbox("☑️ 펼쳐보기", value=False, key="chk_ai_report")
+                            show_ai = st.checkbox("**펼쳐보기**", value=False, key="chk_ai_report")
                             
                         if show_ai:
                             with st.container(border=True):
                                 st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{res['AI_Briefing']}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 임시 누적 기록 테이블 (3번 섹션 하단)
+                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 인덱스 숨김 + No 역순 번호 추가)
                     if len(st.session_state.history) > 0:
                         st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (임시 저장)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
-                        st.dataframe(df_session, use_container_width=True)
+                        # 직관적인 No 컬럼 삽입 (최신순이므로 역순 넘버링)
+                        df_session.insert(0, 'No.', range(len(df_session), 0, -1))
+                        st.dataframe(df_session, use_container_width=True, hide_index=True)
 
         st.markdown("<div id='section6'></div>", unsafe_allow_html=True)
         if st.session_state.get('scroll_to_data'):
