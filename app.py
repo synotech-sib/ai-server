@@ -145,9 +145,22 @@ def send_verification_email(to_email, code):
         return "SUCCESS"
     except Exception as e: return f"발송 오류: {str(e)}"
 
+def send_welcome_email(to_email, user_name):
+    try:
+        msg = MIMEMultipart(); msg['From'] = "SynoCore <synocore@synotech.co.kr>"; msg['To'] = to_email; msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
+        msg.attach(MIMEText(f"안녕하세요 {user_name}님, 회원가입이 성공적으로 완료되었습니다.", 'plain', 'utf-8'))
+        server = get_smtp_server(); server.send_message(msg); server.quit()
+        return True
+    except Exception: return False
+
 def send_admin_notification(subject, body_text):
     try:
-        msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"; msg['To'] = "wschoi@synotech.co.kr"; msg['Subject'] = f"🚨 [Admin Alert] {subject}"
+        msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"
+        # ⚠️ 현재는 최우석 대표님 단독 수신 설정. 추후 필요 시 아래 주석을 활용하세요.
+        msg['To'] = "wschoi@synotech.co.kr" 
+        # msg['To'] = "wschoi@synotech.co.kr, seoyeon@synotech.co.kr"
+        
+        msg['Subject'] = f"🚨 [Admin Alert] {subject}"
         msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
         server = get_smtp_server(); server.send_message(msg); server.quit()
     except Exception: pass
@@ -222,7 +235,7 @@ default_vars = {
 for key, val in default_vars.items():
     if key not in st.session_state: st.session_state[key] = val
 
-# 🔥 모바일 새로고침 방지: 세션 토큰 자동 로그인 로직
+# 🔥 모바일 새로고침 방지: 세션 토큰 자동 로그인 
 qp = st.query_params
 if "session_token" in qp and not st.session_state.logged_in:
     token = qp["session_token"]
@@ -245,7 +258,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.2</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.3</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -266,7 +279,7 @@ if not is_pro:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
                             st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드] 통합 브리핑을 시작하겠습니다."}]
-                            st.query_params["session_token"] = u_id_clean # 모바일 세션 유지 토큰
+                            st.query_params["session_token"] = u_id_clean 
                             st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -280,7 +293,7 @@ if not is_pro:
                                     st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
                                     welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 워크스페이스로 전환되었습니다." if target_ws != 'general_user' else f"안녕하세요 {valid['Name'].values[0]}님. SIB 설계 브리핑을 시작합니다."
                                     st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
-                                    st.query_params["session_token"] = u_id_clean # 모바일 세션 유지 토큰
+                                    st.query_params["session_token"] = u_id_clean 
                                     st.rerun()
                             else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         with c2:
@@ -369,97 +382,126 @@ with col_main:
                 with st.form("form_reg_email", border=False):
                     e_in = st.text_input("1. 회사 이메일 주소")
                     if st.form_submit_button("인증번호 발송", use_container_width=True):
-                        v_code = str(random.randint(100000, 999999))
-                        if send_verification_email(e_in, v_code) == "SUCCESS": 
-                            st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
+                        if not e_in or "@" not in e_in: st.error("올바른 이메일 주소를 입력해주세요.")
+                        else:
+                            v_code = str(random.randint(100000, 999999))
+                            with st.spinner("📧 이메일을 발송 중입니다..."):
+                                email_res = send_verification_email(e_in, v_code)
+                                if email_res == "SUCCESS": 
+                                    st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1})
+                                    st.rerun()
+                                else: 
+                                    st.error(f"🚨 이메일 발송 실패 상세 원인: {email_res}")
             elif st.session_state.reg_stage == 1:
+                st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
                 with st.form("form_reg_code", border=False):
                     v_in = st.text_input("인증번호 6자리 입력")
                     if st.form_submit_button("인증 확인", use_container_width=True):
                         if v_in == st.session_state.v_code: st.session_state.reg_stage = 2; st.rerun()
+                        else: st.error("인증번호가 일치하지 않습니다.")
             elif st.session_state.reg_stage == 2:
-                p1, p2 = st.columns(2); pw1 = p1.text_input("2. Password", type="password"); pw2 = p2.text_input("Password 확인", type="password") 
-                c1, c2 = st.columns(2); n_name = c1.text_input("3. 이름"); n_comp = c2.text_input("4. Company")
-                c3, c4 = st.columns(2); n_dept = c3.text_input("5. 부서"); n_job = c4.text_input("6. 담당업무")
+                p1, p2 = st.columns(2)
+                pw1 = p1.text_input("2. Password", type="password"); pw2 = p2.text_input("Password 확인", type="password") 
+                c1, c2 = st.columns(2); n_name = c1.text_input("3. 이름"); n_comp = c2.text_input("4. Company (회사명)")
+                c3, c4 = st.columns(2); n_dept = c3.text_input("5. 부서"); n_job = c4.text_input("6. 직책/담당업무")
                 c5, c6 = st.columns(2); n_phone = c5.text_input("7. 연락처"); n_purpose = c6.text_input("8. 사용용도")
                 
-                # 🔥 보안 및 개인정보 처리 방침 추가 
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("**🛡️ 보안 및 개인정보 처리 방침**")
-                with st.expander("개인정보 처리 방침 상세 내용 보기"):
-                    st.write("1. 수집 항목: 이메일, 이름, 연락처, 회사명 등\n2. 이용 목적: B2B 서비스 제공, 본인 확인, 고객 대응\n3. 보유 기간: 회원 탈퇴 시까지 영구 안전 보관 (탈퇴 즉시 보안 정책에 따라 파기 처리)")
-                agree_sec = st.checkbox("위 보안 및 개인정보 처리 방침에 동의합니다. (필수)")
+                st.markdown("---")
+                st.markdown("#### 💎 Pro Max 계정 승인 요청 (선택)")
+                st.info("Pro Max 계정은 일반 Pro와 달리 귀사만의 독립적인 소재/공정 데이터베이스(VIP 전용 DB Center)를 별도 구축해 드리는 기업 맞춤형 서비스입니다.")
+                is_vip_request = st.checkbox(":blue[네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)]")
                 
-                # 🔥 Pro Max 계정 신청 영역 뚜렷한 구분
-                st.markdown("<br>", unsafe_allow_html=True)
-                with st.container(border=True):
-                    st.markdown("**💎 Pro Max (VIP) 계정 신청**")
-                    st.caption("독립된 보안 DB 센터와 자사만의 전용 파라미터가 제공되는 기업용 VIP 계정입니다.")
-                    is_vip_request = st.checkbox(":blue[네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)]")
+                st.markdown("---")
+                st.markdown("#### 🔒 보안 및 개인정보 처리 방침 (필수)")
+                terms_text = """[SynoCore Pro Max 개인정보 수집 및 이용 동의]
+1. 수집 항목: 이름, 회사명, 부서, 직책, 연락처, 이메일, 사용용도
+2. 이용 목적: B2B 서비스 제공, 본인 확인, VIP DB 권한 부여, 고객 대응
+3. 보유 기간: 회원 탈퇴 시까지 영구 안전 보관 (탈퇴 즉시 보안 정책에 따라 파기 처리)"""
+                with st.expander("개인정보 처리 방침 상세 내용 보기"):
+                    st.text_area("", value=terms_text, height=100, disabled=True, label_visibility="collapsed")
+                agree_sec = st.checkbox("위 보안 및 개인정보 처리 사항을 확인하였으며, 이에 동의합니다. (필수)")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("가입신청 완료", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
-                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True)); st.cache_data.clear()
+                    conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
+                    
+                    if is_vip_request:
+                        domain = st.session_state.temp_email.split('@')[1].split('.')[0].lower(); vip_df = load_cloud_data(URL_USERS, "VIPs")
+                        if domain not in [str(x).lower().strip() for x in vip_df['Company'].dropna()]:
+                            conn.update(spreadsheet=URL_USERS, worksheet="VIPs", data=pd.concat([vip_df, pd.DataFrame([{"Company": domain}])], ignore_index=True))
+                            try: conn.update(spreadsheet=URL_MATS, worksheet=domain, data=pd.DataFrame(columns=["Name", "Category", "Cap_Def", "Volt_Def", "Den_Def"]))
+                            except: pass
+                            
+                    st.cache_data.clear(); send_welcome_email(st.session_state.temp_email, n_name)
                     send_admin_notification("신규 회원 가입 알림", f"이름: {n_name}\n회사: {n_comp}\n목적: {n_purpose}\nProMax 신청: {'Y' if is_vip_request else 'N'}")
-                    st.success("가입 완료!"); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
+                    st.success("가입신청 완료! 로그인 해주세요.")
+                    st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
 
-    if st.session_state.get('show_profile') and st.session_state.logged_in and not st.session_state.get('is_admin'):
+    if st.session_state.get('show_profile') and st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
-            df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u.empty else {}
-            
-            # 🔥 대폭 복원된 My 계정 입력 필드
-            c1, c2 = st.columns(2)
-            m_name = c1.text_input("이름", value=u_row.get('Name', ''))
-            m_comp = c2.text_input("Company", value=u_row.get('Company', ''))
-            c3, c4 = st.columns(2)
-            m_dept = c3.text_input("부서", value=u_row.get('Dept', ''))
-            m_job = c4.text_input("담당업무", value=u_row.get('Job', ''))
-            c5, c6 = st.columns(2)
-            m_phone = c5.text_input("연락처", value=u_row.get('Phone', ''))
-            m_purpose = c6.text_input("사용용도", value=u_row.get('Purpose', ''))
-            
-            p1, p2 = st.columns(2)
-            m_pw = p1.text_input("새 Password (변경시에만 입력)", type="password")
-            current_tier = "Pro Max" if u_row.get('ProMax_Req', 'N') == 'Y' else "Pro"
-            m_tier = p2.radio("계정 권한 (Pro / Pro Max)", ["Pro", "Pro Max"], index=1 if current_tier == "Pro Max" else 0, horizontal=True)
-            
-            if st.button("개인정보 수정 완료", use_container_width=True):
-                conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
-                idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+            if not st.session_state.get('is_admin', False):
+                df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u[df_u['Email'] == st.session_state.user_email].empty else {}
+                st.markdown(f"**이메일(ID):** {st.session_state.user_email}")
                 
-                df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp
-                df_update.at[idx, 'Dept'] = m_dept; df_update.at[idx, 'Job'] = m_job
-                df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose
-                if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
-                df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
+                c1, c2 = st.columns([1, 1]); m_pw = c1.text_input("새 Password (변경 시에만 입력)", type="password")
+                current_tier = "Pro Max" if str(u_row.get('ProMax_Req', 'N')).upper() == 'Y' else "Pro"
+                m_tier = c2.radio("계정 권한 (Pro / Pro Max)", ["Pro", "Pro Max"], index=1 if current_tier == "Pro Max" else 0, horizontal=True)
                 
-                conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
-                st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
-            
-            st.markdown("---")
-            if st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)"):
-                del_col1, del_col2 = st.columns([0.7, 0.3])
-                del_reason = del_col1.text_input("탈퇴 사유 입력", label_visibility="collapsed")
-                if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
+                c3, c4 = st.columns(2)
+                m_name = c3.text_input("이름", value=u_row.get('Name', ''))
+                m_comp = c4.text_input("Company", value=u_row.get('Company', ''))
+                
+                c5, c6 = st.columns(2)
+                m_dept = c5.text_input("부서", value=u_row.get('Dept', ''))
+                m_job = c6.text_input("담당업무", value=u_row.get('Job', ''))
+                
+                c7, c8 = st.columns(2)
+                m_phone = c7.text_input("연락처", value=u_row.get('Phone', ''))
+                m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
+                
+                if st.button("개인정보 수정 완료", use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
-                    df_update.at[idx, 'ProMax_Req'] = 'Out'; df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}"
+                    if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
+                    df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
+                    df_update.at[idx, 'Job'] = m_job; df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose; df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
-                    if "session_token" in st.query_params: del st.query_params["session_token"]
-                    for key, val in default_vars.items(): st.session_state[key] = val
-                    st.rerun()
+                    
+                    if current_tier == "Pro" and m_tier == "Pro Max":
+                        send_admin_notification("Pro Max 등급업 승인 요청", f"계정: {st.session_state.user_email}\n관리자 패널에서 승인이 필요합니다.")
+                        
+                    st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
+                
+                st.markdown("---")
+                del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
+                if del_check:
+                    del_col1, del_col2 = st.columns([0.7, 0.3])
+                    del_reason = del_col1.text_input("탈퇴 사유 입력", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
+                    if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
+                        conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+                        idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+                        df_update.at[idx, 'ProMax_Req'] = 'Out' 
+                        df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}" if del_reason else "[탈퇴] 사유 없음"
+                        conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
+                        
+                        send_admin_notification("회원 탈퇴 발생", f"계정: {st.session_state.user_email}\n사유: {del_reason}")
+                        
+                        if "session_token" in st.query_params: del st.query_params["session_token"]
+                        st.success("탈퇴 처리되었습니다. 이용해 주셔서 감사합니다."); time.sleep(1.5)
+                        for key, val in default_vars.items(): st.session_state[key] = val
+                        st.rerun()
 
     with st.container(height=1000, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
-        # 🔥 1번 제목 박스 외부로 추출 적용
+        # 🔥 [섹션 1] 제목 박스 외부 분리 및 0.03 들여쓰기 적용
         st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
-        with st.container(border=True):
-            sp1, c_1 = st.columns([0.03, 0.97])
-            with c_1:
+        sp1, c_1 = st.columns([0.03, 0.97])
+        with c_1:
+            with st.container(border=True):
                 physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
                 df_vip = load_cloud_data(URL_MATS, physical_ws) if is_pro and st.session_state.workspace != "general_user" else pd.DataFrame()
                 _dfs = []
@@ -498,7 +540,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2] 지능형 아코디언 (HTML 툴팁으로 :help[] 버그 해결)
+        # 🔥 [섹션 2] 지능형 아코디언 (HTML 툴팁으로 :help[] 버그 해결)
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -535,7 +577,6 @@ with col_main:
                     cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                     cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                     
-                    # 🔥 HTML title 속성으로 툴팁 구현 (:help 오류 해결)
                     st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc) ❔</p>", unsafe_allow_html=True)
                     cpr1, cpr2 = st.columns([0.7, 0.3])
                     cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
@@ -620,11 +661,11 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_result = False
 
-        # 🔥 3번 제목 박스 외부로 추출 적용
+        # 🔥 [섹션 3] 제목 박스 외부 분리 및 0.03 들여쓰기 적용
         st.markdown('<p class="main-header" style="margin-top:20px;">3. Simulation & Analysis</p>', unsafe_allow_html=True)
-        with st.container(border=True):
-            sp5, c_5 = st.columns([0.03, 0.97])
-            with c_5:
+        sp5, c_5 = st.columns([0.03, 0.97])
+        with c_5:
+            with st.container(border=True):
                 if st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True):
                     cell_v = max(0.1, v_volt - (0.1 + (v_tc * 0.02)))
                     res_whkg = ((v_cap * (v_c_act/100) * cell_v) / 2.5) * max(0.5, 1.0 - (v_tc * 0.015))
@@ -646,12 +687,10 @@ with col_main:
                     with st.spinner("🚀 물리 엔진 연산 중..."):
                         time.sleep(0.5) 
                         st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
-                        st.session_state.trigger_auto_bot = True # 봇 작동 지시
+                        st.session_state.trigger_auto_bot = True 
                         st.session_state.scroll_to_result = True 
-                        # ⚠️ 주의: Rerun을 제외하여, 밑의 AI 봇 블록이 동일한 사이클에서 작동하도록 수정
-                    
+                        
                 if st.session_state.history:
-                    st.markdown("---")
                     res = st.session_state.history[0]
                     r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{round(res['Wh/kg'] - v_te, 1):+} Wh/kg")
@@ -684,12 +723,12 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # 🔥 4번 제목 박스 외부로 추출 적용
+        # 🔥 [섹션 4] 제목 박스 외부 분리 및 0.03 들여쓰기 적용
         if is_pro and st.session_state.history:
             st.markdown('<p class="main-header" style="margin-top:20px;">4. Data Management Center</p>', unsafe_allow_html=True)
-            with st.container(border=True):
-                sp6, c_6 = st.columns([0.03, 0.97])
-                with c_6:
+            sp6, c_6 = st.columns([0.03, 0.97])
+            with c_6:
+                with st.container(border=True):
                     db_df_all = pd.DataFrame(); selected_times = []
                     try:
                         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -749,7 +788,7 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 (버그 수정)
+# 🤖 시노봇 (SynoBot) AI 패널 
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
@@ -784,7 +823,6 @@ if col_bot:
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 if not st.session_state.chat_messages: st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 결과 또는 SIB 지식에 대해 질문해 주십시오."}]
 
-                # 🔥 시뮬레이션 직후 AI 코멘트 누락 방지 수정
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
                     api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "데이터를 분석하여 브리핑해 주십시오."}]
@@ -798,7 +836,6 @@ if col_bot:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
                             except Exception as e:
                                 st.error(f"AI 브리핑 생성 오류: {e}")
-                    # Rerun을 맨 끝으로 분리하여 안전하게 실행
                     time.sleep(0.5); st.rerun()
 
                 if st.session_state.get('trigger_bot_reply'):
