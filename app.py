@@ -28,7 +28,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 2.5", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max", layout="wide")
 
 st.markdown("""
     <style>
@@ -78,28 +78,16 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
+    /* PDF 보고서 출력을 위한 인쇄 제어 */
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
-        
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { display: none !important; }
-        
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
-        
         button { display: none !important; }
-        
         div[data-testid="element-container"]:has(#section4-anchor),
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
-        
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    }
-
-    @media (max-width: 768px) {
-        .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
-        .syno-title { font-size: 32px !important; margin-right: 0px; }
-        .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
-        div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -210,7 +198,7 @@ def load_user_history(email, workspace="general_user"):
                 for k in ['Cap(mAh/g)', 'Volt(V)', 'C_Load', 'C_Press', 'C_Act', 'C_Bin', 'C_Con', 'N/P Ratio', 'A_Press', 'A_Act', 'A_Bin', 'A_Con', 'E/C Ratio', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
                 time_str = str(row_dict.get('Time', '')).strip()
-                if not time_str or time_str == "nan": time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
+                if not time_str or time_str == "nan": time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M:%S")
                 row_dict['Time'] = time_str 
             except: pass
             v_x, v_y = get_dqdv(row_dict.get('Cathode', ''), row_dict.get('C-rate', 1.0), pd.DataFrame())
@@ -268,7 +256,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -685,7 +673,7 @@ with col_main:
                     res_whkg = ((v_cap * (v_c_act/100) * cell_v) / 2.5) * max(0.5, 1.0 - (v_tc * 0.015))
                     whl = res_whkg * v_c_press * 0.8  
                     life_cyc = int(v_life * (0.95 ** v_tc))
-                    cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
+                    cur_time = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M:%S")
                     v_axis, dqdv = get_dqdv(cat_sel, v_tc, mat_df)
                     
                     log_data = {
@@ -703,9 +691,18 @@ with col_main:
                         st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
                         st.session_state.trigger_auto_bot = True 
                         st.session_state.scroll_to_result = True 
+                        st.rerun()
                         
                 if st.session_state.history:
-                    res = st.session_state.history[0]
+                    # 🔥 로그 테이블에서 클릭한 항목의 인덱스 파악 (최신 기록 불러오기 연동)
+                    selected_idx = 0
+                    if "log_table_sel" in st.session_state:
+                        sel_rows = st.session_state.log_table_sel.get("selection", {}).get("rows", [])
+                        if sel_rows: selected_idx = sel_rows[0]
+                    if selected_idx >= len(st.session_state.history): selected_idx = 0
+                        
+                    res = st.session_state.history[selected_idx]
+                    
                     r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{round(res['Wh/kg'] - v_te, 1):+} Wh/kg")
                     r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L", delta=" - ", delta_color="off")
@@ -734,33 +731,40 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (체크박스 토글형)
+                    # 🔥 AI 진단 리포트 박스 (체크박스 첫 줄 미리보기형 UI 반영)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
-                        col_text, col_chk = st.columns([0.85, 0.15])
-                        with col_text:
-                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #1A729A; margin-top: 5px;">🤖 고객님, 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</p>', unsafe_allow_html=True)
+                        st.markdown('<p style="font-size: 16px; font-weight: bold; color: #1A729A; margin-top: 5px;">🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</p>', unsafe_allow_html=True)
+                        
+                        lines = [l for l in res['AI_Briefing'].split('\n') if l.strip() and "실시간 AI 진단" not in l]
+                        first_line = lines[0] if lines else "분석 결과를 확인하시려면 펼쳐보기를 눌러주세요."
+                        
+                        col_prev, col_chk = st.columns([0.85, 0.15])
+                        with col_prev:
+                            st.markdown(f"<div style='padding-top: 6px; font-size: 15px; color: #555;'>{first_line} ...</div>", unsafe_allow_html=True)
                         with col_chk:
-                            show_ai = st.checkbox("**펼쳐보기**", value=False, key="chk_ai_report")
+                            show_ai = st.checkbox("**펼쳐보기**", value=False, key=f"chk_ai_report_{res['Time']}")
                             
                         if show_ai:
                             with st.container(border=True):
                                 st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{res['AI_Briefing']}</div>", unsafe_allow_html=True)
 
-                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 인덱스 숨김 + No 역순 번호 추가)
+                    # 🔥 현재 세션 당일 임시 누적 기록 테이블 (0번 제거 + 마우스 클릭 조회 연동)
                     if len(st.session_state.history) > 0:
-                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (임시 저장)</p>", unsafe_allow_html=True)
+                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 결과 조회 가능)</p>", unsafe_allow_html=True)
                         df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
-                        # 직관적인 No 컬럼 삽입 (최신순이므로 역순 넘버링)
                         df_session.insert(0, 'No.', range(len(df_session), 0, -1))
-                        st.dataframe(df_session, use_container_width=True, hide_index=True)
+                        
+                        try:
+                            st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
+                        except TypeError:
+                            st.dataframe(df_session, use_container_width=True, hide_index=True)
 
         st.markdown("<div id='section6'></div>", unsafe_allow_html=True)
         if st.session_state.get('scroll_to_data'):
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # 🔥 PDF 인쇄 시 4번 영역 전체를 숨기기 위한 앵커
         st.markdown("<div id='section4-anchor'></div>", unsafe_allow_html=True)
 
         # [섹션 4]
@@ -801,13 +805,20 @@ with col_main:
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
-                    if btn1.button("💾 계정에 저장", key="btn_save_my", use_container_width=True):
+                    # 🔥 4번 당일 임시 기록 전체 저장 로직 반영 완료
+                    if btn1.button("💾 임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
-                            if not db_df.empty and not db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == res['Time'])].empty: st.warning("이미 저장된 결과입니다.")
+                            new_records = []
+                            for record in st.session_state.history:
+                                if db_df.empty or db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == record['Time'])].empty:
+                                    s_rec = record.copy(); s_rec['Email'] = st.session_state.user_email; s_rec['Workspace'] = st.session_state.workspace; s_rec['User Comment'] = ""; s_rec.pop('dq_x', None); s_rec.pop('dq_y', None)
+                                    new_records.append(s_rec)
+                                    
+                            if new_records:
+                                conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame(new_records)], ignore_index=True)); st.cache_data.clear(); st.success(f"당일 임시 기록 {len(new_records)}건이 모두 클라우드에 영구 저장되었습니다!"); st.rerun() 
                             else:
-                                save_record = res.copy(); save_record['Email'] = st.session_state.user_email; save_record['Workspace'] = st.session_state.workspace; save_record['User Comment'] = ""; save_record.pop('dq_x', None); save_record.pop('dq_y', None)
-                                conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=pd.concat([db_df, pd.DataFrame([save_record])], ignore_index=True)); st.cache_data.clear(); st.success("저장 완료!"); st.rerun() 
+                                st.warning("이미 모든 기록이 클라우드에 저장되어 있습니다.")
                         except Exception as e: st.error("저장 오류")
 
                     if btn2.button("🗑️ 선택 삭제", key="btn_del_sel", use_container_width=True):
@@ -823,7 +834,7 @@ with col_main:
                         file_data = buffer.getvalue(); file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.xlsx"; mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     except ImportError:
                         file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{(datetime.utcnow() + timedelta(hours=9)).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
-                    btn3.download_button("📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
+                    btn3.download_button("📥 당일 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
                         components.html("<script>window.parent.print();</script>", height=0)
@@ -877,8 +888,8 @@ if col_bot:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
                             except Exception as e:
                                 st.error(f"AI 브리핑 생성 오류: {e}")
-                    time.sleep(0.5); st.rerun()
-
+                    # AI 응답 후 페이지 재로딩 생략하여 UI 부드러움 극대화
+                
                 if st.session_state.get('trigger_bot_reply'):
                     st.session_state.trigger_bot_reply = False
                     api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + (f"\n\n[State]\n{st.session_state.sim_result}" if st.session_state.sim_result else "")}]
@@ -891,7 +902,7 @@ if col_bot:
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                             except Exception as e:
                                 st.error(f"AI 응답 오류: {e}")
-                    time.sleep(0.5); st.rerun()
+                    st.rerun()
 
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
