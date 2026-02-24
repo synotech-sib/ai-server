@@ -40,12 +40,7 @@ st.markdown("""
     .stApp > header {display: none !important;}
     .stApp [data-testid="stToolbar"] {display: none !important;}
     
-    .main .block-container {
-        max-width: 1500px !important; 
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        margin: auto; 
-    }
+    .main .block-container { max-width: 1500px !important; padding-top: 2rem; padding-bottom: 2rem; margin: auto; }
             
     .header-container { display: flex; align-items: center; justify-content: flex-start; height: 60px; }
     .syno-title { color: #1A729A; font-size: 44px; font-weight: 900; margin-right: 15px; letter-spacing: -1px; }
@@ -58,42 +53,27 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; } 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; }
     
-    /* 기본 버튼 디자인 */
-    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button {
-        height: 40px !important; background-color: #1A729A !important; color: white !important; font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important; white-space: nowrap !important; padding: 0 5px !important;
-    }
-
+    div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button { height: 40px !important; background-color: #1A729A !important; color: white !important; font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important; white-space: nowrap !important; padding: 0 5px !important; }
     div.st-key-btn_excel > button { background-color: #1A729A !important; border: 1px solid #155A7A !important; }
-    div.st-key-btn_excel > button:hover { background-color: #155A7A !important; border: 1px solid #104058 !important; }
-
-    /* 위험 요소 버튼 빨간색 처리 */
     div.st-key-btn_del_sel > button, div.st-key-btn_withdraw > button { background-color: #D35400 !important; border: 1px solid #B04600 !important; }
-    div.st-key-btn_del_sel > button:hover, div.st-key-btn_withdraw > button:hover { background-color: #B04600 !important; }
 
-    /* VIP DB 센터 텍스트 링크 전용 버튼 */
     div.st-key-btn_my_db_scroll button { background-color: transparent !important; background: transparent !important; border: none !important; box-shadow: none !important; display: flex !important; justify-content: flex-end !important; padding: 0 !important; height: auto !important; min-height: 0 !important; }
-    div.st-key-btn_my_db_scroll button:hover, div.st-key-btn_my_db_scroll button:focus, div.st-key-btn_my_db_scroll button:active { background-color: transparent !important; background: transparent !important; border: none !important; box-shadow: none !important; }
     div.st-key-btn_my_db_scroll button p { color: #333 !important; font-weight: bold !important; font-size: 15px !important; margin: 0 !important; }
     div.st-key-btn_my_db_scroll button p span { text-decoration: underline !important; }
-    div.st-key-btn_my_db_scroll button:hover p, div.st-key-btn_my_db_scroll button:hover p span { color: #D35400 !important; }
 
     div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important; border-radius: 12px !important; padding: 25px 25px 15px 25px !important; margin-bottom: 20px !important; }
-    
-    .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 20px; display: block; }
+    .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     .sub-header-bold { font-size: 18px !important; font-weight: bold !important; color: #333; margin-bottom: 10px; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px; }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    div[data-testid="stChatMessage"] { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 5px !important; padding: 10px !important; }
-
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
         .syno-title { font-size: 32px !important; margin-right: 0px; }
         .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
         div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
-        div.st-key-btn_my_db_scroll button { justify-content: flex-end !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -147,10 +127,6 @@ def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
     except: return default
 
-def safe_int(val, default):
-    try: return int(float(val)) if val != "" and not pd.isna(val) else default
-    except: return default
-
 # -----------------------------------------------------------------------------
 # ✉️ [이메일 발송 시스템 및 관리자 알림]
 # -----------------------------------------------------------------------------
@@ -168,14 +144,6 @@ def send_verification_email(to_email, code):
         server = get_smtp_server(); server.send_message(msg); server.quit()
         return "SUCCESS"
     except Exception as e: return f"발송 오류: {str(e)}"
-
-def send_welcome_email(to_email, user_name):
-    try:
-        msg = MIMEMultipart(); msg['From'] = "SynoCore <synocore@synotech.co.kr>"; msg['To'] = to_email; msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
-        msg.attach(MIMEText(f"안녕하세요 {user_name}님, 회원가입이 성공적으로 완료되었습니다.", 'plain', 'utf-8'))
-        server = get_smtp_server(); server.send_message(msg); server.quit()
-        return True
-    except Exception: return False
 
 def send_admin_notification(subject, body_text):
     try:
@@ -248,21 +216,38 @@ default_vars = {
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'trigger_auto_bot': False, 'trigger_bot_reply': False,
     'bot_user_input': "", 'scroll_to_result': False, 'scroll_to_data': False,
-    'acc_step': 1 # 아코디언 상태
+    'acc_step': 1
 }
 
 for key, val in default_vars.items():
     if key not in st.session_state: st.session_state[key] = val
+
+# 🔥 모바일 새로고침 방지: 세션 토큰 자동 로그인 로직
+qp = st.query_params
+if "session_token" in qp and not st.session_state.logged_in:
+    token = qp["session_token"]
+    df_u = get_user_db_cached()
+    if token in ADMIN_USERS:
+        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[token], 'user_email': token, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
+        st.session_state.history = load_user_history(token, 'admin_master')
+    else:
+        valid = df_u[df_u['Email'].str.strip().str.lower() == token.lower()] if not df_u.empty else pd.DataFrame()
+        if not valid.empty:
+            promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
+            if promax_flag != 'Out':
+                domain = token.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
+                target_ws = vip_map.get(domain, 'general_user')
+                st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'workspace': target_ws, 'user_tier': "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"})
+                st.session_state.history = load_user_history(token, target_ws)
 
 is_pro = st.session_state.logged_in
 
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4 (beta)</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.2</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
-        st.session_state.show_reg = False; st.session_state.show_profile = False
-        st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
+        st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
 if not is_pro:
     with h_r:
@@ -273,30 +258,31 @@ if not is_pro:
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
                 if st.form_submit_button("로그인", use_container_width=True):
-                    df_u = get_user_db()
-                    u_id_clean = u_id.strip().lower(); hashed_pw = hash_password(u_pw) if u_pw else ""
-                    
-                    if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
-                        st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
-                        st.session_state.history = load_user_history(u_id_clean, 'admin_master')
-                        welcome_msg = f"안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드]로 접속되었습니다. 전체 시스템 통합 브리핑을 시작하겠습니다."
-                        st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
-                        save_chat_log(u_id_clean, "admin_master", "AI_auto", "- " + welcome_msg); st.rerun()
-                    else:
-                        valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
-                        if not valid.empty:
-                            promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
-                            if promax_flag == 'Out': st.error("탈퇴 처리된 계정입니다.")
-                            else:
-                                domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
-                                target_ws = vip_map.get(domain) if vip_map.get(domain) else 'general_user'
-                                
-                                st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': target_ws, 'user_tier': "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"})
-                                st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
-                                welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 보안 워크스페이스로 전환되었습니다." if target_ws != 'general_user' else f"안녕하세요 {valid['Name'].values[0]}님. 전문적인 SIB 설계 브리핑을 시작하겠습니다."
-                                st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
-                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", "- " + welcome_msg); st.rerun()
-                        else: st.error("아이디 또는 비밀번호를 확인해주세요.")
+                    with st.spinner("인증 중..."):
+                        df_u = get_user_db()
+                        u_id_clean = u_id.strip().lower(); hashed_pw = hash_password(u_pw) if u_pw else ""
+                        
+                        if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
+                            st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
+                            st.session_state.history = load_user_history(u_id_clean, 'admin_master')
+                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드] 통합 브리핑을 시작하겠습니다."}]
+                            st.query_params["session_token"] = u_id_clean # 모바일 세션 유지 토큰
+                            st.rerun()
+                        else:
+                            valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
+                            if not valid.empty:
+                                promax_flag = valid['ProMax_Req'].values[0] if 'ProMax_Req' in valid.columns else 'N'
+                                if promax_flag == 'Out': st.error("탈퇴 처리된 계정입니다.")
+                                else:
+                                    domain = u_id_clean.split('@')[1].split('.')[0].lower(); vip_map = {v.lower(): v for v in get_vip_list_exact()}
+                                    target_ws = vip_map.get(domain, 'general_user')
+                                    st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': target_ws, 'user_tier': "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"})
+                                    st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
+                                    welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 워크스페이스로 전환되었습니다." if target_ws != 'general_user' else f"안녕하세요 {valid['Name'].values[0]}님. SIB 설계 브리핑을 시작합니다."
+                                    st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
+                                    st.query_params["session_token"] = u_id_clean # 모바일 세션 유지 토큰
+                                    st.rerun()
+                            else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         with c2:
             if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
 else:
@@ -307,10 +293,10 @@ else:
             if st.button("My 계정", key="btn_profile_m", use_container_width=True): st.session_state.show_profile = not st.session_state.show_profile; st.rerun()
         with r_out:
             if st.button("Logout", key="btn_logout_m", use_container_width=True): 
+                if "session_token" in st.query_params: del st.query_params["session_token"]
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
         
-        # 🔥 헤더 통합 및 파란색 DB 링크
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
             display_text = f"👤 {st.session_state.user_name} (Pro Max) :blue[[{st.session_state.workspace.capitalize()} DB Center]]"
             if st.button(display_text, key="btn_my_db_scroll", use_container_width=True): st.session_state.scroll_to_data = True
@@ -319,7 +305,6 @@ else:
 
 st.markdown("---")
 
-# 🔥 URL 파라미터 양방향 동기화 및 아코디언 핸들러
 def sync_s_to_n(s_key, n_key, p_key=None): 
     st.session_state[n_key] = st.session_state[s_key]
     if p_key: st.query_params[p_key] = st.session_state[s_key]
@@ -331,25 +316,18 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
-# 👑 [최고 관리자 전용 대시보드 복원] 
+# 👑 최고 관리자 패널
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
-            
             a1, a2, a3, a4, a5 = st.columns(5)
-            
-            if a1.button("👥 유저 관리 DB", use_container_width=True):
-                st.session_state.admin_view = None if st.session_state.admin_view == 'users' else 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
-            if a2.button("🔋 소재 DB", use_container_width=True):
-                st.session_state.admin_view = None if st.session_state.admin_view == 'mats' else 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
-            if a3.button("⚙️ 파라미터 DB", use_container_width=True):
-                st.session_state.admin_view = None if st.session_state.admin_view == 'param' else 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
-            if a4.button("💾 로그 DB", use_container_width=True):
-                st.session_state.admin_view = None if st.session_state.admin_view == 'logs' else 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
-            if a5.button("💬 시노봇 로그 DB", use_container_width=True): 
-                st.session_state.admin_view = None if st.session_state.admin_view == 'chat' else 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
+            if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
+            if a2.button("🔋 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
+            if a3.button("⚙️ 파라미터 DB", use_container_width=True): st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
+            if a4.button("💾 로그 DB", use_container_width=True): st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
+            if a5.button("💬 시노봇 로그 DB", use_container_width=True): st.session_state.admin_view = 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
 
             if st.session_state.admin_view:
                 st.markdown("---")
@@ -363,90 +341,20 @@ if is_pro and st.session_state.get('is_admin', False):
                 
                 if len(ws_options) > 1:
                     sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
-                    if sel_ws_admin != st.session_state.admin_ws:
-                        st.session_state.admin_ws = sel_ws_admin; st.rerun()
+                    if sel_ws_admin != st.session_state.admin_ws: st.session_state.admin_ws = sel_ws_admin; st.rerun()
                 
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 try:
-                    if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'admin_master':
-                        st.caption("ℹ️ 'admin_master'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다.")
-                        vips = get_vip_list_exact(); dfs = []
-                        for v in vips:
-                            tmp = load_cloud_data(target_url, v)
-                            if not tmp.empty: dfs.append(tmp.iloc[::-1]) 
-                        tmp_public = load_cloud_data(target_url, "material_list") 
-                        if not tmp_public.empty: dfs.append(tmp_public)
-                        df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-                        df_admin = df_admin.drop_duplicates(subset=['Name'], keep='first') if not df_admin.empty else pd.DataFrame()
-                        st.dataframe(df_admin, use_container_width=True)
-                    else:
-                        read_ws = "material_list" if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'general_user' else st.session_state.admin_ws
-                        df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=600) 
-                        st.caption("ℹ️ 빈 행을 클릭하여 데이터를 추가하거나, 행을 선택해 `Delete` 키로 삭제할 수 있습니다.")
-                        
-                        original_cols = df_admin.columns.tolist()
-                        df_display = df_admin.copy()
-                        is_log_view = (st.session_state.admin_view == 'logs')
-                        
-                        if st.session_state.admin_view == 'users' and st.session_state.admin_ws == 'Users':
-                            df_display['구분'] = df_display['ProMax_Req'].apply(lambda x: 'Pro Max' if str(x).upper() == 'Y' else ('Out' if str(x) == 'Out' else 'Pro'))
-                            display_order = ['구분', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'RegDate', 'Email']
-                            df_display = df_display[[c for c in display_order if c in df_display.columns]]
-                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
-                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
-                                try:
-                                    save_df = edited_df.copy()
-                                    save_df['ProMax_Req'] = save_df['구분'].apply(lambda x: 'Y' if x == 'Pro Max' else ('Out' if x == 'Out' else 'N'))
-                                    save_df = save_df.drop(columns=['구분'])
-                                    merged = pd.merge(save_df, df_admin[['Email', 'Password']], on='Email', how='left')
-                                    final_cols = ['Email', 'Password', 'Name', 'Company', 'Dept', 'Job', 'Phone', 'Purpose', 'ProMax_Req', 'RegDate']
-                                    final_save = merged[[c for c in final_cols if c in merged.columns]].fillna("")
-                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=final_save)
-                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
-
-                        elif is_log_view and not df_display.empty:
-                            front_cols = [c for c in ['Time', 'Workspace', 'Email'] if c in original_cols]
-                            other_cols = [c for c in original_cols if c not in front_cols]
-                            df_display = df_display[front_cols + other_cols]
-                            df_display = df_display.iloc[::-1].reset_index(drop=True)
-                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_logs")
-                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
-                                try:
-                                    save_df = edited_df.copy()
-                                    save_df = save_df.iloc[::-1].reset_index(drop=True)
-                                    if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
-                                    edited_df_safe = save_df.fillna("")
-                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df_safe)
-                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
-                        
-                        elif st.session_state.admin_view != 'users':
-                            if st.session_state.admin_view == 'chat': 
-                                if not df_display.empty: df_display = df_display.iloc[::-1].reset_index(drop=True)
-                                
-                            edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
-                            if st.button("💾 변경사항 클라우드에 저장", type="primary"):
-                                try:
-                                    save_df = edited_df.copy()
-                                    if st.session_state.admin_view == 'chat' and not save_df.empty: save_df = save_df.iloc[::-1].reset_index(drop=True)
-                                    if set(original_cols) == set(save_df.columns): save_df = save_df[original_cols]
-                                    edited_df_safe = save_df.fillna("")
-                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df_safe)
-                                    st.cache_data.clear(); st.success("데이터베이스가 성공적으로 업데이트되었습니다.")
-                                except Exception as e: st.error(f"저장 중 오류 발생: {e}")
-                except Exception as e:
-                    pass
-                
-                st.markdown("---")
-                st.markdown('<p class="sub-header-bold">👁️ 하단 시뮬레이터 테스트 (VIP 시점)</p>', unsafe_allow_html=True)
-                vip_opts = ["admin_master", "general_user"] + get_vip_list_exact()
-                sel_ws = st.selectbox("**🔒 테스트 워크스페이스 선택**", vip_opts, index=vip_opts.index(st.session_state.workspace) if st.session_state.workspace in vip_opts else 0)
-                if sel_ws != st.session_state.workspace:
-                    st.session_state.workspace = sel_ws; st.session_state.history = load_user_history(st.session_state.user_email, sel_ws); st.rerun()
+                    read_ws = "material_list" if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'general_user' else st.session_state.admin_ws
+                    df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=600) 
+                    df_display = df_admin.copy()
+                    edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
+                    if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                        conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
+                except Exception as e: pass
 
 # -----------------------------------------------------------------------------
-# 5. 시뮬레이터 본문 & 봇 UI 구조 
+# 5. 메인 UI 및 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 
@@ -474,31 +382,61 @@ with col_main:
                 c1, c2 = st.columns(2); n_name = c1.text_input("3. 이름"); n_comp = c2.text_input("4. Company")
                 c3, c4 = st.columns(2); n_dept = c3.text_input("5. 부서"); n_job = c4.text_input("6. 담당업무")
                 c5, c6 = st.columns(2); n_phone = c5.text_input("7. 연락처"); n_purpose = c6.text_input("8. 사용용도")
-                is_vip_request = st.checkbox(":red[네, Pro Max Mode로 가입을 신청합니다.]")
-                agree_sec = st.checkbox("보안 및 개인정보 처리 방침 동의 (필수)")
                 
+                # 🔥 보안 및 개인정보 처리 방침 추가 
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("**🛡️ 보안 및 개인정보 처리 방침**")
+                with st.expander("개인정보 처리 방침 상세 내용 보기"):
+                    st.write("1. 수집 항목: 이메일, 이름, 연락처, 회사명 등\n2. 이용 목적: B2B 서비스 제공, 본인 확인, 고객 대응\n3. 보유 기간: 회원 탈퇴 시까지 영구 안전 보관 (탈퇴 즉시 보안 정책에 따라 파기 처리)")
+                agree_sec = st.checkbox("위 보안 및 개인정보 처리 방침에 동의합니다. (필수)")
+                
+                # 🔥 Pro Max 계정 신청 영역 뚜렷한 구분
+                st.markdown("<br>", unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown("**💎 Pro Max (VIP) 계정 신청**")
+                    st.caption("독립된 보안 DB 센터와 자사만의 전용 파라미터가 제공되는 기업용 VIP 계정입니다.")
+                    is_vip_request = st.checkbox(":blue[네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)]")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("가입신청 완료", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
                     conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                     new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")}])
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True)); st.cache_data.clear()
                     send_admin_notification("신규 회원 가입 알림", f"이름: {n_name}\n회사: {n_comp}\n목적: {n_purpose}\nProMax 신청: {'Y' if is_vip_request else 'N'}")
-                    send_welcome_email(st.session_state.temp_email, n_name); st.success("가입 완료!"); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
+                    st.success("가입 완료!"); st.session_state.show_reg = False; st.session_state.reg_stage = 0; st.rerun()
 
     if st.session_state.get('show_profile') and st.session_state.logged_in and not st.session_state.get('is_admin'):
         with st.container(border=True):
             st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
             df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u.empty else {}
-            c1, c2 = st.columns([1, 1]); m_pw = c1.text_input("새 Password", type="password")
+            
+            # 🔥 대폭 복원된 My 계정 입력 필드
+            c1, c2 = st.columns(2)
+            m_name = c1.text_input("이름", value=u_row.get('Name', ''))
+            m_comp = c2.text_input("Company", value=u_row.get('Company', ''))
+            c3, c4 = st.columns(2)
+            m_dept = c3.text_input("부서", value=u_row.get('Dept', ''))
+            m_job = c4.text_input("담당업무", value=u_row.get('Job', ''))
+            c5, c6 = st.columns(2)
+            m_phone = c5.text_input("연락처", value=u_row.get('Phone', ''))
+            m_purpose = c6.text_input("사용용도", value=u_row.get('Purpose', ''))
+            
+            p1, p2 = st.columns(2)
+            m_pw = p1.text_input("새 Password (변경시에만 입력)", type="password")
             current_tier = "Pro Max" if u_row.get('ProMax_Req', 'N') == 'Y' else "Pro"
-            m_tier = c2.radio("계정 권한 (Pro / Pro Max)", ["Pro", "Pro Max"], index=1 if current_tier == "Pro Max" else 0, horizontal=True)
+            m_tier = p2.radio("계정 권한 (Pro / Pro Max)", ["Pro", "Pro Max"], index=1 if current_tier == "Pro Max" else 0, horizontal=True)
             
             if st.button("개인정보 수정 완료", use_container_width=True):
                 conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
                 idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
+                
+                df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp
+                df_update.at[idx, 'Dept'] = m_dept; df_update.at[idx, 'Job'] = m_job
+                df_update.at[idx, 'Phone'] = m_phone; df_update.at[idx, 'Purpose'] = m_purpose
                 if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
                 df_update.at[idx, 'ProMax_Req'] = 'Y' if m_tier == "Pro Max" else 'N'
+                
                 conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
-                if current_tier == "Pro" and m_tier == "Pro Max": send_admin_notification("Pro Max 등급업 승인 요청", f"계정: {st.session_state.user_email}\n관리자 패널 승인 필요")
                 st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
             
             st.markdown("---")
@@ -510,16 +448,16 @@ with col_main:
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
                     df_update.at[idx, 'ProMax_Req'] = 'Out'; df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}"
                     conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
-                    send_admin_notification("회원 탈퇴 발생", f"계정: {st.session_state.user_email}\n사유: {del_reason}")
+                    if "session_token" in st.query_params: del st.query_params["session_token"]
                     for key, val in default_vars.items(): st.session_state[key] = val
                     st.rerun()
 
-    with st.container(height=900, border=False):
+    with st.container(height=1000, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
-        # [섹션 1] Material Selection (들여쓰기 복구 적용)
+        # 🔥 1번 제목 박스 외부로 추출 적용
+        st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown('<p class="main-header">1. Material Selection</p>', unsafe_allow_html=True)
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
                 physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
@@ -534,7 +472,6 @@ with col_main:
                 ano_list = mat_df[mat_df['Category']=='Anode']['Name'].tolist() if not mat_df.empty else ["Sample Anode"]
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                 
-                # 🔥 공식 파트너사 인증 뱃지 로직
                 def format_mat_name(name): 
                     prefix = "💎 " if name in vip_names else ""
                     if any(p in name for p in ["Tiamat", "Altris", "HiNa"]): prefix += "☑️ "
@@ -553,7 +490,6 @@ with col_main:
                     "ec": 3.5, "te": 160.0, "tc": 1.0, "tl": 2000.0 
                 }
 
-        # 🔥 세션 & URL 파라미터 초기화
         qp = st.query_params
         for k, v in init_vals.items():
             param_val = float(qp[k]) if k in qp else v
@@ -562,7 +498,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2] 지능형 아코디언 통합 UI (들여쓰기 적용)
+        # [섹션 2] 지능형 아코디언 (HTML 툴팁으로 :help[] 버그 해결)
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -599,7 +535,8 @@ with col_main:
                     cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                     cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                     
-                    st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True, help="합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.")
+                    # 🔥 HTML title 속성으로 툴팁 구현 (:help 오류 해결)
+                    st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc) ❔</p>", unsafe_allow_html=True)
                     cpr1, cpr2 = st.columns([0.7, 0.3])
                     cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
@@ -621,7 +558,7 @@ with col_main:
                     
                 with p2:
                     st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
-                    st.markdown("<p class='param-label'>N/P Ratio</p>", unsafe_allow_html=True, help="N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.")
+                    st.markdown("<p class='param-label' title='N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.'>N/P Ratio ❔</p>", unsafe_allow_html=True)
                     n1, n2 = st.columns([0.7, 0.3])
                     n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
                     n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
@@ -648,7 +585,7 @@ with col_main:
 
                 with p3:
                     st.markdown('<p class="sub-header-bold">(C) Cell & Electrolyte</p>', unsafe_allow_html=True)
-                    st.markdown("<p class='param-label'>E/C Ratio (g/Ah)</p>", unsafe_allow_html=True, help="전해액/용량 비율. 2.5 이하시 수명 급감 위험.")
+                    st.markdown("<p class='param-label' title='전해액/용량 비율. 2.5 이하시 수명 급감 위험.'>E/C Ratio (g/Ah) ❔</p>", unsafe_allow_html=True)
                     e1, e2 = st.columns([0.7, 0.3])
                     e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                     e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
@@ -673,7 +610,6 @@ with col_main:
                     tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
                     tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
 
-        # 🔥 세션 변수 할당 (아코디언에서 업데이트 된 값들)
         v_cap, v_volt, v_den, v_life = st.session_state.cap_s, st.session_state.volt_s, st.session_state.den_s, st.session_state.life_s
         v_c_lod, v_c_press, v_c_act, v_c_bin, v_c_con = st.session_state.c_lod_s, st.session_state.c_press_s, st.session_state.c_act_s, st.session_state.c_bin_s, st.session_state.c_con_s
         v_np, v_a_press, v_a_act, v_a_bin, v_a_con, v_ec = st.session_state.np_s, st.session_state.a_press_s, st.session_state.a_act_s, st.session_state.a_bin_s, st.session_state.a_con_s, st.session_state.ec_s
@@ -684,9 +620,9 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section5').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_result = False
 
-        # [섹션 3] Simulation & Analysis
+        # 🔥 3번 제목 박스 외부로 추출 적용
+        st.markdown('<p class="main-header" style="margin-top:20px;">3. Simulation & Analysis</p>', unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown('<p class="main-header">3. Simulation & Analysis</p>', unsafe_allow_html=True)
             sp5, c_5 = st.columns([0.03, 0.97])
             with c_5:
                 if st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True):
@@ -708,12 +644,12 @@ with col_main:
                     }
                     
                     with st.spinner("🚀 물리 엔진 연산 중..."):
-                        time.sleep(0.6) 
+                        time.sleep(0.5) 
                         st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
-                        st.session_state.trigger_auto_bot = True;  # 🤖 시노봇 트리거
+                        st.session_state.trigger_auto_bot = True # 봇 작동 지시
                         st.session_state.scroll_to_result = True 
-                        st.rerun()
-
+                        # ⚠️ 주의: Rerun을 제외하여, 밑의 AI 봇 블록이 동일한 사이클에서 작동하도록 수정
+                    
                 if st.session_state.history:
                     st.markdown("---")
                     res = st.session_state.history[0]
@@ -748,10 +684,10 @@ with col_main:
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # [섹션 4] Data Management Center 
+        # 🔥 4번 제목 박스 외부로 추출 적용
         if is_pro and st.session_state.history:
+            st.markdown('<p class="main-header" style="margin-top:20px;">4. Data Management Center</p>', unsafe_allow_html=True)
             with st.container(border=True):
-                st.markdown('<p class="main-header">4. Data Management Center</p>', unsafe_allow_html=True)
                 sp6, c_6 = st.columns([0.03, 0.97])
                 with c_6:
                     db_df_all = pd.DataFrame(); selected_times = []
@@ -782,7 +718,6 @@ with col_main:
                             else: st.info("클라우드 DB에 이전에 저장된 데이터가 없습니다.")
                     except Exception as e: st.warning("데이터베이스 연결에 실패했습니다.")
 
-                    # 🔥 하단 4개 액션 버튼
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn1, btn2, btn3, btn4 = st.columns(4)
                     
@@ -814,7 +749,7 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 
+# 🤖 시노봇 (SynoBot) AI 패널 (버그 수정)
 # -----------------------------------------------------------------------------
 SYSTEM_KNOWLEDGE = """
 You are 'SynoBot', an expert SIB R&D engineer powered by OpenAI.
@@ -849,32 +784,36 @@ if col_bot:
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 if not st.session_state.chat_messages: st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 배터리 설계 전문 AI 시노봇입니다.\n- 좌측의 결과 또는 SIB 지식에 대해 질문해 주십시오."}]
 
+                # 🔥 시뮬레이션 직후 AI 코멘트 누락 방지 수정
                 if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                     st.session_state.trigger_auto_bot = False 
                     api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + f"\n\n[State]\n{st.session_state.sim_result}"}, {"role": "user", "content": "데이터를 분석하여 브리핑해 주십시오."}]
                     with st.chat_message("assistant"):
-                        with st.spinner("분석 중..."):
+                        with st.spinner("결과 분석 중..."):
                             try:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
                                 bot_reply = "📊 **[실시간 AI 진단]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                                 if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                            except Exception: pass
-                    st.rerun()
+                            except Exception as e:
+                                st.error(f"AI 브리핑 생성 오류: {e}")
+                    # Rerun을 맨 끝으로 분리하여 안전하게 실행
+                    time.sleep(0.5); st.rerun()
 
                 if st.session_state.get('trigger_bot_reply'):
                     st.session_state.trigger_bot_reply = False
                     api_messages = [{"role": "system", "content": SYSTEM_KNOWLEDGE + (f"\n\n[State]\n{st.session_state.sim_result}" if st.session_state.sim_result else "")}]
                     api_messages.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages])
                     with st.chat_message("assistant"):
-                        with st.spinner("작성 중..."):
+                        with st.spinner("답변 작성 중..."):
                             try:
                                 reply = client.chat.completions.create(model="gpt-4o-mini", messages=api_messages).choices[0].message.content
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
-                            except Exception: pass
-                    st.rerun()
+                            except Exception as e:
+                                st.error(f"AI 응답 오류: {e}")
+                    time.sleep(0.5); st.rerun()
 
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
@@ -882,5 +821,5 @@ if col_bot:
                         if content.startswith("- "): content = "\- " + content[2:]
                         st.markdown(content)
 
-# 🔥 7. 푸터 
+# 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.<br><i>* All simulation logic is based on verified electrochemical models (Newman-type) and official material data from partners.</i></div>", unsafe_allow_html=True)
