@@ -28,7 +28,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 2.4", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 2.5", layout="wide")
 
 st.markdown("""
     <style>
@@ -49,21 +49,11 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* 🔥 3번 메트릭 컨테이너 중앙 정렬 적용 */
-    div[data-testid="stMetric"] { 
-        background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; 
-        padding: 20px 10px; height: 120px; 
-        display: flex !important; flex-direction: column !important; 
-        justify-content: center !important; align-items: center !important; text-align: center !important; 
-    }
+    div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px 10px; height: 120px; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; text-align: center !important; }
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; text-align: center !important; justify-content: center !important; display: flex !important; width: 100%;} 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; justify-content: center !important; display: flex !important; width: 100%;}
     
-    /* 🔥 3번 메트릭 라벨(Energy Density 등) 폰트 동기화 및 중앙 정렬 */
-    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { 
-        font-size: 16px !important; font-weight: bold !important; color: #222 !important; 
-        justify-content: center !important; text-align: center !important; display: flex !important; width: 100%;
-    } 
+    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { font-size: 16px !important; font-weight: bold !important; color: #222 !important; justify-content: center !important; text-align: center !important; display: flex !important; width: 100%; } 
     
     div[data-testid="stButton"] > button, div[data-testid="stFormSubmitButton"] > button, div[data-testid="stPopover"] > button { height: 40px !important; background-color: #1A729A !important; color: white !important; font-weight: bold !important; font-size: 15px !important; border-radius: 4px !important; width: 100% !important; border: none !important; white-space: nowrap !important; padding: 0 5px !important; }
     div.st-key-btn_excel > button { background-color: #1A729A !important; border: 1px solid #155A7A !important; }
@@ -78,21 +68,37 @@ st.markdown("""
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
-    
-    /* 🔥 가입/My계정 폼 텍스트 입력창 (Password 등) 완벽 통일 */
-    div[data-testid="stTextInput"] label, div[data-testid="stTextInput"] label * { 
-        font-size: 16px !important; font-weight: 500 !important; color: #222 !important; 
-    } 
-    
+    div[data-testid="stTextInput"] label, div[data-testid="stTextInput"] label * { font-size: 16px !important; font-weight: 500 !important; color: #222 !important; } 
     div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
     
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
-    
     div[data-testid="stExpander"] summary p { font-size: 18px !important; font-weight: normal !important; color: #1A729A !important; }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
+
+    /* 🔥 완벽한 PDF 보고서 출력을 위한 특수 인쇄 제어 CSS */
+    @media print {
+        header, footer, [data-testid="stSidebar"] { display: none !important; }
+        
+        /* 챗봇 컬럼(우측) 및 여백 컬럼(좌측) 숨김 처리 */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(1),
+        div[data-testid="stHorizontalBlock"] > div:nth-child(3) { display: none !important; }
+        
+        /* 메인 리포트 컬럼 가로 100% 확장 */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
+        
+        /* 인쇄물에서 불필요한 모든 버튼 숨김 */
+        button { display: none !important; }
+        
+        /* 🔥 4번 데이터 관리 센터 통째로 숨김 처리 */
+        div[data-testid="element-container"]:has(#section4-anchor),
+        div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
+        
+        /* 배경색이 하얗게 날아가지 않도록 강제 인쇄 적용 */
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
 
     @media (max-width: 768px) {
         .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
@@ -153,7 +159,7 @@ def safe_float(val, default):
     except: return default
 
 # -----------------------------------------------------------------------------
-# ✉️ 이메일 발송 시스템 및 관리자 알림
+# ✉️ 이메일 발송 시스템
 # -----------------------------------------------------------------------------
 def get_smtp_server():
     sender_password = st.secrets.get("EMAIL_PASSWORD", "")
@@ -182,7 +188,6 @@ def send_admin_notification(subject, body_text):
     try:
         msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"
         msg['To'] = "wschoi@synotech.co.kr" 
-        
         msg['Subject'] = f"🚨 [Admin Alert] {subject}"
         msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
         server = get_smtp_server(); server.send_message(msg); server.quit()
@@ -280,7 +285,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.9</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5.0</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -426,11 +431,8 @@ with col_main:
                             v_code = str(random.randint(100000, 999999))
                             with st.spinner("📧 이메일을 발송 중입니다..."):
                                 email_res = send_verification_email(e_in, v_code)
-                                if email_res == "SUCCESS": 
-                                    st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1})
-                                    st.rerun()
-                                else: 
-                                    st.error(f"🚨 이메일 발송 실패 상세 원인: {email_res}")
+                                if email_res == "SUCCESS": st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
+                                else: st.error(f"🚨 이메일 발송 실패 상세 원인: {email_res}")
             elif st.session_state.reg_stage == 1:
                 st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
                 with st.form("form_reg_code", border=False):
@@ -525,9 +527,7 @@ with col_main:
                         df_update.at[idx, 'ProMax_Req'] = 'Out' 
                         df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}" if del_reason else "[탈퇴] 사유 없음"
                         conn.update(spreadsheet=URL_USERS, worksheet="Users", data=df_update); st.cache_data.clear()
-                        
                         send_admin_notification("회원 탈퇴 발생", f"계정: {st.session_state.user_email}\n사유: {del_reason}")
-                        
                         if "session_token" in st.query_params: del st.query_params["session_token"]
                         st.success("탈퇴 처리되었습니다. 이용해 주셔서 감사합니다."); time.sleep(1.5)
                         for key, val in default_vars.items(): st.session_state[key] = val
@@ -579,7 +579,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2] 
+        # [섹션 2]
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -741,32 +741,43 @@ with col_main:
                     
                     g1, sp_g1, g2, sp_g2, g3 = st.columns([1, 0.08, 1, 0.08, 1])
                     
+                    # 🔥 그래프 타이틀 폰트 일괄 통일 적용
                     with g1:
-                        st.markdown('<p class="sub-header-bold" style="text-align: center;">Discharge Profile</p>', unsafe_allow_html=True)
+                        st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Discharge Profile</p>', unsafe_allow_html=True)
                         fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
                         fig1.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
                         st.plotly_chart(fig1, use_container_width=True)
                         
                     with g2:
-                        st.markdown('<p class="sub-header-bold" style="text-align: center;">dQ/dV Profile</p>', unsafe_allow_html=True)
+                        st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">dQ/dV Profile</p>', unsafe_allow_html=True)
                         fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
                         fig2.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
                         st.plotly_chart(fig2, use_container_width=True)
                         
                     with g3:
-                        st.markdown('<p class="sub-header-bold" style="text-align: center;">Cell Performance</p>', unsafe_allow_html=True)
+                        st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Cell Performance</p>', unsafe_allow_html=True)
                         fig3 = go.Figure(go.Scatterpolar(r=[min(100, res.get('Wh/kg', 0)/2.5), min(100, res.get('C-rate', 1)*20), min(100, res.get('Life(Cyc)', 0)/50), min(100, res.get('Cell_V', 0)*25), min(100, res.get('C_Load', 0)*4)], theta=['Energy', 'Power', 'Life', 'Voltage', 'Loading'], fill='toself', line=dict(color='#E4B526', width=2)))
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
+                    
+                    # 🔥 AI 진단 리포트 박스 (시뮬레이션 완료 시 하단에 자동 생성)
+                    if res.get("AI_Briefing"):
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown('<p class="sub-header-bold" style="color: #D35400; border-bottom: 2px solid #D35400;">🤖 SynoBot AI 진단 리포트</p>', unsafe_allow_html=True)
+                        with st.container(border=True):
+                            st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{res['AI_Briefing']}</div>", unsafe_allow_html=True)
 
         st.markdown("<div id='section6'></div>", unsafe_allow_html=True)
         if st.session_state.get('scroll_to_data'):
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
+        # 🔥 PDF 인쇄 시 4번 영역 전체를 숨기기 위한 특수 앵커
+        st.markdown("<div id='section4-anchor'></div>", unsafe_allow_html=True)
+
         # [섹션 4]
         if is_pro and st.session_state.history:
-            st.markdown('<p class="main-header" style="margin-top:20px;">4. Data Management Center</p>', unsafe_allow_html=True)
+            st.markdown('<p id="section4-header" class="main-header" style="margin-top:20px;">4. Data Management Center</p>', unsafe_allow_html=True)
             sp6, c_6 = st.columns([0.03, 0.97])
             with c_6:
                 with st.container(border=True):
