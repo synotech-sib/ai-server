@@ -4,3 +4,7 @@ numpy
 plotly
 openai
 st-gsheets-connection
+langchain
+langchain-openai
+chromadb
+tiktoken
