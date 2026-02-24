@@ -67,13 +67,18 @@ st.markdown("""
     
     /* 🔥 폰트 크기 및 색상 통일 영역 */
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
-    div[data-testid="stTextInput"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } /* 가입/My계정 폼 라벨 확대 */
-    div[data-testid="stMetricLabel"] p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } /* 3번 메트릭 폰트 동기화 */
-    div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } /* 체크박스 텍스트 검정색 */
+    div[data-testid="stTextInput"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } 
+    
+    /* 3번 메트릭 폰트 동기화 (Cathode와 완전히 동일한 크기/두께) */
+    div[data-testid="stMetricLabel"] p, div[data-testid="stMetricLabel"] div { font-size: 16px !important; font-weight: bold !important; color: #222 !important; } 
+    
+    div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
     
     .sub-header-bold { font-size: 20px !important; font-weight: bold !important; color: #222 !important; margin-bottom: 12px !important; border-bottom: 2px solid #1A729A; padding-bottom: 5px; }
     .param-label { font-size: 16px !important; font-weight: bold !important; color: #333 !important; margin-bottom: 4px !important; }
-    div[data-testid="stExpander"] summary p { font-size: 18px !important; font-weight: 800 !important; color: #1A729A !important; }
+    
+    /* Step 1 등 아코디언 제목 볼드체 해제, 크기/색상 유지 */
+    div[data-testid="stExpander"] summary p { font-size: 18px !important; font-weight: normal !important; color: #1A729A !important; }
     
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
@@ -266,7 +271,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.6</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.4.7</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -366,7 +371,6 @@ if is_pro and st.session_state.get('is_admin', False):
                 
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 try:
-                    # 🔥 관리자 소재 DB 통합 불러오기 원복 확인
                     if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'admin_master':
                         st.info("ℹ️ 'admin_master'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다.")
                         vips = get_vip_list_exact(); dfs = []
@@ -382,7 +386,6 @@ if is_pro and st.session_state.get('is_admin', False):
                         df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=600) 
                         df_display = df_admin.copy()
                         
-                        # 🔥 최신순 초기 정렬 적용
                         if st.session_state.admin_view in ['logs', 'chat'] and 'Time' in df_display.columns:
                             df_display = df_display.sort_values(by='Time', ascending=False).reset_index(drop=True)
                         elif st.session_state.admin_view == 'users' and 'RegDate' in df_display.columns:
@@ -436,7 +439,7 @@ with col_main:
                 st.markdown("---")
                 st.markdown("#### 💎 Pro Max 계정 승인 요청 (선택)")
                 st.info("Pro Max 계정은 일반 Pro와 달리 귀사만의 독립적인 소재/공정 데이터베이스(VIP 전용 DB Center)를 별도 구축해 드리는 기업 맞춤형 서비스입니다.")
-                is_vip_request = st.checkbox("네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)") # 파란색 제거, 폰트 검정
+                is_vip_request = st.checkbox("네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)") 
                 
                 st.markdown("---")
                 st.markdown("#### 🔒 보안 및 개인정보 처리 방침 (필수)")
@@ -524,7 +527,7 @@ with col_main:
     with st.container(height=1000, border=False):
         st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
         
-        # [섹션 1] (들여쓰기 비율 일괄 유지 적용)
+        # [섹션 1]
         st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
@@ -567,7 +570,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2] 지능형 아코디언 
+        # [섹션 2]
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -758,7 +761,6 @@ with col_main:
             sp6, c_6 = st.columns([0.03, 0.97])
             with c_6:
                 with st.container(border=True):
-                    # 🔥 코멘트 입력 안내 문구 복구 
                     st.caption("ℹ️ 표 안의 **[User Comment]** 셀을 더블클릭하여 해당 시뮬레이션에 대한 메모를 남기실 수 있습니다.")
                     db_df_all = pd.DataFrame(); selected_times = []
                     try:
@@ -776,7 +778,6 @@ with col_main:
                                 original_comments = df_display['User Comment'].tolist()
                                 disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                 
-                                # 🔥 컬럼명 명시 
                                 edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True, disabled=disabled_cols, column_config={"Time": st.column_config.TextColumn("Time", disabled=True), "User Comment": st.column_config.TextColumn("📝 코멘트 입력", width="large")})
                                 
                                 if edited_df['User Comment'].tolist() != original_comments:
