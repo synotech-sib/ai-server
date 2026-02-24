@@ -5,6 +5,7 @@ plotly
 openai
 st-gsheets-connection
 langchain
+langchain-community
 langchain-openai
 chromadb
 tiktoken
