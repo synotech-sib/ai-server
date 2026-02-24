@@ -28,7 +28,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 2.5", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max", layout="wide")
 
 st.markdown("""
     <style>
@@ -82,21 +82,16 @@ st.markdown("""
     @media print {
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         
-        /* 챗봇 컬럼(우측) 및 여백 컬럼(좌측) 숨김 처리 */
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { display: none !important; }
         
-        /* 메인 리포트 컬럼 가로 100% 확장 */
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
         
-        /* 인쇄물에서 불필요한 모든 버튼 숨김 */
         button { display: none !important; }
         
-        /* 🔥 4번 데이터 관리 센터 통째로 숨김 처리 */
         div[data-testid="element-container"]:has(#section4-anchor),
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         
-        /* 배경색이 하얗게 날아가지 않도록 강제 인쇄 적용 */
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
 
@@ -120,8 +115,7 @@ URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqNVcWJrapWWxNvSVGQ/edit?usp=sharing"
 
-def hash_password(password):
-    return hashlib.sha256(password.strip().encode()).hexdigest()
+def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
 @st.cache_data(ttl=600)
 def load_cloud_data_cached(url, ws="Sheet1"):
@@ -149,11 +143,9 @@ def get_user_db_cached():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
-    except Exception:
-        return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "Purpose", "ProMax_Req", "RegDate"])
+    except Exception: return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "Purpose", "ProMax_Req", "RegDate"])
 
 def get_user_db(): return get_user_db_cached()
-
 def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
     except: return default
@@ -172,24 +164,20 @@ def send_verification_email(to_email, code):
     try:
         msg = MIMEMultipart(); msg['From'] = "SynoCore <synocore@synotech.co.kr>"; msg['To'] = to_email; msg['Subject'] = "[SynoCore Pro] 회원가입 인증번호 안내"
         msg.attach(MIMEText(f"안녕하세요. 회원가입 인증번호입니다.\n\n▶ 인증번호 : {code}\n\n감사합니다.", 'plain', 'utf-8'))
-        server = get_smtp_server(); server.send_message(msg); server.quit()
-        return "SUCCESS"
+        server = get_smtp_server(); server.send_message(msg); server.quit(); return "SUCCESS"
     except Exception as e: return f"발송 오류: {str(e)}"
 
 def send_welcome_email(to_email, user_name):
     try:
         msg = MIMEMultipart(); msg['From'] = "SynoCore <synocore@synotech.co.kr>"; msg['To'] = to_email; msg['Subject'] = "[SynoCore Pro Max] 회원가입 완료 안내"
         msg.attach(MIMEText(f"안녕하세요 {user_name}님, 회원가입이 성공적으로 완료되었습니다.", 'plain', 'utf-8'))
-        server = get_smtp_server(); server.send_message(msg); server.quit()
-        return True
+        server = get_smtp_server(); server.send_message(msg); server.quit(); return True
     except Exception: return False
 
 def send_admin_notification(subject, body_text):
     try:
-        msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"
-        msg['To'] = "wschoi@synotech.co.kr" 
-        msg['Subject'] = f"🚨 [Admin Alert] {subject}"
-        msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
+        msg = MIMEMultipart(); msg['From'] = "SynoCore System <synocore@synotech.co.kr>"; msg['To'] = "wschoi@synotech.co.kr" 
+        msg['Subject'] = f"🚨 [Admin Alert] {subject}"; msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
         server = get_smtp_server(); server.send_message(msg); server.quit()
     except Exception: pass
 
@@ -205,8 +193,7 @@ def get_dqdv(cat_sel, v_tc, m_df=None):
             except: pass
     peaks = [p for p in [p1, p2] if pd.notna(p) and float(p) > 0]
     if not peaks: peaks = [3.15]
-    for p in peaks:
-        shifted_p = float(p) - (float(v_tc) * 0.015); dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
+    for p in peaks: shifted_p = float(p) - (float(v_tc) * 0.015); dqdv += np.exp(-(v_axis - shifted_p)**2 / (2 * 0.05**2)) * 15
     return v_axis, dqdv
 
 def load_user_history(email, workspace="general_user"):
@@ -220,8 +207,7 @@ def load_user_history(email, workspace="general_user"):
         for _, row in my_logs.iterrows():
             row_dict = row.to_dict(); row_dict.pop('Email', None); row_dict.pop('Workspace', None)
             try:
-                for k in ['Cap(mAh/g)', 'Volt(V)', 'C_Load', 'C_Press', 'C_Act', 'C_Bin', 'C_Con', 'N/P Ratio', 'A_Press', 'A_Act', 'A_Bin', 'A_Con', 'E/C Ratio', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: 
-                    row_dict[k] = float(row_dict.get(k, 0))
+                for k in ['Cap(mAh/g)', 'Volt(V)', 'C_Load', 'C_Press', 'C_Act', 'C_Bin', 'C_Con', 'N/P Ratio', 'A_Press', 'A_Act', 'A_Bin', 'A_Con', 'E/C Ratio', 'C-rate', 'Wh/kg', 'Wh/L', 'Cell_V']: row_dict[k] = float(row_dict.get(k, 0))
                 row_dict['Life(Cyc)'] = int(float(row_dict.get('Life(Cyc)', 0)))
                 time_str = str(row_dict.get('Time', '')).strip()
                 if not time_str or time_str == "nan": time_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%m-%d %H:%M")
@@ -234,8 +220,7 @@ def load_user_history(email, workspace="general_user"):
 
 def save_chat_log(email, workspace, role, content):
     if GSheetsConnection is None: return
-    safe_email = email if email else "guest"
-    safe_ws = workspace if workspace else "general_user"
+    safe_email = email if email else "guest"; safe_ws = workspace if workspace else "general_user"
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         try: chat_df = conn.read(spreadsheet=URL_LOGS, worksheet="ChatLogs", ttl=0)
@@ -255,9 +240,8 @@ default_vars = {
     'history': [], 'sim_result': None, 'user_name': "", 'user_email': "", 'show_profile': False,
     'workspace': 'general_user', 'user_vip_name': None, 'is_admin': False, 'user_tier': "",  
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
-    'trigger_auto_bot': False, 'trigger_bot_reply': False,
-    'bot_user_input': "", 'scroll_to_result': False, 'scroll_to_data': False,
-    'acc_step': 1
+    'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
+    'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1
 }
 
 for key, val in default_vars.items():
@@ -265,8 +249,7 @@ for key, val in default_vars.items():
 
 qp = st.query_params
 if "session_token" in qp and not st.session_state.logged_in:
-    token = qp["session_token"]
-    df_u = get_user_db_cached()
+    token = qp["session_token"]; df_u = get_user_db_cached()
     if token in ADMIN_USERS:
         st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[token], 'user_email': token, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
         st.session_state.history = load_user_history(token, 'admin_master')
@@ -285,7 +268,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore Pro Max</span><span class="syno-subtitle">2.5</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -301,13 +284,11 @@ if not is_pro:
                     with st.spinner("인증 중..."):
                         df_u = get_user_db()
                         u_id_clean = u_id.strip().lower(); hashed_pw = hash_password(u_pw) if u_pw else ""
-                        
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
                             st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드] 통합 브리핑을 시작하겠습니다."}]
-                            st.query_params["session_token"] = u_id_clean 
-                            st.rerun()
+                            st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
                             if not valid.empty:
@@ -320,8 +301,7 @@ if not is_pro:
                                     st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
                                     welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 워크스페이스로 전환되었습니다." if target_ws != 'general_user' else f"안녕하세요 {valid['Name'].values[0]}님. SIB 설계 브리핑을 시작합니다."
                                     st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
-                                    st.query_params["session_token"] = u_id_clean 
-                                    st.rerun()
+                                    st.query_params["session_token"] = u_id_clean; st.rerun()
                             else: st.error("아이디 또는 비밀번호를 확인해주세요.")
         with c2:
             if st.button("계정 가입 ㅣ Pro Mode", key="btn_go_reg_m", use_container_width=True): st.session_state.show_reg = not st.session_state.show_reg; st.session_state.show_profile = False; st.rerun()
@@ -336,7 +316,6 @@ else:
                 if "session_token" in st.query_params: del st.query_params["session_token"]
                 for key, val in default_vars.items(): st.session_state[key] = val
                 st.rerun()
-        
         if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
             display_text = f"👤 {st.session_state.user_name} (Pro Max) :blue[[{st.session_state.workspace.capitalize()} DB Center]]"
             if st.button(display_text, key="btn_my_db_scroll", use_container_width=True): st.session_state.scroll_to_data = True
@@ -399,12 +378,8 @@ if is_pro and st.session_state.get('is_admin', False):
                         read_ws = "material_list" if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'general_user' else st.session_state.admin_ws
                         df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=600) 
                         df_display = df_admin.copy()
-                        
-                        if st.session_state.admin_view in ['logs', 'chat'] and 'Time' in df_display.columns:
-                            df_display = df_display.sort_values(by='Time', ascending=False).reset_index(drop=True)
-                        elif st.session_state.admin_view == 'users' and 'RegDate' in df_display.columns:
-                            df_display = df_display.sort_values(by='RegDate', ascending=False).reset_index(drop=True)
-                            
+                        if st.session_state.admin_view in ['logs', 'chat'] and 'Time' in df_display.columns: df_display = df_display.sort_values(by='Time', ascending=False).reset_index(drop=True)
+                        elif st.session_state.admin_view == 'users' and 'RegDate' in df_display.columns: df_display = df_display.sort_values(by='RegDate', ascending=False).reset_index(drop=True)
                         edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
                         if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                             conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
@@ -579,7 +554,7 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # [섹션 2]
+        # [섹션 2] 
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Cell Design Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
@@ -741,7 +716,6 @@ with col_main:
                     
                     g1, sp_g1, g2, sp_g2, g3 = st.columns([1, 0.08, 1, 0.08, 1])
                     
-                    # 🔥 그래프 타이틀 폰트 일괄 통일 적용
                     with g1:
                         st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Discharge Profile</p>', unsafe_allow_html=True)
                         fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
@@ -760,19 +734,31 @@ with col_main:
                         fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                         st.plotly_chart(fig3, use_container_width=True)
                     
-                    # 🔥 AI 진단 리포트 박스 (시뮬레이션 완료 시 하단에 자동 생성)
+                    # 🔥 AI 진단 리포트 박스 (체크박스 토글형 우측 배치)
                     if res.get("AI_Briefing"):
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown('<p class="sub-header-bold" style="color: #D35400; border-bottom: 2px solid #D35400;">🤖 SynoBot AI 진단 리포트</p>', unsafe_allow_html=True)
-                        with st.container(border=True):
-                            st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{res['AI_Briefing']}</div>", unsafe_allow_html=True)
+                        col_text, col_chk = st.columns([0.85, 0.15])
+                        with col_text:
+                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #1A729A; margin-top: 5px;">🤖 고객님, 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.</p>', unsafe_allow_html=True)
+                        with col_chk:
+                            show_ai = st.checkbox("☑️ 펼쳐보기", value=False, key="chk_ai_report")
+                            
+                        if show_ai:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{res['AI_Briefing']}</div>", unsafe_allow_html=True)
+
+                    # 🔥 현재 세션 임시 누적 기록 테이블 (3번 섹션 하단)
+                    if len(st.session_state.history) > 0:
+                        st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (임시 저장)</p>", unsafe_allow_html=True)
+                        df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
+                        st.dataframe(df_session, use_container_width=True)
 
         st.markdown("<div id='section6'></div>", unsafe_allow_html=True)
         if st.session_state.get('scroll_to_data'):
             components.html("<script>window.parent.document.getElementById('section6').scrollIntoView();</script>", height=0)
             st.session_state.scroll_to_data = False
 
-        # 🔥 PDF 인쇄 시 4번 영역 전체를 숨기기 위한 특수 앵커
+        # 🔥 PDF 인쇄 시 4번 영역 전체를 숨기기 위한 앵커
         st.markdown("<div id='section4-anchor'></div>", unsafe_allow_html=True)
 
         # [섹션 4]
