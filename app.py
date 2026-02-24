@@ -98,6 +98,13 @@ st.markdown("""
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
+
+    @media (max-width: 768px) {
+        .header-container { flex-direction: column; align-items: flex-start; height: auto; margin-bottom: 10px; }
+        .syno-title { font-size: 38px !important; margin-right: 0px; }
+        .syno-subtitle { font-size: 16px !important; padding-top: 5px; }
+        div[data-testid="stPopoverBody"] { width: 90vw !important; max-width: 450px !important; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -390,6 +397,7 @@ col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 with col_left: st.empty() 
 
 with col_main:
+    # --- 가입 및 프로필 영역 ---
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
@@ -551,12 +559,11 @@ with col_main:
 
         expert = True if is_pro else False
 
-        # 🔥 [섹션 2] 제목 변경 및 Step 1 레이아웃 3열+2열 최적화 완료
+        # 🔥 [섹션 2] 프로세스 파라미터 간격 10% 증대 및 하단 여백 추가
         st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
         sp2, c_2 = st.columns([0.03, 0.97])
         with c_2:
             with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
-                # 윗줄 (주요 전기적/성능 물성 3개)
                 s1, s2, s3 = st.columns(3)
                 with s1:
                     st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
@@ -574,9 +581,8 @@ with col_main:
                     lf1.slider("Life_S", 500.0, 10000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
                     lf2.number_input("Life_N", 500.0, 10000.0, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
                 
-                st.markdown("<br>", unsafe_allow_html=True) # 줄바꿈 간격
+                st.markdown("<br>", unsafe_allow_html=True) 
                 
-                # 아랫줄 (진밀도 등 물리적 특성 2개)
                 s4, s5, s6 = st.columns(3)
                 with s4:
                     st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
@@ -589,7 +595,7 @@ with col_main:
                     ad1.slider("ADen_S", 1.0, 5.0, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
                     ad2.number_input("ADen_N", 1.0, 5.0, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
                 with s6:
-                    st.empty() # 레이아웃 정렬을 위한 빈 공간
+                    st.empty() 
                     
                 st.button("다음 단계: 공정 설계 ➡️", key="btn_next_1", on_click=change_acc_step, args=(2,))
 
@@ -601,30 +607,35 @@ with col_main:
                     cl1, cl2 = st.columns([0.7, 0.3])
                     cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                     cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True) # 간격 10% 증가
+
                     st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc) ❔</p>", unsafe_allow_html=True)
                     cpr1, cpr2 = st.columns([0.7, 0.3])
                     cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                     
+                    # 🔥 양극 기공률 하단 마진 25px 적용으로 넉넉한 여백 제공
                     c_poro = (1 - st.session_state.c_press_s / st.session_state.c_den_s) * 100 if st.session_state.c_den_s > 0 else 0
-                    st.markdown(f"<div style='background:#eaf2f8; padding:5px 10px; border-radius:4px; margin-bottom:10px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
                     
                     st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                     cf1, cf2 = st.columns([0.7, 0.3])
                     cf1.slider("CFoil_S", 8.0, 30.0, step=1.0, key="c_foil_s", on_change=sync_s_to_n, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
                     cf2.number_input("CFoil_N", 8.0, 30.0, step=0.1, key="c_foil_n", on_change=sync_n_to_s, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
                     ca1, ca2 = st.columns([0.7, 0.3])
                     ca1.slider("CAct_S", 80.0, 99.0, step=0.5, key="c_act_s", on_change=sync_s_to_n, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
                     ca2.number_input("CAct_N", 80.0, 99.0, step=0.1, key="c_act_n", on_change=sync_n_to_s, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
                     cb1, cb2 = st.columns([0.7, 0.3])
                     cb1.slider("CBin_S", 0.0, 10.0, step=0.5, key="c_bin_s", on_change=sync_s_to_n, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
                     cb2.number_input("CBin_N", 0.0, 10.0, step=0.1, key="c_bin_n", on_change=sync_n_to_s, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
                     cc1, cc2 = st.columns([0.7, 0.3])
                     cc1.slider("CCon_S", 0.0, 10.0, step=0.5, key="c_con_s", on_change=sync_s_to_n, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
@@ -636,30 +647,35 @@ with col_main:
                     n1, n2 = st.columns([0.7, 0.3])
                     n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
                     n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                     apr1, apr2 = st.columns([0.7, 0.3])
                     apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                     
+                    # 🔥 음극 기공률 하단 마진 25px 적용
                     a_poro = (1 - st.session_state.a_press_s / st.session_state.a_den_s) * 100 if st.session_state.a_den_s > 0 else 0
-                    st.markdown(f"<div style='background:#eaf2f8; padding:5px 10px; border-radius:4px; margin-bottom:10px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
                     
                     st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                     af1, af2 = st.columns([0.7, 0.3])
                     af1.slider("AFoil_S", 8.0, 30.0, step=1.0, key="a_foil_s", on_change=sync_s_to_n, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
                     af2.number_input("AFoil_N", 8.0, 30.0, step=0.1, key="a_foil_n", on_change=sync_n_to_s, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
                     aa1, aa2 = st.columns([0.7, 0.3])
                     aa1.slider("AAct_S", 80.0, 99.0, step=0.5, key="a_act_s", on_change=sync_s_to_n, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
                     aa2.number_input("AAct_N", 80.0, 99.0, step=0.1, key="a_act_n", on_change=sync_n_to_s, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
                     ab1, ab2 = st.columns([0.7, 0.3])
                     ab1.slider("ABin_S", 0.0, 10.0, step=0.5, key="a_bin_s", on_change=sync_s_to_n, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
                     ab2.number_input("ABin_N", 0.0, 10.0, step=0.1, key="a_bin_n", on_change=sync_n_to_s, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
                     ac1, ac2 = st.columns([0.7, 0.3])
                     ac1.slider("ACon_S", 0.0, 10.0, step=0.5, key="a_con_s", on_change=sync_s_to_n, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
@@ -671,7 +687,8 @@ with col_main:
                     e1, e2 = st.columns([0.7, 0.3])
                     e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                     e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
-                    
+                    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
                     st.markdown("<p class='param-label'>Separator Thickness (μm)</p>", unsafe_allow_html=True)
                     st1, st2 = st.columns([0.7, 0.3])
                     st1.slider("SepThick_S", 5.0, 30.0, step=1.0, key="sep_thick_s", on_change=sync_s_to_n, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
