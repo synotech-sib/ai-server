@@ -246,7 +246,7 @@ default_vars = {
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
     'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1,
-    'engine_choice': "Gemini 1.5 Flash (기본/쾌속)"  # 시스템 내부 기준 엔진 변수
+    'engine_choice': "Gemini 2.5 Flash (기본/쾌속)"  # 시스템 내부 기준 엔진 변수
 }
 
 for key, val in default_vars.items():
@@ -350,7 +350,7 @@ if is_pro and st.session_state.get('is_admin', False):
             # ---------------------------------------------------------
             # [AI 엔진 마스터 스위치] - 절대 풀리지 않는 완벽 동기화 로직
             # ---------------------------------------------------------
-            engine_opts = ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
+            engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
             # 1. 위젯 변수가 증발했으면 영구 변수에서 즉각 복구
             if "engine_radio_widget" not in st.session_state:
@@ -966,7 +966,7 @@ with col_main:
                         file_data = buffer.getvalue(); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.xlsx"; mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     except ImportError:
                         file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
-                    btn3.download_button("📥 당일 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
+                    btn3.download_button("📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
                         components.html("<script>window.parent.print();</script>", height=0)
