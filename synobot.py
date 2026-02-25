@@ -13,6 +13,12 @@ try:
 except ImportError:
     genai = None
 
+# PDF 파일 읽어오기
+try:
+    from PyPDF2 import PdfReader
+except ImportError:
+    PdfReader = None
+
 # =====================================================================
 # [글로벌 AI 시스템 프롬프트] - 언어 제한 해제
 # =====================================================================
@@ -31,18 +37,34 @@ TDB_DIR = "./SynoBot_db"
 
 def load_tdb_documents():
     context = ""
-    if os.path.exists(TDB_DIR):
-        txt_files = glob.glob(os.path.join(TDB_DIR, "**/*.txt"), recursive=True)
-        for file_path in txt_files:
-            try:
+    if not os.path.exists(TDB_DIR):
+        return "SynoBot_db 폴더를 찾을 수 없습니다."
+
+    # 모든 파일(*.*)을 검색하도록 수정
+    files = glob.glob(os.path.join(TDB_DIR, "**/*.*"), recursive=True)
+    
+    for file_path in files:
+        ext = os.path.splitext(file_path)[1].lower()
+        file_name = os.path.basename(file_path)
+        
+        try:
+            # [A] 텍스트 파일인 경우
+            if ext == ".txt":
                 with open(file_path, "r", encoding="utf-8") as f:
-                    file_name = os.path.basename(file_path)
                     context += f"\n\n--- [출처: {file_name}] ---\n"
                     context += f.read()
-            except Exception as e:
-                pass
-    else:
-        context = "지정된 SynoBot_db 폴더를 찾을 수 없거나 파일이 없습니다."
+            
+            # [B] PDF 파일인 경우 (신규 추가)
+            elif ext == ".pdf":
+                if PdfReader:
+                    reader = PdfReader(file_path)
+                    pdf_text = ""
+                    for page in reader.pages:
+                        pdf_text += page.extract_text() + "\n"
+                    context += f"\n\n--- [출처: {file_name}] ---\n{pdf_text}"
+        except Exception as e:
+            context += f"\n[오류: {file_name} 읽기 실패 - {str(e)}]"
+
     return context
 
 # =====================================================================
