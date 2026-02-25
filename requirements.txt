@@ -5,8 +5,3 @@ plotly
 google-generativeai
 openai
 st-gsheets-connection
-langchain
-langchain-community
-langchain-openai
-chromadb
-tiktoken
