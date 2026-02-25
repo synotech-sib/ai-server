@@ -919,7 +919,7 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 [듀얼 엔진 & 스트리밍 적용]
+# 🤖 시노봇 (SynoBot) AI 패널 [듀얼 엔진 & 스트리밍 & 완벽한 역순 정렬 적용]
 # -----------------------------------------------------------------------------
 
 def handle_chat_submit():
@@ -950,10 +950,11 @@ if col_bot:
                 st.warning("⚠️ `.streamlit/secrets.toml`에 API 키를 설정해주세요.")
                 st.stop()
 
+            # [수정] 대표님이 요청하신 새로운 인사말
             if not st.session_state.chat_messages: 
-                st.session_state.chat_messages = [{"role": "assistant", "content": "- 안녕하세요. 글로벌 배터리 기술 참모 시노봇입니다.\n- 현재 연동된 Tdb 폴더 내의 알트리스 문서나 배터리 설계에 대해 자유롭게 질문해 주십시오. (영어 답변 가능)"}]
+                st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."}]
 
-            # 1. 시뮬레이션 직후 자동 브리핑 
+            # 1. 시뮬레이션 직후 자동 브리핑 (최상단 노출)
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
@@ -968,28 +969,15 @@ if col_bot:
                             except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 일반 채팅 스트리밍 출력
+            # 2. 일반 채팅 스트리밍 출력 (최신 답변이 항상 1등으로 최상단에 오게 로직 변경)
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
-                # 기존 대화를 화면에 먼저 다 그림
-                for message in st.session_state.chat_messages[:-1]: # 마지막 질문 제외
-                    with st.chat_message(message["role"]):
-                        content = message["content"].replace("\n- ", "\n\n\- ")
-                        if content.startswith("- "): content = "\- " + content[2:]
-                        st.markdown(content)
-                
-                # 마지막 유저 메시지 그리기
-                with st.chat_message("user"):
-                    st.markdown(st.session_state.chat_messages[-1]["content"])
-                
-                # 봇의 답변을 스트리밍으로 출력
+                # (A) 봇의 최신 답변을 가장 먼저(최상단에) 출력하며 스트리밍
                 if synobot:
                     with st.chat_message("assistant"):
-                        # [커스텀 로딩 메시지]
                         with st.spinner("시노코어 기술 데이터베이스(Tdb) 분석 중..."):
                             try:
-                                # API 전달용 메시지 리스트 생성
                                 messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
                                 
                                 if "Gemini" in st.session_state.engine_choice:
@@ -997,15 +985,26 @@ if col_bot:
                                 else:
                                     stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, OPENAI_API_KEY)
                                 
-                                # st.write_stream으로 실시간 타자 효과
                                 reply = st.write_stream(stream_gen)
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                                 
                             except Exception as e: st.error(f"AI 응답 오류: {e}")
-                # 스트리밍 후 멈춤 방지를 위해 rerun 하지 않고 다음 루프를 기다림
+                
+                # (B) 방금 입력한 유저의 최신 질문 출력 (두 번째 자리)
+                latest_user_msg = st.session_state.chat_messages[-2]
+                with st.chat_message(latest_user_msg["role"]):
+                    st.markdown(latest_user_msg["content"])
+                    
+                # (C) 나머지 과거 대화 역순 출력 (세 번째 ~ 맨 밑 인사말까지)
+                for message in reversed(st.session_state.chat_messages[:-2]):
+                    with st.chat_message(message["role"]):
+                        content = message["content"].replace("\n- ", "\n\n\- ")
+                        if content.startswith("- "): content = "\- " + content[2:]
+                        st.markdown(content)
+                        
             else:
-                # 일반 렌더링 시
+                # 일반 렌더링 시 (항상 최신 대화가 맨 위에 오도록 완벽한 역순 출력)
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
                         content = message["content"].replace("\n- ", "\n\n\- ")
