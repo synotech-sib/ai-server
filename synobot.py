@@ -1,5 +1,6 @@
 import os
 import io
+import json
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -11,6 +12,7 @@ try:
 except ImportError:
     PdfReader = None
 
+# AI 엔진 부품
 try:
     from openai import OpenAI
 except ImportError:
@@ -22,7 +24,7 @@ except ImportError:
     genai = None
 
 # =====================================================================
-# [1] 시노봇 시스템 지침 (Persona) - 출처 표기 로직 적용
+# [1] 시노봇 시스템 지침 (Persona)
 # =====================================================================
 SYSTEM_PROMPT = """
 You are 'SynoBot', an elite SIB R&D engineer for SynoCore.
@@ -34,12 +36,10 @@ You are 'SynoBot', an elite SIB R&D engineer for SynoCore.
 """
 
 # =====================================================================
-# [2] 구글 드라이브 실시간 하위 폴더 스캔 함수 (스캔본 PDF 대응)
+# [2] 구글 드라이브 실시간 하위 폴더 스캔 함수
 # =====================================================================
 def load_tdb_documents():
-    """Secrets의 폴더 ID 하위에 있는 모든 PDF/TXT 파일을 재귀적으로 읽어옵니다."""
     context = ""
-    
     try:
         FOLDER_ID = st.secrets["GDRIVE_FOLDER_ID"]
         creds_info = st.secrets["gdrive_service_account"]
@@ -56,7 +56,6 @@ def load_tdb_documents():
 
         for item in items:
             if item['mimeType'] == 'application/vnd.google-apps.folder':
-                # 하위 폴더면 다시 파고들기
                 inner_context += recursive_fetch(item['id'])
             elif item['mimeType'] in ['text/plain', 'application/pdf']:
                 try:
@@ -64,41 +63,32 @@ def load_tdb_documents():
                     fh = io.BytesIO()
                     downloader = MediaIoBaseDownload(fh, request)
                     done = False
-                    while not done:
-                        _, done = downloader.next_chunk()
+                    while not done: _, done = downloader.next_chunk()
                     fh.seek(0)
 
                     if item['mimeType'] == 'text/plain':
                         content = fh.read().decode('utf-8', errors='ignore')
                         inner_context += f"\n\n--- [참조 데이터] ---\n{content}"
-                        
                     elif item['mimeType'] == 'application/pdf' and PdfReader:
                         reader = PdfReader(fh)
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
-                        
-                        # [핵심] 스캔본(이미지) PDF 대응 로직
                         if not pdf_text.strip():
                             inner_context += f"\n\n--- [참조 데이터] ---\n[내부 경고: 이 파일({item['name']})은 스캔본이므로 텍스트 인식이 불가능합니다.]"
                         else:
                             inner_context += f"\n\n--- [참조 데이터] ---\n{pdf_text}"
-                except Exception as e:
-                    pass # 파일 읽기 실패 시 조용히 넘어감
+                except Exception:
+                    pass 
         return inner_context
 
     context = recursive_fetch(FOLDER_ID)
-    return context if context else "Tdb 폴더 내에 유효한 기술 자료가 없습니다."
+    return context if context else "Tdb 폴더 내에 자료가 없습니다."
 
 # =====================================================================
-# [3] AI 엔진 응답 함수 (Gemini / OpenAI)
+# [3] AI 엔진 챗봇 응답 함수
 # =====================================================================
 def get_gemini_response_stream(messages, sim_result, api_key):
-    if genai is None:
-        yield "⚠️ google-generativeai 라이브러리가 필요합니다."
-        return
-        
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=SYSTEM_PROMPT)
-    
     retrieved_context = load_tdb_documents()
     last_user_msg = messages[-1]["content"]
     
@@ -110,14 +100,9 @@ def get_gemini_response_stream(messages, sim_result, api_key):
         response = model.generate_content(full_prompt, stream=True)
         for chunk in response:
             if chunk.text: yield chunk.text
-    except Exception as e:
-        yield f"\n⚠️ Gemini 엔진 오류: {e}"
+    except Exception as e: yield f"\n⚠️ Gemini 엔진 오류: {e}"
 
 def get_openai_response_stream(messages, sim_result, api_key):
-    if OpenAI is None:
-        yield "⚠️ openai 라이브러리가 필요합니다."
-        return
-        
     client = OpenAI(api_key=api_key)
     retrieved_context = load_tdb_documents()
     sys_content = SYSTEM_PROMPT + f"\n\n### [Context]\n{retrieved_context}"
@@ -126,21 +111,15 @@ def get_openai_response_stream(messages, sim_result, api_key):
     full_messages = [{"role": "system", "content": sys_content}] + [m for m in messages if m["role"] != "system"]
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=full_messages,
-            temperature=0.3, stream=True
-        )
+        response = client.chat.completions.create(model="gpt-4o-mini", messages=full_messages, temperature=0.3, stream=True)
         for chunk in response:
             if chunk.choices[0].delta.content: yield chunk.choices[0].delta.content
-    except Exception as e:
-        yield f"\n⚠️ OpenAI 엔진 오류: {e}"
+    except Exception as e: yield f"\n⚠️ OpenAI 엔진 오류: {e}"
 
 def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
     retrieved_context = load_tdb_documents()
     sys_content = SYSTEM_PROMPT + f"\n\n[Context]\n{retrieved_context}\n\n[Sim State]\n{sim_result}"
     user_prompt = "분석 브리핑을 3~4줄로 작성하십시오."
-    
     try:
         if "Gemini" in engine_choice:
             genai.configure(api_key=gemini_key)
@@ -152,3 +131,29 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
             return res.choices[0].message.content
     except Exception as e:
         return f"자동 브리핑 생성 오류: {e}"
+
+# =====================================================================
+# [4] Material 파라미터 검증 (표 출력용 JSON 생성)
+# =====================================================================
+def check_parameter_discrepancy(current_params, engine_choice, api_key):
+    context = load_tdb_documents()
+    prompt = f"""
+    당신은 배터리 소재 스펙 검증 AI입니다. 
+    아래 [현재 입력된 파라미터]와 [Tdb 기술 문서]를 비교하여 일치 여부를 분석하십시오.
+    결과를 반드시 아래 형식의 순수 JSON 배열로 반환하십시오 (마크다운 금지).
+    [현재 입력된 파라미터]\n{current_params}
+    [Tdb 기술 문서]\n{context}
+    [출력 예시]
+    [{{"항목": "Cathode 용량", "현재입력값": "150", "Tdb권장값": "160", "상태": "불일치 ⚠️"}}]
+    """
+    try:
+        if "Gemini" in engine_choice:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+            res = model.generate_content(prompt).text
+        else:
+            client = OpenAI(api_key=api_key)
+            res = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.1).choices[0].message.content
+        return json.loads(res.replace("```json", "").replace("```", "").strip())
+    except Exception as e:
+        return [{"항목": "오류", "현재입력값": "-", "Tdb권장값": "-", "상태": "비교 실패"}]

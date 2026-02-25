@@ -340,7 +340,7 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
-# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재)
+# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재 + 파라미터 검증 기능 추가)
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
@@ -354,7 +354,40 @@ if is_pro and st.session_state.get('is_admin', False):
                 index=0 if "Gemini" in st.session_state.engine_choice else 1,
                 horizontal=True
             )
-            st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 파일")
+            st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
+            st.markdown("---")
+            
+            # [신규 추가] 🔍 Tdb 파라미터 실시간 검증
+            st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
+            col_t, col_b = st.columns([0.8, 0.2])
+            refresh_clicked = col_b.button("🔄 새로고침", key="admin_refresh_btn")
+
+            if refresh_clicked or "param_diff_table" not in st.session_state:
+                with st.spinner("Tdb 문서와 현재 파라미터를 비교 분석 중입니다..."):
+                    try:
+                        cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
+                        cur_ano = st.session_state.get('sel_ano_m', '알 수 없음')
+                        cur_cap = st.session_state.get('cap_s', 160.0)
+                        cur_volt = st.session_state.get('volt_s', 3.05)
+                        cur_te = st.session_state.get('te_s', 100.0)
+
+                        current_materials = f"- Cathode: {cur_cat}\n- Anode: {cur_ano}\n- Cap: {cur_cap} mAh/g\n- Volt: {cur_volt} V\n- Target Energy: {cur_te} Wh/kg"
+
+                        api_key = st.secrets["GEMINI_API_KEY"] if "Gemini" in st.session_state.engine_choice else st.secrets["OPENAI_API_KEY"]
+                        
+                        if synobot:
+                            diff_result = synobot.check_parameter_discrepancy(current_materials, st.session_state.engine_choice, api_key)
+                            st.session_state.param_diff_table = pd.DataFrame(diff_result)
+                    except Exception as e:
+                        st.error(f"검증 오류: {e}")
+
+            if "param_diff_table" in st.session_state and not st.session_state.param_diff_table.empty:
+                def highlight_mismatch(row):
+                    is_mismatch = '불일치' in str(row['상태']) or '⚠️' in str(row['상태'])
+                    return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
+                styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
+                st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
             st.markdown("---")
             
             a1, a2, a3, a4, a5 = st.columns(5)
@@ -402,14 +435,14 @@ if is_pro and st.session_state.get('is_admin', False):
                 except Exception as e: pass
 
 # -----------------------------------------------------------------------------
-# 5. 메인 UI 및 시뮬레이터 본문 (이전 코드 동일)
+# 5. 메인 UI 및 시뮬레이터 본문
 # -----------------------------------------------------------------------------
 col_left, col_main, col_bot = st.columns([0.02, 0.70, 0.28], gap="small")
 
 with col_left: st.empty() 
 
 with col_main:
-    # --- 가입 및 프로필 영역 (생략 없이 원본 유지) ---
+    # --- 가입 및 프로필 영역 ---
     if st.session_state.show_reg and not st.session_state.logged_in:
         with st.container(border=True):
             st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
@@ -918,10 +951,10 @@ with col_main:
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
                         components.html("<script>window.parent.print();</script>", height=0)
 
-# -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 [완벽한 역순 정렬 & 신규 인사말 적용]
-# -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# 🤖 시노봇 (SynoBot beta) 패널 [완벽한 역순 정렬 & 자동 스크롤 적용]
+# -----------------------------------------------------------------------------
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
     if user_input.strip():
@@ -932,7 +965,7 @@ def handle_chat_submit():
 
 if col_bot:
     with col_bot:
-        st.markdown("#### 🤖 SynoBot (Pro Max)")
+        st.markdown("#### 🤖 SynoBot (beta)")
         
         c_in1, c_in2 = st.columns([0.75, 0.25])
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="Tdb 문서나 SIB 기술에 대해 질문하세요...", key="bot_user_input", on_change=handle_chat_submit)
@@ -942,7 +975,6 @@ if col_bot:
         with chat_container:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             
-            # API 키 불러오기
             try:
                 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
                 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -950,11 +982,10 @@ if col_bot:
                 st.warning("⚠️ `.streamlit/secrets.toml`에 API 키를 설정해주세요.")
                 st.stop()
 
-            # [수정 1] 요청하신 새로운 인사말 반영
             if not st.session_state.chat_messages: 
                 st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."}]
 
-            # 1. 시뮬레이션 직후 자동 브리핑 
+            # 1. 시뮬레이션 직후 자동 브리핑
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
@@ -969,45 +1000,59 @@ if col_bot:
                             except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # [수정 2] 모든 순서를 완벽한 '최신순(역순)'으로 정렬
+            # 2. 챗봇 질문-응답 처리 및 스트리밍
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
-                # (A) 방금 들어온 최신 답변을 가장 먼저(최상단) 출력하며 스트리밍
                 if synobot:
                     with st.chat_message("assistant"):
                         with st.spinner("시노코어 기술 데이터베이스(Tdb) 분석 중..."):
                             try:
                                 messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
+                                api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
                                 
                                 if "Gemini" in st.session_state.engine_choice:
-                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, GEMINI_API_KEY)
+                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key)
                                 else:
-                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, OPENAI_API_KEY)
-                                
+                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key)
+
                                 reply = st.write_stream(stream_gen)
                                 
-                                # 스트리밍 완료 후 대화 기록 배열의 맨 끝에 정식 추가
+                                # 대화 기록에 답변 추가
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                                 
                             except Exception as e: st.error(f"AI 응답 오류: {e}")
                 
-                # (B) 나머지 모든 과거 대화(최신 질문 및 인사말 포함)를 순서대로 역순 출력
                 # 방금 추가된 최신 답변(마지막 요소)을 제외한 나머지를 역순으로 순회
                 for message in reversed(st.session_state.chat_messages[:-1]):
                     with st.chat_message(message["role"]):
-                        content = message["content"].replace("\n- ", "\n\n\- ")
-                        if content.startswith("- "): content = "\- " + content[2:]
+                        content = message["content"].replace("\n- ", "\n\n- ")
+                        if content.startswith("- "): content = "- " + content[2:]
                         st.markdown(content)
                         
             else:
-                # 일반 렌더링 시 (항상 완벽한 최신순 정렬: 최신 답변 -> 최신 질문 -> ... -> 첫 인사말)
+                # 일반 렌더링 시 (항상 완벽한 최신순 정렬)
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
-                        content = message["content"].replace("\n- ", "\n\n\- ")
-                        if content.startswith("- "): content = "\- " + content[2:]
+                        content = message["content"].replace("\n- ", "\n\n- ")
+                        if content.startswith("- "): content = "- " + content[2:]
                         st.markdown(content)
+
+        # [스크롤 마법] 채팅 컨테이너가 렌더링 된 직후 무조건 맨 위(0)로 올리기
+        components.html(
+            """
+            <script>
+            var containers = window.parent.document.querySelectorAll('.stScrollToBottom, .stScrollableContainer, [data-testid="stVerticalBlock"]');
+            if (containers && containers.length > 0) {
+                containers.forEach(function(container) {
+                    container.scrollTop = 0;
+                });
+            }
+            </script>
+            """,
+            height=0
+        )
 
 # 7. 푸터 
 st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.<br><i>* All simulation logic is based on verified electrochemical models (Newman-type) and official material data from partners.</i></div>", unsafe_allow_html=True)
