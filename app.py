@@ -340,14 +340,14 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
-# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재 + 파라미터 검증 기능 추가)
+# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재 + 파라미터 검증 기능 하단 배치)
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
-            # [신규 추가: AI 엔진 마스터 스위치]
+            # [AI 엔진 마스터 스위치]
             st.session_state.engine_choice = st.radio(
                 "🧠 AI 엔진 마스터 스위치",
                 ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"],
@@ -357,39 +357,7 @@ if is_pro and st.session_state.get('is_admin', False):
             st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
             st.markdown("---")
             
-            # [신규 추가] 🔍 Tdb 파라미터 실시간 검증
-            st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
-            col_t, col_b = st.columns([0.8, 0.2])
-            refresh_clicked = col_b.button("🔄 새로고침", key="admin_refresh_btn")
-
-            if refresh_clicked or "param_diff_table" not in st.session_state:
-                with st.spinner("Tdb 문서와 현재 파라미터를 비교 분석 중입니다..."):
-                    try:
-                        cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
-                        cur_ano = st.session_state.get('sel_ano_m', '알 수 없음')
-                        cur_cap = st.session_state.get('cap_s', 160.0)
-                        cur_volt = st.session_state.get('volt_s', 3.05)
-                        cur_te = st.session_state.get('te_s', 100.0)
-
-                        current_materials = f"- Cathode: {cur_cat}\n- Anode: {cur_ano}\n- Cap: {cur_cap} mAh/g\n- Volt: {cur_volt} V\n- Target Energy: {cur_te} Wh/kg"
-
-                        api_key = st.secrets["GEMINI_API_KEY"] if "Gemini" in st.session_state.engine_choice else st.secrets["OPENAI_API_KEY"]
-                        
-                        if synobot:
-                            diff_result = synobot.check_parameter_discrepancy(current_materials, st.session_state.engine_choice, api_key)
-                            st.session_state.param_diff_table = pd.DataFrame(diff_result)
-                    except Exception as e:
-                        st.error(f"검증 오류: {e}")
-
-            if "param_diff_table" in st.session_state and not st.session_state.param_diff_table.empty:
-                def highlight_mismatch(row):
-                    is_mismatch = '불일치' in str(row['상태']) or '⚠️' in str(row['상태'])
-                    return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
-                styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
-                st.dataframe(styled_df, use_container_width=True, hide_index=True)
-
-            st.markdown("---")
-            
+            # 1️⃣ [UI 상단 우선 렌더링] 주요 관리자 버튼 및 인라인 DB 편집기
             a1, a2, a3, a4, a5 = st.columns(5)
             if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
             if a2.button("🔋 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
@@ -433,6 +401,39 @@ if is_pro and st.session_state.get('is_admin', False):
                         if st.button("💾 변경사항 클라우드에 저장", type="primary"):
                             conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
                 except Exception as e: pass
+
+            st.markdown("---")
+            
+            # 2️⃣ [하단 백그라운드 처리 체감] Tdb 파라미터 실시간 검증
+            st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
+            col_t, col_b = st.columns([0.8, 0.2])
+            refresh_clicked = col_b.button("🔄 새로고침", key="admin_refresh_btn")
+
+            if refresh_clicked or "param_diff_table" not in st.session_state:
+                with st.spinner("Tdb 문서와 현재 파라미터를 비교 분석 중입니다..."):
+                    try:
+                        cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
+                        cur_ano = st.session_state.get('sel_ano_m', '알 수 없음')
+                        cur_cap = st.session_state.get('cap_s', 160.0)
+                        cur_volt = st.session_state.get('volt_s', 3.05)
+                        cur_te = st.session_state.get('te_s', 100.0)
+
+                        current_materials = f"- Cathode: {cur_cat}\n- Anode: {cur_ano}\n- Cap: {cur_cap} mAh/g\n- Volt: {cur_volt} V\n- Target Energy: {cur_te} Wh/kg"
+
+                        api_key = st.secrets["GEMINI_API_KEY"] if "Gemini" in st.session_state.engine_choice else st.secrets["OPENAI_API_KEY"]
+                        
+                        if synobot:
+                            diff_result = synobot.check_parameter_discrepancy(current_materials, st.session_state.engine_choice, api_key)
+                            st.session_state.param_diff_table = pd.DataFrame(diff_result)
+                    except Exception as e:
+                        st.error(f"검증 오류: {e}")
+
+            if "param_diff_table" in st.session_state and not st.session_state.param_diff_table.empty:
+                def highlight_mismatch(row):
+                    is_mismatch = '불일치' in str(row['상태']) or '⚠️' in str(row['상태'])
+                    return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
+                styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
+                st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # 5. 메인 UI 및 시뮬레이터 본문
