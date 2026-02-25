@@ -347,17 +347,28 @@ if is_pro and st.session_state.get('is_admin', False):
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
-            # [AI 엔진 마스터 스위치] - 강제 고정 방식 (버그 원천 차단)
-            current_idx = 0 if "Gemini" in st.session_state.get("engine_choice", "Gemini") else 1
+            # ---------------------------------------------------------
+            # [AI 엔진 마스터 스위치] - st.rerun()을 이용한 절대 고정 로직
+            # ---------------------------------------------------------
+            engine_options = ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
-            sel_engine = st.radio(
+            # 현재 세션값에 맞는 인덱스 찾기
+            current_val = st.session_state.get("engine_choice", engine_options[0])
+            current_idx = 0 if "Gemini" in current_val else 1
+            
+            # 위젯 렌더링 (key 없이 순수 제어)
+            selected_engine = st.radio(
                 "🧠 AI 엔진 마스터 스위치",
-                ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"],
+                engine_options,
                 index=current_idx,
                 horizontal=True
             )
-            st.session_state.engine_choice = sel_engine
             
+            # ✨ 핵심: 값이 변경되는 즉시 세션에 저장하고 강제로 자체 새로고침(동기화)
+            if selected_engine != current_val:
+                st.session_state.engine_choice = selected_engine
+                st.rerun()
+                
             st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
             st.markdown("---")
             
