@@ -40,32 +40,32 @@ def load_tdb_documents():
     if not os.path.exists(TDB_DIR):
         return "SynoBot_db 폴더를 찾을 수 없습니다."
 
-    # 모든 파일(*.*)을 검색하도록 수정
+# 모든 하위 폴더(**)를 샅샅이 뒤져서 txt와 pdf를 모두 찾습니다.
     files = glob.glob(os.path.join(TDB_DIR, "**/*.*"), recursive=True)
     
+    found_any = False
     for file_path in files:
+        # 폴더는 건너뛰고 파일만 처리
+        if os.path.isdir(file_path): continue
+        
         ext = os.path.splitext(file_path)[1].lower()
         file_name = os.path.basename(file_path)
         
         try:
-            # [A] 텍스트 파일인 경우
             if ext == ".txt":
                 with open(file_path, "r", encoding="utf-8") as f:
-                    context += f"\n\n--- [출처: {file_name}] ---\n"
-                    context += f.read()
-            
-            # [B] PDF 파일인 경우 (신규 추가)
-            elif ext == ".pdf":
-                if PdfReader:
-                    reader = PdfReader(file_path)
-                    pdf_text = ""
-                    for page in reader.pages:
-                        pdf_text += page.extract_text() + "\n"
+                    context += f"\n\n--- [출처: {file_name}] ---\n{f.read()}"
+                    found_any = True
+            elif ext == ".pdf" and PdfReader:
+                reader = PdfReader(file_path)
+                pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                if pdf_text.strip():
                     context += f"\n\n--- [출처: {file_name}] ---\n{pdf_text}"
-        except Exception as e:
-            context += f"\n[오류: {file_name} 읽기 실패 - {str(e)}]"
+                    found_any = True
+        except Exception:
+            pass
 
-    return context
+    return context if found_any else "폴더 내에 읽을 수 있는 유효한 문서가 없습니다."
 
 # =====================================================================
 # [엔진 1] 제미나이(Gemini 2.5 Flash) 스트리밍 - 최신 엔진 적용 완료
