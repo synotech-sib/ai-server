@@ -46,7 +46,7 @@ def load_tdb_documents():
     return context
 
 # =====================================================================
-# [엔진 1] 제미나이(Gemini 1.5 Flash) 스트리밍
+# [엔진 1] 제미나이(Gemini 2.5 Flash) 스트리밍 - 최신 엔진 적용 완료
 # =====================================================================
 def get_gemini_response_stream(messages, sim_result, api_key):
     if genai is None:
@@ -54,8 +54,9 @@ def get_gemini_response_stream(messages, sim_result, api_key):
         return
         
     genai.configure(api_key=api_key)
+    # 🚨 구형 1.5에서 최신 2.5 모델로 엔진명 변경 🚨
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.5-flash", 
         system_instruction=SYSTEM_PROMPT
     )
     
@@ -128,7 +129,8 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
     if "Gemini" in engine_choice and genai is not None:
         try:
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=sys_content)
+            # 🚨 구형 1.5에서 최신 2.5 모델로 엔진명 변경 🚨
+            model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=sys_content)
             response = model.generate_content(user_prompt)
             return response.text
         except Exception as e:
