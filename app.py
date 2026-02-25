@@ -340,7 +340,7 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
-# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재 + 파라미터 검증 기능 하단 배치)
+# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재 + 파라미터 수동 검증 변경)
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
@@ -404,12 +404,13 @@ if is_pro and st.session_state.get('is_admin', False):
 
             st.markdown("---")
             
-            # 2️⃣ [하단 백그라운드 처리 체감] Tdb 파라미터 실시간 검증
+            # 2️⃣ [White Screen 방지용] Tdb 파라미터 수동 검증 로직으로 변경
             st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
             col_t, col_b = st.columns([0.8, 0.2])
             refresh_clicked = col_b.button("🔄 새로고침", key="admin_refresh_btn")
 
-            if refresh_clicked or "param_diff_table" not in st.session_state:
+            # 버튼 클릭시에만 검증 실행 (앱 뻗음 방지)
+            if refresh_clicked:
                 with st.spinner("Tdb 문서와 현재 파라미터를 비교 분석 중입니다..."):
                     try:
                         cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
@@ -428,12 +429,15 @@ if is_pro and st.session_state.get('is_admin', False):
                     except Exception as e:
                         st.error(f"검증 오류: {e}")
 
+            # 테이블이 존재하면 렌더링 (단, 검증이 끝난 이후에만 표시)
             if "param_diff_table" in st.session_state and not st.session_state.param_diff_table.empty:
                 def highlight_mismatch(row):
                     is_mismatch = '불일치' in str(row['상태']) or '⚠️' in str(row['상태'])
                     return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
                 styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            elif not refresh_clicked:
+                st.info("💡 우측의 '🔄 새로고침' 버튼을 누르면 AI가 Tdb 문서와 현재 파라미터를 비교 검증합니다.")
 
 # -----------------------------------------------------------------------------
 # 5. 메인 UI 및 시뮬레이터 본문
@@ -833,7 +837,7 @@ with col_main:
                     r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{round(res['Wh/kg'] - v_te, 1):+} Wh/kg")
                     r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L", delta=" - ", delta_color="off")
-                    r3.metric("Cell Voltage", f"{res['Cell_V']} V", delta=f"{round(res['Cell_V'] - v_volt, 2):+} V", delta_color="inverse")
+                    r3.metric("Cell Voltage", f"{res['Cell_V']} 양", delta=f"{round(res['Cell_V'] - v_volt, 2):+} V", delta_color="inverse")
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{int(res['Life(Cyc)'] - v_tl):+} Cyc")
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
