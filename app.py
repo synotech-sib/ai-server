@@ -76,6 +76,10 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
+    /* Selectbox 드롭다운 텍스트 래핑(말줄임 방지) 강제 CSS */
+    div[data-baseweb="select"] > div { white-space: normal !important; word-wrap: break-word !important; min-height: 40px; }
+    div[role="listbox"] li { white-space: normal !important; word-wrap: break-word !important; padding-top: 10px; padding-bottom: 10px; }
+    
     div[data-testid="stSelectbox"] label p { font-size: 16px !important; font-weight: bold !important; color: #222 !important; }
     div[data-testid="stTextInput"] label, div[data-testid="stTextInput"] label * { font-size: 16px !important; font-weight: 500 !important; color: #222 !important; } 
     div[data-testid="stCheckbox"] label p { font-size: 15px !important; color: #222 !important; font-weight: normal !important; } 
@@ -87,13 +91,25 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 인쇄 제어 */
+    /* PDF 인쇄 시 내용 안 보임 완벽 해결 CSS */
     @media print {
-        header, footer, [data-testid="stSidebar"] { display: none !important; }
+        header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
+        button { display: none !important; }
+        
+        /* 인쇄 시 스크롤 컨테이너의 고정 높이 강제 해제 (잘림 방지) */
+        .stScrollableContainer, div[data-testid="stVerticalBlock"], .main .block-container { 
+            height: auto !important; 
+            max-height: none !important; 
+            overflow: visible !important; 
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        
+        /* 좌측 여백, 챗봇 패널 숨김 처리 */
         div[data-testid="stHorizontalBlock"] > div:nth-child(1),
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
-        button { display: none !important; }
+        
         div[data-testid="element-container"]:has(#section4-anchor),
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -352,11 +368,9 @@ if is_pro and st.session_state.get('is_admin', False):
             # ---------------------------------------------------------
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
-            # 1. 위젯 변수가 증발했으면 영구 변수에서 즉각 복구
             if "engine_radio_widget" not in st.session_state:
                 st.session_state["engine_radio_widget"] = st.session_state.get("engine_choice", engine_opts[0])
 
-            # 2. 라디오 버튼 렌더링
             selected_engine = st.radio(
                 "🧠 AI 엔진 마스터 스위치",
                 engine_opts,
@@ -364,15 +378,13 @@ if is_pro and st.session_state.get('is_admin', False):
                 horizontal=True
             )
             
-            # 3. 사용자가 스위치를 조작해 값이 바뀌면 영구 변수에 덮어쓰기
             if selected_engine != st.session_state.get("engine_choice"):
                 st.session_state.engine_choice = selected_engine
             # ---------------------------------------------------------
             
-            st.info("📂 연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)")
+            st.info("☁️ 연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)")
             st.markdown("---")
             
-            # 1️⃣ [UI 상단 우선 렌더링] 주요 관리자 버튼 및 인라인 DB 편집기
             a1, a2, a3, a4, a5 = st.columns(5)
             if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
             if a2.button("🔋 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
@@ -419,12 +431,10 @@ if is_pro and st.session_state.get('is_admin', False):
 
             st.markdown("---")
             
-            # 2️⃣ [White Screen 방지용] Tdb 파라미터 수동 검증 로직으로 변경
             st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
             col_t, col_b = st.columns([0.8, 0.2])
             refresh_clicked = col_b.button("🔄 새로고침", key="admin_refresh_btn")
 
-            # 버튼 클릭시에만 검증 실행 (앱 뻗음 방지)
             if refresh_clicked:
                 with st.spinner("Tdb 문서와 현재 파라미터를 비교 분석 중입니다..."):
                     try:
@@ -444,7 +454,6 @@ if is_pro and st.session_state.get('is_admin', False):
                     except Exception as e:
                         st.error(f"검증 오류: {e}")
 
-            # 테이블이 존재하면 렌더링 (단, 검증이 끝난 이후에만 표시)
             if "param_diff_table" in st.session_state and not st.session_state.param_diff_table.empty:
                 def highlight_mismatch(row):
                     is_mismatch = '불일치' in str(row['상태']) or '⚠️' in str(row['상태'])
@@ -584,6 +593,9 @@ with col_main:
         st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
         sp1, c_1 = st.columns([0.03, 0.97])
         with c_1:
+            if not st.session_state.logged_in:
+                st.info("🔒 **비로그인 상태 안내:** 일부 제조사 정보가 마스킹(OOO) 처리되며, 정확한 클라우드 DB 연동 없이 표준 샘플값으로만 동작합니다. 상세 DB 연동 및 VIP 전용 기능은 로그인이 필요합니다.")
+
             with st.container(border=True):
                 physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
                 df_vip = load_cloud_data(URL_MATS, physical_ws) if is_pro and st.session_state.workspace != "general_user" else pd.DataFrame()
@@ -595,26 +607,48 @@ with col_main:
                 m1, m2, m3, m4 = st.columns(4)
                 cat_list = mat_df[mat_df['Category']=='Cathode']['Name'].tolist() if not mat_df.empty else ["Sample Cathode"]
                 ano_list = mat_df[mat_df['Category']=='Anode']['Name'].tolist() if not mat_df.empty else ["Sample Anode"]
+                elec_list = mat_df[mat_df['Category']=='Electrolyte']['Name'].tolist() if not mat_df.empty else []
+                sep_list = mat_df[mat_df['Category']=='Separator']['Name'].tolist() if not mat_df.empty else []
+                
+                if not elec_list: elec_list = ["Sample Elec"]
+                if not sep_list: sep_list = ["Sample Sep"]
+
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                 
+                # 비로그인 마스킹 처리 함수
                 def format_mat_name(name): 
                     prefix = "💎 " if name in vip_names else ""
-                    if any(p in name for p in ["Tiamat", "Altris", "HiNa"]): prefix += "☑️ "
+                    if any(p in name for p in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]): prefix += "☑️ "
+                    
+                    if not st.session_state.logged_in:
+                        for comp in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]:
+                            if comp in name:
+                                name = name.replace(comp, comp[0] + "OOO")
                     return f"{prefix}{name}"
                 
                 with m1: cat_sel = st.selectbox("Cathode", cat_list, format_func=format_mat_name, key="sel_cat_m")
                 with m2: ano_sel = st.selectbox("Anode", ano_list, format_func=format_mat_name, key="sel_ano_m")
-                with m3: st.selectbox("Electrolyte", ["Sample Elec"], key="sel_ele_m")
-                with m4: st.selectbox("Separator", ["Sample Sep"], key="sel_sep_m")
+                with m3: st.selectbox("Electrolyte", elec_list, format_func=format_mat_name, key="sel_ele_m")
+                with m4: st.selectbox("Separator", sep_list, format_func=format_mat_name, key="sel_sep_m")
                 
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
-                init_vals = {
-                    "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "c_den": safe_float(row.get('Den_Def'), 4.5), 
-                    "a_den": 2.1, "life": safe_float(row.get('Life_Def'), 4000.0),
-                    "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
-                    "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
-                    "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
-                }
+                
+                # 로그인 상태에 따른 기본값 분기 (게스트는 정확한 DB값 차단)
+                if not st.session_state.logged_in:
+                    init_vals = {
+                        "cap": 150.0, "volt": 3.00, "c_den": 4.0, "a_den": 2.0, "life": 2000.0,
+                        "c_lod": 15.0, "c_press": 2.50, "c_act": 95.0, "c_bin": 2.5, "c_con": 2.5, "c_foil": 15.0,
+                        "np": 1.10, "a_press": 1.50, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
+                        "ec": 3.0, "sep_thick": 16.0, "te": 150.0, "tc": 1.0, "tl": 2000.0 
+                    }
+                else:
+                    init_vals = {
+                        "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "c_den": safe_float(row.get('Den_Def'), 4.5), 
+                        "a_den": 2.1, "life": safe_float(row.get('Life_Def'), 4000.0),
+                        "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
+                        "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
+                        "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
+                    }
 
         qp = st.query_params
         for k, v in init_vals.items():
