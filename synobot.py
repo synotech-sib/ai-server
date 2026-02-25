@@ -33,7 +33,7 @@ You are 'SynoBot', an elite SIB R&D engineer and global technical advisor for Sy
 # =====================================================================
 # [동적 지식 창고 연동] - SynoCore/SynoBot_db 폴더 읽기
 # =====================================================================
-TDB_DIR = "G:/내 드라이브/SynoCore/SynoBot_db" 
+TDB_DIR = "./SynoBot_db" 
 
 def load_tdb_documents():
     context = ""
