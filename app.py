@@ -348,22 +348,25 @@ if is_pro and st.session_state.get('is_admin', False):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
             # ---------------------------------------------------------
-            # [AI 엔진 마스터 스위치] - 완벽 분리/격리 방식 (상태 날아감 절대 방지)
+            # [AI 엔진 마스터 스위치] - 절대 풀리지 않는 완벽 동기화 로직
             # ---------------------------------------------------------
-            if "ui_engine_selector" not in st.session_state:
-                st.session_state["ui_engine_selector"] = st.session_state.engine_choice
-                
-            def sync_engine():
-                # 라디오 버튼이 눌리면 이 함수가 즉각적으로 메인 변수에 값을 찔러 넣습니다.
-                st.session_state.engine_choice = st.session_state.ui_engine_selector
+            engine_opts = ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
+            
+            # 1. 위젯 변수가 증발했으면 영구 변수에서 즉각 복구
+            if "engine_radio_widget" not in st.session_state:
+                st.session_state["engine_radio_widget"] = st.session_state.get("engine_choice", engine_opts[0])
 
-            st.radio(
+            # 2. 라디오 버튼 렌더링
+            selected_engine = st.radio(
                 "🧠 AI 엔진 마스터 스위치",
-                ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"],
-                key="ui_engine_selector",
-                on_change=sync_engine,
+                engine_opts,
+                key="engine_radio_widget",
                 horizontal=True
             )
+            
+            # 3. 사용자가 스위치를 조작해 값이 바뀌면 영구 변수에 덮어쓰기
+            if selected_engine != st.session_state.get("engine_choice"):
+                st.session_state.engine_choice = selected_engine
             # ---------------------------------------------------------
             
             st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
