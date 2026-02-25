@@ -246,7 +246,7 @@ default_vars = {
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
     'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1,
-    'engine_choice': "Gemini 1.5 Flash (기본/쾌속)"  # 엔진 스위치 기본값
+    'engine_choice': "Gemini 1.5 Flash (기본/쾌속)"  # 시스템 내부 기준 엔진 변수
 }
 
 for key, val in default_vars.items():
@@ -348,27 +348,24 @@ if is_pro and st.session_state.get('is_admin', False):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
             # ---------------------------------------------------------
-            # [AI 엔진 마스터 스위치] - st.rerun()을 이용한 절대 고정 로직
+            # [AI 엔진 마스터 스위치] - 완벽 분리/격리 방식 (상태 날아감 절대 방지)
             # ---------------------------------------------------------
-            engine_options = ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
-            
-            # 현재 세션값에 맞는 인덱스 찾기
-            current_val = st.session_state.get("engine_choice", engine_options[0])
-            current_idx = 0 if "Gemini" in current_val else 1
-            
-            # 위젯 렌더링 (key 없이 순수 제어)
-            selected_engine = st.radio(
+            if "ui_engine_selector" not in st.session_state:
+                st.session_state["ui_engine_selector"] = st.session_state.engine_choice
+                
+            def sync_engine():
+                # 라디오 버튼이 눌리면 이 함수가 즉각적으로 메인 변수에 값을 찔러 넣습니다.
+                st.session_state.engine_choice = st.session_state.ui_engine_selector
+
+            st.radio(
                 "🧠 AI 엔진 마스터 스위치",
-                engine_options,
-                index=current_idx,
+                ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"],
+                key="ui_engine_selector",
+                on_change=sync_engine,
                 horizontal=True
             )
+            # ---------------------------------------------------------
             
-            # ✨ 핵심: 값이 변경되는 즉시 세션에 저장하고 강제로 자체 새로고침(동기화)
-            if selected_engine != current_val:
-                st.session_state.engine_choice = selected_engine
-                st.rerun()
-                
             st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
             st.markdown("---")
             
@@ -852,7 +849,7 @@ with col_main:
                     r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Energy Density", f"{res['Wh/kg']} Wh/kg", delta=f"{round(res['Wh/kg'] - v_te, 1):+} Wh/kg")
                     r2.metric("Volumetric Density", f"{res.get('Wh/L', 0)} Wh/L", delta=" - ", delta_color="off")
-                    r3.metric("Cell Voltage", f"{res['Cell_V']} 양", delta=f"{round(res['Cell_V'] - v_volt, 2):+} V", delta_color="inverse")
+                    r3.metric("Cell Voltage", f"{res['Cell_V']} V", delta=f"{round(res['Cell_V'] - v_volt, 2):+} V", delta_color="inverse")
                     r4.metric("Expected Life", f"{res['Life(Cyc)']:,} Cyc", delta=f"{int(res['Life(Cyc)'] - v_tl):+} Cyc")
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
