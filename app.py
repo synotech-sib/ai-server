@@ -919,7 +919,7 @@ with col_main:
                         components.html("<script>window.parent.print();</script>", height=0)
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot) AI 패널 [듀얼 엔진 & 스트리밍 & 완벽한 역순 정렬 적용]
+# 🤖 시노봇 (SynoBot) AI 패널 [완벽한 역순 정렬 & 신규 인사말 적용]
 # -----------------------------------------------------------------------------
 
 def handle_chat_submit():
@@ -950,11 +950,11 @@ if col_bot:
                 st.warning("⚠️ `.streamlit/secrets.toml`에 API 키를 설정해주세요.")
                 st.stop()
 
-            # [수정] 대표님이 요청하신 새로운 인사말
+            # [수정 1] 요청하신 새로운 인사말 반영
             if not st.session_state.chat_messages: 
                 st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."}]
 
-            # 1. 시뮬레이션 직후 자동 브리핑 (최상단 노출)
+            # 1. 시뮬레이션 직후 자동 브리핑 
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
@@ -969,11 +969,11 @@ if col_bot:
                             except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 일반 채팅 스트리밍 출력 (최신 답변이 항상 1등으로 최상단에 오게 로직 변경)
+            # [수정 2] 모든 순서를 완벽한 '최신순(역순)'으로 정렬
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
-                # (A) 봇의 최신 답변을 가장 먼저(최상단에) 출력하며 스트리밍
+                # (A) 방금 들어온 최신 답변을 가장 먼저(최상단) 출력하며 스트리밍
                 if synobot:
                     with st.chat_message("assistant"):
                         with st.spinner("시노코어 기술 데이터베이스(Tdb) 분석 중..."):
@@ -986,25 +986,23 @@ if col_bot:
                                     stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, OPENAI_API_KEY)
                                 
                                 reply = st.write_stream(stream_gen)
+                                
+                                # 스트리밍 완료 후 대화 기록 배열의 맨 끝에 정식 추가
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                                 
                             except Exception as e: st.error(f"AI 응답 오류: {e}")
                 
-                # (B) 방금 입력한 유저의 최신 질문 출력 (두 번째 자리)
-                latest_user_msg = st.session_state.chat_messages[-2]
-                with st.chat_message(latest_user_msg["role"]):
-                    st.markdown(latest_user_msg["content"])
-                    
-                # (C) 나머지 과거 대화 역순 출력 (세 번째 ~ 맨 밑 인사말까지)
-                for message in reversed(st.session_state.chat_messages[:-2]):
+                # (B) 나머지 모든 과거 대화(최신 질문 및 인사말 포함)를 순서대로 역순 출력
+                # 방금 추가된 최신 답변(마지막 요소)을 제외한 나머지를 역순으로 순회
+                for message in reversed(st.session_state.chat_messages[:-1]):
                     with st.chat_message(message["role"]):
                         content = message["content"].replace("\n- ", "\n\n\- ")
                         if content.startswith("- "): content = "\- " + content[2:]
                         st.markdown(content)
                         
             else:
-                # 일반 렌더링 시 (항상 최신 대화가 맨 위에 오도록 완벽한 역순 출력)
+                # 일반 렌더링 시 (항상 완벽한 최신순 정렬: 최신 답변 -> 최신 질문 -> ... -> 첫 인사말)
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
                         content = message["content"].replace("\n- ", "\n\n\- ")
