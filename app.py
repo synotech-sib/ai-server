@@ -347,11 +347,16 @@ if is_pro and st.session_state.get('is_admin', False):
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
-            # [AI 엔진 마스터 스위치] - 핵심 수정 사항: key="engine_choice" 적용
+            # [AI 엔진 마스터 스위치] - 콜백 함수를 사용한 고정 로직
+            def update_engine_state():
+                st.session_state.engine_choice = st.session_state._engine_ui_key
+
             st.radio(
                 "🧠 AI 엔진 마스터 스위치",
                 ["Gemini 1.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"],
-                key="engine_choice",
+                index=0 if "Gemini" in st.session_state.get("engine_choice", "Gemini") else 1,
+                key="_engine_ui_key",
+                on_change=update_engine_state,
                 horizontal=True
             )
             st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
