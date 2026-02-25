@@ -91,24 +91,36 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 인쇄 시 내용 안 보임 완벽 해결 CSS */
+    /* PDF 인쇄 시 화면 그대로 1:1 출력되도록 완벽 고정 CSS (WYSIWYG 강제 적용) */
     @media print {
         header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
         button { display: none !important; }
         
+        .main .block-container { 
+            max-width: 100% !important; 
+            width: 100% !important; 
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
         /* 인쇄 시 스크롤 컨테이너의 고정 높이 강제 해제 (잘림 방지) */
-        .stScrollableContainer, div[data-testid="stVerticalBlock"], .main .block-container { 
+        .stScrollableContainer, div[data-testid="stVerticalBlock"] { 
             height: auto !important; 
             max-height: none !important; 
             overflow: visible !important; 
-            width: 100% !important;
-            max-width: 100% !important;
         }
         
-        /* 좌측 여백, 챗봇 패널 숨김 처리 */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(1),
-        div[data-testid="stHorizontalBlock"] > div:nth-child(3) { display: none !important; }
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
+        /* 컬럼(단)이 아래로 깨지지 않고 좌우로 강제 정렬되도록 고정 */
+        div[data-testid="stHorizontalBlock"] { 
+            display: flex !important; 
+            flex-direction: row !important; 
+            flex-wrap: nowrap !important; 
+        }
+        
+        /* 좌측 여백 숨김, 메인 패널 0.72 비율 유지, 우측 챗봇 0.28 비율 유지 */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(1) { display: none !important; }
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) { flex: 7.2 !important; width: 72% !important; display: block !important; }
+        div[data-testid="stHorizontalBlock"] > div:nth-child(3) { flex: 2.8 !important; width: 28% !important; display: block !important; }
         
         div[data-testid="element-container"]:has(#section4-anchor),
         div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
@@ -262,7 +274,8 @@ default_vars = {
     'admin_view': None, 'admin_ws': None, 'chat_messages': [], 
     'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
     'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1,
-    'engine_choice': "Gemini 2.5 Flash (기본/쾌속)"  # 시스템 내부 기준 엔진 변수
+    'engine_choice': "Gemini 2.5 Flash (기본/쾌속)",  
+    'trigger_scroll_top': False # 시노봇 스크롤 방지용 변수 추가
 }
 
 for key, val in default_vars.items():
@@ -966,7 +979,7 @@ with col_main:
                                         if mask.any(): db_df_all.loc[mask, 'User Comment'] = row['User Comment']
                                     conn.update(spreadsheet=URL_LOGS, worksheet="myData", data=db_df_all); st.cache_data.clear()
                                 selected_times = edited_df[edited_df["선택"] == True]["Time"].tolist()
-                            else: st.info("클라우드 DB에 이전에 저장된 데이터가 없습니다.")
+                            else: st.info("클라우드 외에 저장된 데이터가 없습니다.")
                     except Exception as e: st.warning("데이터베이스 연결에 실패했습니다.")
 
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -1002,8 +1015,19 @@ with col_main:
                         file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
                     btn3.download_button("📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
+                    # 💡 [핵심 수정 포인트 1] PDF 인쇄 버튼 (JS 타임스탬프 주입으로 반복 인쇄 가능하도록 패치)
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
-                        components.html("<script>window.parent.print();</script>", height=0)
+                        components.html(
+                            f"""
+                            <script>
+                                // Timestamp: {time.time()} 
+                                setTimeout(function() {{
+                                    window.parent.print();
+                                }}, 500);
+                            </script>
+                            """,
+                            height=0, width=0
+                        )
 
 
 # -----------------------------------------------------------------------------
@@ -1015,6 +1039,7 @@ def handle_chat_submit():
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
         save_chat_log(st.session_state.user_email, st.session_state.workspace, "user", user_input)
         st.session_state.trigger_bot_reply = True
+        st.session_state.trigger_scroll_top = True  # 💡 [핵심 수정 포인트 3-1] 엔터 치는 즉시 최상단 스크롤 트리거 활성화
         st.session_state.bot_user_input = "" 
 
 if col_bot:
@@ -1027,6 +1052,23 @@ if col_bot:
         
         chat_container = st.container(height=730, border=True) 
         with chat_container:
+            # 💡 [핵심 수정 포인트 3-2] 최상단 앵커 및 자동 스크롤 JS 주입
+            st.markdown('<div id="chat-top"></div>', unsafe_allow_html=True)
+            if st.session_state.get('trigger_scroll_top', False):
+                components.html(
+                    f"""
+                    <script>
+                        // Timestamp: {time.time()} 
+                        var target = window.parent.document.getElementById('chat-top');
+                        if (target) {{
+                            target.scrollIntoView({{behavior: 'smooth', block: 'start'}});
+                        }}
+                    </script>
+                    """,
+                    height=0, width=0
+                )
+                st.session_state.trigger_scroll_top = False # 1회 작동 후 초기화
+
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             
             try:
