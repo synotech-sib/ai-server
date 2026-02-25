@@ -369,7 +369,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 st.session_state.engine_choice = selected_engine
             # ---------------------------------------------------------
             
-            st.info("📂 연동된 Tdb 외부 경로: `SynoBot_db/` 폴더 내 전체 .txt 및 .pdf 파일")
+            st.info("📂 연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)")
             st.markdown("---")
             
             # 1️⃣ [UI 상단 우선 렌더링] 주요 관리자 버튼 및 인라인 DB 편집기
