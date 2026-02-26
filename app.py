@@ -289,7 +289,7 @@ default_vars = {
     'engine_choice': "Gemini 2.5 Flash (기본/쾌속)",  
     'trigger_scroll_top': False,
     'sponsor_logo_url': "",
-    'show_admin_panel': True # 관리자 패널 <-> 시뮬레이션 토글 변수
+    'show_admin_panel': True 
 }
 
 for key, val in default_vars.items():
@@ -419,7 +419,7 @@ with col_main:
                         synobot.load_tdb_documents()
                     st.success("Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
-            # [Tdb 운영 표준 가이드] (마크다운 오류 수정 및 HTML 적용)
+            # [Tdb 운영 표준 가이드]
             with st.expander("Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
                 <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">1. 파일 명명 규칙</div>
@@ -683,11 +683,29 @@ with col_main:
                     st.info("비로그인 상태 안내: 일부 제조사 정보가 마스킹(OOO) 처리되며, 정확한 클라우드 DB 연동 없이 표준 샘플값으로만 동작합니다. 상세 DB 연동 및 VIP 전용 기능은 로그인이 필요합니다.")
 
                 with st.container(border=True):
-                    physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
-                    df_vip = load_cloud_data(URL_MATS, physical_ws) if is_pro and st.session_state.workspace != "general_user" else pd.DataFrame()
+                    # 관리자일 경우 모든 VIP 목록을 통합해서 로드
                     _dfs = []
-                    if not df_vip.empty: tmp_vip = df_vip.copy(); tmp_vip['Is_VIP'] = True; _dfs.append(tmp_vip.iloc[::-1])
-                    if not mat_df_public.empty: tmp_pub = mat_df_public.copy(); tmp_pub['Is_VIP'] = False; _dfs.append(tmp_pub)
+                    if is_pro:
+                        if st.session_state.workspace == 'admin_master':
+                            vips = get_vip_list_exact()
+                            for v in vips:
+                                tmp = load_cloud_data(URL_MATS, v)
+                                if not tmp.empty: 
+                                    tmp_vip = tmp.copy()
+                                    tmp_vip['Is_VIP'] = True
+                                    _dfs.append(tmp_vip.iloc[::-1])
+                        elif st.session_state.workspace != "general_user":
+                            df_vip = load_cloud_data(URL_MATS, st.session_state.workspace)
+                            if not df_vip.empty: 
+                                tmp_vip = df_vip.copy()
+                                tmp_vip['Is_VIP'] = True
+                                _dfs.append(tmp_vip.iloc[::-1])
+                                
+                    if not mat_df_public.empty: 
+                        tmp_pub = mat_df_public.copy()
+                        tmp_pub['Is_VIP'] = False
+                        _dfs.append(tmp_pub)
+                        
                     mat_df = pd.concat(_dfs, ignore_index=True).drop_duplicates(subset=['Name'], keep='first') if _dfs else pd.DataFrame()
 
                     m1, m2, m3, m4 = st.columns(4)
