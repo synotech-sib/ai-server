@@ -407,6 +407,9 @@ with col_main:
             st.markdown("<p style='font-size: 15px; color: #555;'>연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)</p>", unsafe_allow_html=True)
             st.markdown("---")
             
+            # ---------------------------------------------------------
+            # 1. [DB 관리자] Tdb 스캔 및 OCR 동기화 + 관리자 종합 매뉴얼(검색)
+            # ---------------------------------------------------------
             col_db_t, col_db_b = st.columns([0.8, 0.2])
             col_db_t.markdown("### [DB 관리자] Tdb 스캔 및 OCR 동기화")
             if col_db_b.button("Tdb 스캔 및 OCR 실행", key="admin_sync_btn", use_container_width=True):
@@ -440,6 +443,9 @@ with col_main:
                 
             st.markdown("<hr style='border: 3px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
+            # ---------------------------------------------------------
+            # 2. [Master 관리자] Data 및 고객 관리
+            # ---------------------------------------------------------
             st.markdown("### [Master 관리자] Data 및 고객 관리")
             
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>1. AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
@@ -516,6 +522,9 @@ with col_main:
 
             st.markdown("---")
 
+            # ---------------------------------------------------------
+            # 3. [System 관리자] Parameter 실시간 검증
+            # ---------------------------------------------------------
             st.markdown("### [System 관리자] Parameter 실시간 검증")
             col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
             col_sys_text.markdown("<div style='padding-top: 10px; font-size: 15px; color: #333;'>현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다.</div>", unsafe_allow_html=True)
@@ -667,6 +676,7 @@ with col_main:
         with st.container(height=1000, border=False):
             st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
             
+            # [섹션 1]
             st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
@@ -709,7 +719,6 @@ with col_main:
 
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
-                    # 🌟 [디자인 개선] VIP 텍스트 대신 블루 다이아몬드(🔹) 특수기호 적용
                     def format_mat_name(name): 
                         prefix = "🔹 " if name in vip_names else ""
                         if not st.session_state.logged_in:
@@ -741,7 +750,6 @@ with col_main:
                             "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
                         }
 
-                # 🌟 [기능 복구 및 이름 변경] VIP 고객 전용 'My 전용 DB 추가' 패널
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
                     with st.expander("➕ My 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
                         st.info("💡 여기에 저장된 소재는 귀사의 전용 워크스페이스에만 안전하게 보관되며, 일반 유저에게는 노출되지 않습니다.")
@@ -1205,10 +1213,10 @@ if col_bot:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
                     with st.chat_message("assistant"):
-                        with st.spinner(f"{st.session_state.engine_choice.split(' ')[0]} 엔진으로 결과 분석 중..."):
+                        with st.spinner("SynoBot AI 엔진으로 결과 분석 중..."):
                             try:
                                 reply = synobot.generate_auto_briefing(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY)
-                                bot_reply = f"**[실시간 AI 진단 ({st.session_state.engine_choice.split(' ')[0]})]**\n\n" + reply
+                                bot_reply = "**[🤖 SynoBot 실시간 AI 진단]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                                 if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
