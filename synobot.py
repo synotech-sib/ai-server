@@ -12,13 +12,14 @@ try:
 except ImportError:
     PdfReader = None
 
-# OCR 추출 부품 (Google Cloud Vision & pdf2image)
+# [신규] OCR 추출 부품 (Google Cloud Vision & pdf2image)
 try:
     from google.cloud import vision
-    from google.oauth2 import service_account as vision_service_account
+    from google.api_core.client_options import ClientOptions
     from pdf2image import convert_from_bytes
 except ImportError:
     vision = None
+    ClientOptions = None
     convert_from_bytes = None
 
 # AI 엔진 부품
@@ -39,7 +40,7 @@ ADMIN_HELP_SOP = """
 [관리자 운영 수칙(SOP)]
 1. 파일명 규칙: [분류]_[연도]_[키워드]_[버전].pdf (MAT:소재, PRO:공정, ANL:논문, RPT:리포트)
 2. 파라미터 검증: 신규 문서를 업로드한 후, 기존 DB 설정값과 AI가 학습한 문서 내용의 차이를 대조하려면 '새로고침 (30초 소요)' 버튼을 클릭해야 함.
-3. OCR 처리: 텍스트 드래그가 안 되는 PDF는 Google Cloud Vision OCR 모듈을 가동해야 함.
+3. OCR 처리: 텍스트 드래그가 안 되는 PDF는 Google Cloud Vision OCR 모듈이 자동 가동되어 텍스트를 추출함.
 """
 
 def get_system_prompt(is_admin=False):
@@ -48,24 +49,36 @@ def get_system_prompt(is_admin=False):
 - 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오."""
     
     if is_admin:
+        # 관리자 전용: 출처 파일명 나열 + 운영 가이드 숙지
         return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [운영 수칙]을 바탕으로 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
     else:
+        # 일반 유저: 보안 처리 (고정 문구)
         return base_prompt + "\n- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.\n- 답변의 맨 마지막 줄에는 반드시 아래 문구를 정확히 그대로 추가하십시오:\n  \"[출처] 시노봇 AI가 학습한 내부 자료임.\""
 
+
 # =====================================================================
-# [2] Google Vision API (이미지 PDF 정밀 OCR)
+# [2] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
 # =====================================================================
 def extract_text_with_vision(pdf_bytes):
+    """
+    Google Cloud Vision API 키를 사용하여 스캔본 PDF에서 텍스트를 정밀 추출합니다.
+    """
     if not vision or not convert_from_bytes:
-        return "[시스템 알림: Vision API 라이브러리가 설치되지 않았습니다.]"
+        return "\n[시스템 알림: Vision API 관련 라이브러리(google-cloud-vision, pdf2image)가 서버에 설치되지 않았습니다.]"
+    
     try:
-        creds_info = st.secrets["google_vision_account"]
-        credentials = vision_service_account.Credentials.from_service_account_info(creds_info)
-        client = vision.ImageAnnotatorClient(credentials=credentials)
+        # 1. secrets.toml에서 발급받은 API 키 불러오기
+        api_key = st.secrets["GOOGLE_VISION_API_KEY"]
         
+        # 2. ClientOptions를 사용해 API 키 방식으로 Vision 클라이언트 인증
+        client_options = ClientOptions(api_key=api_key)
+        client = vision.ImageAnnotatorClient(client_options=client_options)
+        
+        # 3. PDF를 이미지 리스트로 변환 (해상도 200dpi)
         images = convert_from_bytes(pdf_bytes, dpi=200)
         extracted_text = ""
         
+        # 4. 각 페이지(이미지)마다 고정밀 텍스트 감지 수행
         for i, image in enumerate(images):
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='JPEG')
@@ -75,7 +88,7 @@ def extract_text_with_vision(pdf_bytes):
             response = client.document_text_detection(image=vision_image)
             
             if response.error.message:
-                raise Exception(f"{response.error.message}")
+                raise Exception(response.error.message)
                 
             if response.full_text_annotation:
                 extracted_text += f"\n--- [Page {i+1}] ---\n"
@@ -83,10 +96,11 @@ def extract_text_with_vision(pdf_bytes):
 
         return extracted_text
     except Exception as e:
-        return f"[OCR 추출 실패: {e}]"
+        return f"\n[OCR 추출 실패: {e}]"
+
 
 # =====================================================================
-# [3] 구글 드라이브 실시간 스캔 (OCR 탐지 기능 강화)
+# [3] 구글 드라이브 실시간 하위 폴더 스캔 (자동 OCR 연동)
 # =====================================================================
 def load_tdb_documents():
     context = ""
@@ -118,19 +132,21 @@ def load_tdb_documents():
 
                     if item['mimeType'] == 'text/plain':
                         content = fh.read().decode('utf-8', errors='ignore')
-                        inner_context += f"\n\n--- [파일명: {item['name']}] ---\n{content}"
+                        inner_context += f"\n\n--- [참조 데이터: {item['name']}] ---\n{content}"
+                    
                     elif item['mimeType'] == 'application/pdf' and PdfReader:
+                        # fh 데이터를 bytes로 추출
                         pdf_bytes = fh.getvalue()
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
                         
+                        # 일반 텍스트 추출 실패 시 (이미지 PDF인 경우 Vision API 호출)
                         if not pdf_text.strip():
-                            # [자동 OCR 변환 로직 연동 가능 - 현재는 경고만 띄우거나 아래처럼 바로 API 호출 가능]
-                            # ocr_text = extract_text_with_vision(pdf_bytes)
-                            # inner_context += f"\n\n--- [파일명: {item['name']}] (OCR 변환됨) ---\n{ocr_text}"
-                            inner_context += f"\n\n--- [파일명: {item['name']}] ---\n[내부 시스템 경고: 해당 파일은 텍스트가 없는 스캔본(이미지 PDF)이므로 내용 추출에 실패했습니다. 관리자 패널에서 고정밀 OCR 변환이 필요합니다.]"
+                            inner_context += f"\n\n--- [참조 데이터: {item['name']} (고정밀 OCR 자동 변환됨)] ---"
+                            ocr_text = extract_text_with_vision(pdf_bytes)
+                            inner_context += ocr_text
                         else:
-                            inner_context += f"\n\n--- [파일명: {item['name']}] ---\n{pdf_text}"
+                            inner_context += f"\n\n--- [참조 데이터: {item['name']}] ---\n{pdf_text}"
                 except Exception:
                     pass 
         return inner_context
@@ -138,8 +154,9 @@ def load_tdb_documents():
     context = recursive_fetch(FOLDER_ID)
     return context if context else "Tdb 폴더 내에 자료가 없습니다."
 
+
 # =====================================================================
-# [4] AI 엔진 챗봇 응답 및 파라미터 검증
+# [4] AI 엔진 챗봇 응답 함수 (관리자 분기 is_admin 적용)
 # =====================================================================
 def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False):
     genai.configure(api_key=api_key)
@@ -191,6 +208,9 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
     except Exception as e:
         return f"자동 브리핑 생성 오류: {e}"
 
+# =====================================================================
+# [5] Material 파라미터 검증 (표 출력용 JSON 생성)
+# =====================================================================
 def check_parameter_discrepancy(current_params, engine_choice, api_key):
     context = load_tdb_documents()
     prompt = f"""
