@@ -58,19 +58,19 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전) */
+    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 변경) */
     .stSpinner > div > div {
         border-color: #1A729A transparent transparent transparent !important;
         animation: spin 0.8s linear infinite !important;
-        border-width: 4px !important;
+        border-width: 8px !important; 
     }
     
     /* 새로고침 및 검증 버튼 전용 CSS */
-    div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button {
+    div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button, div.st-key-btn_master_run > button {
         width: auto !important;
-        padding-left: 20px !important;
-        padding-right: 20px !important;
-        min-width: 180px !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+        min-width: 140px !important;
     }
 
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px 10px; height: 120px; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; text-align: center !important; }
@@ -390,58 +390,65 @@ if is_pro and st.session_state.get('is_admin', False):
             
             st.markdown("---")
             
-            # [Admin Help 가이드 - 접이식]
-            with st.expander("📘 Tdb 운영 표준 가이드 (직원 필독)", expanded=False):
+            # ---------------------------------------------------------
+            # 1. [DB 관리자] Tdb 스캔 및 OCR 동기화
+            # ---------------------------------------------------------
+            col_db_t, col_db_b = st.columns([0.8, 0.2])
+            col_db_t.markdown("### 🗄️ [DB 관리자] Tdb 스캔 및 OCR 동기화")
+            if col_db_b.button("🔄 Tdb 스캔 및 OCR 실행", key="admin_sync_btn", use_container_width=True):
+                with st.spinner("구글 드라이브 스캔 및 이미지 PDF OCR 변환을 진행 중입니다. (문서량에 따라 시간 소요)..."):
+                    if synobot:
+                        # 기존 메모리 캐시 삭제 후 새로 스캔
+                        synobot.load_tdb_documents.clear() 
+                        synobot.load_tdb_documents()
+                    st.success("✅ Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
+
+            # [Tdb 운영 표준 가이드]
+            with st.expander("📘 Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
-                ### 1. 파일 명명 규칙
-                - **형식:** `[분류]_[연도]_[키워드]_[버전].pdf`
-                - **분류:** MAT(소재), PRO(공정), ANL(분석), RPT(보고서)
+                #### 1. 파일 명명 규칙
+                <ul style="font-size: 16px;">
+                    <li><b>형식:</b> <code>[분류]_[키워드1]_[키워드2]_[연도]</code></li>
+                    <li><b>분류:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li>
+                </ul>
+                <br>
+                #### 2. OCR 및 데이터 가공
+                <ul style="font-size: 16px;">
+                    <li>텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.</li>
+                    <li>감지된 파일은 <b>'Tdb 스캔 및 OCR 실행'</b> 기능을 통해 AI가 자동 변환합니다.</li>
+                </ul>
+                """, unsafe_allow_html=True)
                 
-                ### 2. 파라미터 검증 및 대조
-                - 파일 업로드 후 시스템 데이터와 AI 학습 내용의 차이를 대조하려면 **'파라미터 일치 검증'** 버튼을 클릭하십시오.
-                
-                ### 3. OCR 및 데이터 가공
-                - 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.
-                - 감지된 파일은 **'Tdb 스캔 및 OCR 실행'** 기능을 통해 AI가 자동 변환합니다.
-                
-                ### 4. 보안 및 출처 표기 (Security)
-                - 유저 화면: **'[출처] 시노봇 AI가 학습한 내부 자료임.'**으로 고정 표기됩니다.
-                - 관리자 화면: 실제 참조한 파일명이 그대로 노출되므로 데이터 검증에 활용하십시오.
-                """)
-                
-            st.markdown("---")
-            
-            # [스폰서 로고 설정 패널]
-            with st.expander("🎨 하단 스폰서 로고 설정", expanded=False):
-                st.info("💡 메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)")
-                logo_url_input = st.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''))
-                if st.button("로고 저장 및 적용", key="btn_save_logo"):
-                    st.session_state.sponsor_logo_url = logo_url_input
-                    st.success("스폰서 로고가 하단에 성공적으로 적용되었습니다!")
-            
             st.markdown("---")
 
             # ---------------------------------------------------------
-            # [AI 엔진 마스터 스위치]
+            # 2. AI 엔진 마스터 스위치
             # ---------------------------------------------------------
+            st.markdown("<p style='font-size: 18px; font-weight: normal; color: #1A729A;'>🧠 AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
             if "engine_radio_widget" not in st.session_state:
                 st.session_state["engine_radio_widget"] = st.session_state.get("engine_choice", engine_opts[0])
 
             selected_engine = st.radio(
-                "🧠 AI 엔진 마스터 스위치",
+                "AI 엔진 마스터 스위치",
                 engine_opts,
                 key="engine_radio_widget",
-                horizontal=True
+                horizontal=True,
+                label_visibility="collapsed"
             )
             
             if selected_engine != st.session_state.get("engine_choice"):
                 st.session_state.engine_choice = selected_engine
-            # ---------------------------------------------------------
-            
-            st.info("☁️ 연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)")
+
             st.markdown("---")
+            
+            # ---------------------------------------------------------
+            # 3. [Master 관리자] Data source 및 고객 관리
+            # ---------------------------------------------------------
+            col_m_t, col_m_b = st.columns([0.8, 0.2])
+            col_m_t.markdown("### 👑 [Master 관리자] Data source 및 고객 관리")
+            col_m_b.button("실행", key="btn_master_run", use_container_width=True)
             
             a1, a2, a3, a4, a5 = st.columns(5)
             if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
@@ -488,30 +495,14 @@ if is_pro and st.session_state.get('is_admin', False):
                 except Exception as e: pass
 
             st.markdown("---")
-            
-            # ---------------------------------------------------------
-            # [역할 분담] 1. 최서연 관리자용: DB 동기화 및 OCR 변환
-            # ---------------------------------------------------------
-            st.markdown("### 🗄️ [DB 관리자] Tdb 스캔 및 OCR 동기화")
-            st.info("💡 새로운 파일을 업로드했거나 OCR 변환이 필요할 때 클릭하세요. (최서연 관리자)")
-            
-            if st.button("🔄 Tdb 스캔 및 OCR 실행 (새로고침)", key="admin_sync_btn"):
-                with st.spinner("구글 드라이브 스캔 및 이미지 PDF OCR 변환을 진행 중입니다. (문서량에 따라 시간 소요)..."):
-                    if synobot:
-                        # 기존 메모리 캐시 삭제 후 새로 스캔
-                        synobot.load_tdb_documents.clear() 
-                        synobot.load_tdb_documents()
-                    st.success("✅ Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
-
-            st.markdown("---")
 
             # ---------------------------------------------------------
-            # [역할 분담] 2. 최우석 관리자용: 파라미터 실시간 검증
+            # 4. [System 관리자] Parameter 실시간 검증
             # ---------------------------------------------------------
-            st.markdown("### 🔍 [시스템 관리자] 파라미터 실시간 검증")
-            st.info("💡 현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다. (최우석 관리자)")
-            col_t, col_b = st.columns([0.8, 0.2])
-            verify_clicked = col_b.button("파라미터 일치 검증", key="admin_verify_btn")
+            col_sys_t, col_sys_b = st.columns([0.8, 0.2])
+            col_sys_t.markdown("### 🔍 [System 관리자] Parameter 실시간 검증")
+            verify_clicked = col_sys_b.button("파라미터 일치 검증", key="admin_verify_btn", use_container_width=True)
+            st.info("💡 현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다.")
 
             if verify_clicked:
                 with st.spinner("Tdb 문서 데이터와 현재 파라미터를 대조 검증 중입니다..."):
@@ -538,6 +529,17 @@ if is_pro and st.session_state.get('is_admin', False):
                     return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
                 styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+
+            # [스폰서 로고 설정 패널] - 가장 하단에 배치
+            with st.expander("🎨 하단 스폰서 로고 설정", expanded=False):
+                st.info("💡 메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)")
+                logo_url_input = st.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''))
+                if st.button("로고 저장 및 적용", key="btn_save_logo"):
+                    st.session_state.sponsor_logo_url = logo_url_input
+                    st.success("스폰서 로고가 하단에 성공적으로 적용되었습니다!")
+
 
 # -----------------------------------------------------------------------------
 # 5. 메인 UI 및 시뮬레이터 본문
