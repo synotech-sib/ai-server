@@ -324,7 +324,7 @@ if not is_pro:
     with h_r:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         c1, c2 = st.columns([1, 1], gap="small") 
-        with c1.popover("🔑 Login", use_container_width=True):
+        with c1.popover("Login", use_container_width=True):
             with st.form("login_form", border=False):
                 u_id = st.text_input("ID", placeholder="company email", label_visibility="collapsed")
                 u_pw = st.text_input("PW", type="password", placeholder="password", label_visibility="collapsed")
@@ -335,6 +335,7 @@ if not is_pro:
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
+                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드] 통합 브리핑을 시작하겠습니다."}]
                             st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -419,7 +420,7 @@ with col_main:
                         synobot.load_tdb_documents()
                     st.success("Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
-            # [Tdb 운영 표준 가이드]
+            # [Tdb 운영 표준 가이드] (마크다운 오류 수정 및 HTML 적용, 이모티콘 제거)
             with st.expander("Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
                 <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">1. 파일 명명 규칙</div>
@@ -443,7 +444,7 @@ with col_main:
             # ---------------------------------------------------------
             st.markdown("### [Master 관리자] Data 및 고객 관리")
             
-            # 2-1. AI 엔진 마스터 스위치
+            # 2-1. AI 엔진 마스터 스위치 (들여쓰기 적용)
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>1. AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
@@ -521,7 +522,7 @@ with col_main:
             st.markdown("---")
 
             # ---------------------------------------------------------
-            # 3. [System 관리자] Parameter 실시간 검증
+            # 3. [System 관리자] Parameter 실시간 검증 (버튼 우측 배치)
             # ---------------------------------------------------------
             st.markdown("### [System 관리자] Parameter 실시간 검증")
             col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
