@@ -12,7 +12,7 @@ try:
 except ImportError:
     PdfReader = None
 
-# OCR 추출 부품 (Google Cloud Vision & pdf2image)
+# 🌟 [핵심 누락 복구] OCR 추출 부품 (Google Cloud Vision & pdf2image)
 try:
     from google.cloud import vision
     from google.api_core.client_options import ClientOptions
@@ -56,7 +56,7 @@ def get_system_prompt(is_admin=False):
 
 
 # =====================================================================
-# [2] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
+# [2] 🌟 [핵심 누락 복구] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
 # =====================================================================
 def extract_text_with_vision(pdf_bytes):
     if not vision or not convert_from_bytes:
@@ -131,6 +131,7 @@ def load_tdb_documents():
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
                         
+                        # 🌟 [핵심] 텍스트가 안 읽히면 위에서 만든 Vision API로 무조건 돌림
                         if not pdf_text.strip():
                             inner_context += f"\n\n--- [참조 데이터: {item['name']} (고정밀 OCR 자동 변환됨)] ---"
                             ocr_text = extract_text_with_vision(pdf_bytes)
@@ -153,7 +154,6 @@ def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False, us
     system_instruction = get_system_prompt(is_admin)
     model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=system_instruction)
     
-    # [핵심] use_tdb가 False면 무거운 문서 스캔을 패스하고 1초만에 즉답 유도
     if use_tdb:
         retrieved_context = load_tdb_documents()
     else:
