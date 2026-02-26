@@ -58,7 +58,7 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 변경) */
+    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 두께 8px로 2배 확대) */
     .stSpinner > div > div {
         border-color: #1A729A transparent transparent transparent !important;
         animation: spin 0.8s linear infinite !important;
@@ -66,7 +66,7 @@ st.markdown("""
     }
     
     /* 새로고침 및 검증 버튼 전용 CSS */
-    div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button, div.st-key-btn_master_run > button {
+    div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button {
         width: auto !important;
         padding-left: 10px !important;
         padding-right: 10px !important;
@@ -406,23 +406,24 @@ if is_pro and st.session_state.get('is_admin', False):
             # [Tdb 운영 표준 가이드]
             with st.expander("📘 Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
-                #### 1. 파일 명명 규칙
+                **1. 파일 명명 규칙**
                 <ul style="font-size: 16px;">
-                    <li><b>형식:</b> <code>[분류]_[키워드1]_[키워드2]_[연도]</code></li>
+                    <li><b>형식:</b> <b>[분류]_[키워드1]_[키워드2]_[연도]</b> (예: MAT_양극재_알트리스_2025)</li>
                     <li><b>분류:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li>
                 </ul>
                 <br>
-                #### 2. OCR 및 데이터 가공
+                **2. OCR 및 데이터 가공**
                 <ul style="font-size: 16px;">
                     <li>텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.</li>
                     <li>감지된 파일은 <b>'Tdb 스캔 및 OCR 실행'</b> 기능을 통해 AI가 자동 변환합니다.</li>
                 </ul>
                 """, unsafe_allow_html=True)
                 
-            st.markdown("---")
+            # [DB관리자와 Master관리자를 구분하는 두꺼운 구분선]
+            st.markdown("<hr style='border: 2px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
             # ---------------------------------------------------------
-            # 2. AI 엔진 마스터 스위치
+            # 2. AI 엔진 마스터 스위치 (두꺼운 선 바로 아래 배치)
             # ---------------------------------------------------------
             st.markdown("<p style='font-size: 18px; font-weight: normal; color: #1A729A;'>🧠 AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
@@ -446,9 +447,7 @@ if is_pro and st.session_state.get('is_admin', False):
             # ---------------------------------------------------------
             # 3. [Master 관리자] Data source 및 고객 관리
             # ---------------------------------------------------------
-            col_m_t, col_m_b = st.columns([0.8, 0.2])
-            col_m_t.markdown("### 👑 [Master 관리자] Data source 및 고객 관리")
-            col_m_b.button("실행", key="btn_master_run", use_container_width=True)
+            st.markdown("### 👑 [Master 관리자] Data source 및 고객 관리")
             
             a1, a2, a3, a4, a5 = st.columns(5)
             if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
@@ -494,6 +493,15 @@ if is_pro and st.session_state.get('is_admin', False):
                             conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
                 except Exception as e: pass
 
+            # [스폰서 로고 설정 패널] - 버튼 하단으로 바로 노출되도록 꺼냄
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<p class="sub-header-bold">🎨 하단 스폰서 로고 설정</p>', unsafe_allow_html=True)
+            st.info("💡 메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)")
+            logo_url_input = st.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''), label_visibility="collapsed", placeholder="https://example.com/logo.png")
+            if st.button("로고 저장 및 적용", key="btn_save_logo"):
+                st.session_state.sponsor_logo_url = logo_url_input
+                st.success("스폰서 로고가 하단에 성공적으로 적용되었습니다!")
+
             st.markdown("---")
 
             # ---------------------------------------------------------
@@ -529,16 +537,6 @@ if is_pro and st.session_state.get('is_admin', False):
                     return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
                 styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
-
-            st.markdown("---")
-
-            # [스폰서 로고 설정 패널] - 가장 하단에 배치
-            with st.expander("🎨 하단 스폰서 로고 설정", expanded=False):
-                st.info("💡 메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)")
-                logo_url_input = st.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''))
-                if st.button("로고 저장 및 적용", key="btn_save_logo"):
-                    st.session_state.sponsor_logo_url = logo_url_input
-                    st.success("스폰서 로고가 하단에 성공적으로 적용되었습니다!")
 
 
 # -----------------------------------------------------------------------------
