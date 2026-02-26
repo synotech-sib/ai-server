@@ -287,7 +287,8 @@ default_vars = {
     'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
     'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1,
     'engine_choice': "Gemini 2.5 Flash (기본/쾌속)",  
-    'trigger_scroll_top': False
+    'trigger_scroll_top': False,
+    'sponsor_logo_url': ""
 }
 
 for key, val in default_vars.items():
@@ -387,6 +388,8 @@ if is_pro and st.session_state.get('is_admin', False):
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
+            st.markdown("---")
+            
             # [Admin Help 가이드 - 접이식]
             with st.expander("📘 Tdb 운영 표준 가이드 (직원 필독)", expanded=False):
                 st.markdown("""
@@ -394,14 +397,29 @@ if is_pro and st.session_state.get('is_admin', False):
                 - **형식:** `[분류]_[연도]_[키워드]_[버전].pdf`
                 - **분류:** MAT(소재), PRO(공정), ANL(분석), RPT(보고서)
                 
-                ### 2. OCR 및 데이터 가공
-                - 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.
-                - 추후 [Google Vision OCR] 기능이 연결되면 해당 파일을 우선 변환하세요.
+                ### 2. 파라미터 검증 및 대조
+                - 파일 업로드 후 시스템 데이터와 AI 학습 내용의 차이를 대조하려면 **'새로고침 (30초 소요)'** 버튼을 클릭하십시오.
                 
-                ### 3. 보안 및 출처 표기 (Security)
+                ### 3. OCR 및 데이터 가공
+                - 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.
+                - 감지된 파일은 [Google Vision OCR] 기능을 통해 변환해 주십시오.
+                
+                ### 4. 보안 및 출처 표기 (Security)
                 - 유저 화면: **'[출처] 시노봇 AI가 학습한 내부 자료임.'**으로 고정 표기됩니다.
-                - 관리자 화면: 실제 참조한 파일명이 그대로 노출되므로 검증에 활용하십시오.
+                - 관리자 화면: 실제 참조한 파일명이 그대로 노출되므로 데이터 검증에 활용하십시오.
                 """)
+                
+            st.markdown("---")
+            
+            # [스폰서 로고 설정 패널]
+            with st.expander("🎨 하단 스폰서 로고 설정", expanded=False):
+                st.info("💡 메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)")
+                logo_url_input = st.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''))
+                if st.button("로고 저장 및 적용", key="btn_save_logo"):
+                    st.session_state.sponsor_logo_url = logo_url_input
+                    st.success("스폰서 로고가 하단에 성공적으로 적용되었습니다!")
+            
+            st.markdown("---")
 
             # ---------------------------------------------------------
             # [AI 엔진 마스터 스위치]
@@ -655,7 +673,6 @@ with col_main:
 
                 vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                 
-                # 비로그인 마스킹 처리 함수
                 def format_mat_name(name): 
                     prefix = "💎 " if name in vip_names else ""
                     if any(p in name for p in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]): prefix += "☑️ "
@@ -673,7 +690,6 @@ with col_main:
                 
                 row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                 
-                # 로그인 상태에 따른 기본값 분기 (게스트는 정확한 DB값 차단)
                 if not st.session_state.logged_in:
                     init_vals = {
                         "cap": 150.0, "volt": 3.00, "c_den": 4.0, "a_den": 2.0, "life": 2000.0,
@@ -1173,4 +1189,10 @@ if col_bot:
         )
 
 # 7. 푸터 
-st.markdown("<br><hr><div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.<br><i>* All simulation logic is based on verified electrochemical models (Newman-type) and official material data from partners.</i></div>", unsafe_allow_html=True)
+st.markdown("<br><hr>", unsafe_allow_html=True)
+
+sponsor_url = st.session_state.get('sponsor_logo_url', '')
+if sponsor_url:
+    st.markdown(f"<div style='text-align: center; margin-bottom: 10px;'><img src='{sponsor_url}' height='40' style='object-fit: contain;'></div>", unsafe_allow_html=True)
+
+st.markdown("<div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.<br><i>* All simulation logic is based on verified electrochemical models (Newman-type) and official material data from partners.</i></div>", unsafe_allow_html=True)
