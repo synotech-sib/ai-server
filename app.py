@@ -403,77 +403,80 @@ with col_main:
     # =========================================================================
     if st.session_state.get('is_admin', False) and st.session_state.get('show_admin_panel', True):
         with st.container(border=True):
-            st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
-            st.info("☁️ 연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)")
+            st.markdown('<p class="main-header" style="color:#D35400;">최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+            st.markdown("<p style='font-size: 15px; color: #555;'>연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)</p>", unsafe_allow_html=True)
             st.markdown("---")
             
             # ---------------------------------------------------------
             # 1. [DB 관리자] Tdb 스캔 및 OCR 동기화
             # ---------------------------------------------------------
             col_db_t, col_db_b = st.columns([0.8, 0.2])
-            col_db_t.markdown("### 🗄️ [DB 관리자] Tdb 스캔 및 OCR 동기화")
-            if col_db_b.button("🔄 Tdb 스캔 및 OCR 실행", key="admin_sync_btn", use_container_width=True):
+            col_db_t.markdown("### [DB 관리자] Tdb 스캔 및 OCR 동기화")
+            if col_db_b.button("Tdb 스캔 및 OCR 실행", key="admin_sync_btn", use_container_width=True):
                 with st.spinner("구글 드라이브 스캔 및 이미지 PDF OCR 변환을 진행 중입니다. (문서량에 따라 시간 소요)..."):
                     if synobot:
                         # 기존 메모리 캐시 삭제 후 새로 스캔
                         synobot.load_tdb_documents.clear() 
                         synobot.load_tdb_documents()
-                    st.success("✅ Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
+                    st.success("Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
             # [Tdb 운영 표준 가이드]
-            with st.expander("📘 Tdb 운영 표준 가이드 (필독)", expanded=False):
+            with st.expander("Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
-                #### 1. 파일 명명 규칙
+                **1. 파일 명명 규칙**
                 <ul style="font-size: 16px; padding-top: 5px;">
                     <li><b>형식:</b> <b>[분류]_[키워드1]_[키워드2]_[연도]</b> (예: MAT_알트리스 양극재_코인셀 평가_2025)</li>
                     <li><b>분류:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li>
                 </ul>
                 <br>
-                #### 2. OCR 및 데이터 가공
+                **2. OCR 및 데이터 가공**
                 <ul style="font-size: 16px; padding-top: 5px;">
-                    <li>텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.</li>
+                    <li>텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 경고 메시지와 함께 감지합니다.</li>
                     <li>감지된 파일은 <b>'Tdb 스캔 및 OCR 실행'</b> 기능을 통해 AI가 자동 변환합니다.</li>
                 </ul>
                 """, unsafe_allow_html=True)
                 
+            # [DB관리자와 Master관리자를 구분하는 두꺼운 구분선]
+            st.markdown("<hr style='border: 3px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
+
             # ---------------------------------------------------------
-            # 2. AI 엔진 마스터 스위치
+            # 2. [Master 관리자] Data source 및 고객 관리
             # ---------------------------------------------------------
-            st.markdown("<br><h3 style='font-size: 20px; font-weight: bold; color: #222;'>🧠 AI 엔진 마스터 스위치</h3>", unsafe_allow_html=True)
+            st.markdown("### [Master 관리자]")
+            
+            # AI 엔진 마스터 스위치
+            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
             if "engine_radio_widget" not in st.session_state:
                 st.session_state["engine_radio_widget"] = st.session_state.get("engine_choice", engine_opts[0])
 
-            selected_engine = st.radio(
-                "AI 엔진 마스터 스위치",
-                engine_opts,
-                key="engine_radio_widget",
-                horizontal=True,
-                label_visibility="collapsed"
-            )
+            col_ind1, col_ind2 = st.columns([0.03, 0.97])
+            with col_ind2:
+                selected_engine = st.radio(
+                    "AI 엔진 마스터 스위치",
+                    engine_opts,
+                    key="engine_radio_widget",
+                    horizontal=True,
+                    label_visibility="collapsed"
+                )
             
             if selected_engine != st.session_state.get("engine_choice"):
                 st.session_state.engine_choice = selected_engine
 
-            # [DB관리자와 Master관리자를 구분하는 두꺼운 구분선]
-            st.markdown("<hr style='border: 2px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
-
-            # ---------------------------------------------------------
-            # 3. [Master 관리자] Data source 및 고객 관리
-            # ---------------------------------------------------------
-            st.markdown("### 👑 [Master 관리자] Data source 및 고객 관리")
+            # Data source 관리
+            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>Data source 관리</p>", unsafe_allow_html=True)
             
             a1, a2, a3, a4, a5 = st.columns(5)
-            if a1.button("👥 유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
-            if a2.button("🔋 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
-            if a3.button("⚙️ 파라미터 DB", use_container_width=True): st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
-            if a4.button("💾 로그 DB", use_container_width=True): st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
-            if a5.button("💬 시노봇 로그 DB", use_container_width=True): st.session_state.admin_view = 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
+            if a1.button("유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
+            if a2.button("소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
+            if a3.button("파라미터 DB", use_container_width=True): st.session_state.admin_view = 'param'; st.session_state.admin_ws = 'param_config'; st.rerun()
+            if a4.button("로그 DB", use_container_width=True): st.session_state.admin_view = 'logs'; st.session_state.admin_ws = 'myData'; st.rerun()
+            if a5.button("시노봇 로그 DB", use_container_width=True): st.session_state.admin_view = 'chat'; st.session_state.admin_ws = 'ChatLogs'; st.rerun()
 
             if st.session_state.admin_view:
                 st.markdown("---")
-                st.markdown(f'<p class="sub-header-bold">🛠️ 인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="sub-header-bold">인라인 데이터베이스 편집기</p>', unsafe_allow_html=True)
                 
                 if st.session_state.admin_view == 'users': target_url = URL_USERS; ws_options = ["Users", "VIPs"]
                 elif st.session_state.admin_view == 'mats': target_url = URL_MATS; ws_options = ["admin_master", "general_user"] + get_vip_list_exact()
@@ -482,13 +485,13 @@ with col_main:
                 elif st.session_state.admin_view == 'chat': target_url = URL_LOGS; ws_options = ["ChatLogs"] 
                 
                 if len(ws_options) > 1:
-                    sel_ws_admin = st.selectbox("📂 편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
+                    sel_ws_admin = st.selectbox("편집할 워크스페이스(탭) 선택", ws_options, index=ws_options.index(st.session_state.admin_ws) if st.session_state.admin_ws in ws_options else 0)
                     if sel_ws_admin != st.session_state.admin_ws: st.session_state.admin_ws = sel_ws_admin; st.rerun()
                 
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 try:
                     if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'admin_master':
-                        st.info("ℹ️ 'admin_master'은 공용 및 모든 VIP 데이터가 취합된 **읽기 전용(Read-only)** 통합 뷰입니다.")
+                        st.markdown("<p style='font-size: 14px; color: #555;'>'admin_master'은 공용 및 모든 VIP 데이터가 취합된 <b>읽기 전용(Read-only)</b> 통합 뷰입니다.</p>", unsafe_allow_html=True)
                         vips = get_vip_list_exact(); dfs = []
                         for v in vips:
                             tmp = load_cloud_data(target_url, v)
@@ -504,14 +507,13 @@ with col_main:
                         if st.session_state.admin_view in ['logs', 'chat'] and 'Time' in df_display.columns: df_display = df_display.sort_values(by='Time', ascending=False).reset_index(drop=True)
                         elif st.session_state.admin_view == 'users' and 'RegDate' in df_display.columns: df_display = df_display.sort_values(by='RegDate', ascending=False).reset_index(drop=True)
                         edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
-                        if st.button("💾 변경사항 클라우드에 저장", type="primary"):
+                        if st.button("변경사항 클라우드에 저장", type="primary"):
                             conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
                 except Exception as e: pass
 
-            # [스폰서 로고 설정 패널] - 버튼 하단으로 바로 노출 (DB 버튼 폭과 일치)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown('<p class="sub-header-bold">🎨 하단 스폰서 로고 설정</p>', unsafe_allow_html=True)
-            st.info("💡 메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)")
+            # 하단 스폰서 로고 설정
+            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>하단 스폰서 로고 설정</p>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 15px; color: #555; margin-bottom: 5px;'>메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)</div>", unsafe_allow_html=True)
             col_l_t, col_l_b = st.columns([0.8, 0.2])
             logo_url_input = col_l_t.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''), label_visibility="collapsed", placeholder="https://example.com/logo.png")
             if col_l_b.button("로고 저장 및 적용", key="btn_save_logo", use_container_width=True):
@@ -523,10 +525,10 @@ with col_main:
             # ---------------------------------------------------------
             # 4. [System 관리자] Parameter 실시간 검증
             # ---------------------------------------------------------
-            col_sys_t, col_sys_b = st.columns([0.8, 0.2])
-            col_sys_t.markdown("### 🔍 [System 관리자] Parameter 실시간 검증")
-            verify_clicked = col_sys_b.button("파라미터 일치 검증", key="admin_verify_btn", use_container_width=True)
-            st.info("💡 현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다.")
+            st.markdown("### [System 관리자] Parameter 실시간 검증")
+            col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
+            col_sys_text.markdown("<div style='padding-top: 10px; font-size: 15px; color: #333;'>현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다.</div>", unsafe_allow_html=True)
+            verify_clicked = col_sys_btn.button("파라미터 일치 검증", key="admin_verify_btn", use_container_width=True)
 
             if verify_clicked:
                 with st.spinner("Tdb 문서 데이터와 현재 파라미터를 대조 검증 중입니다..."):
@@ -549,19 +551,19 @@ with col_main:
 
             if "param_diff_table" in st.session_state and not st.session_state.param_diff_table.empty:
                 def highlight_mismatch(row):
-                    is_mismatch = '불일치' in str(row['상태']) or '⚠️' in str(row['상태'])
+                    is_mismatch = '불일치' in str(row['상태']) or '경고' in str(row['상태'])
                     return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
                 styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
     # =========================================================================
-    # [일반 유저 화면] - 시뮬레이션 및 계정 관리 (Admin이 토글 시에도 노출)
+    # [일반 유저 및 시뮬레이션 화면] - 관리자가 '시뮬레이션 가기' 토글 시에도 노출
     # =========================================================================
     else:
         # --- 가입 및 프로필 영역 ---
         if st.session_state.show_reg and not st.session_state.logged_in:
             with st.container(border=True):
-                st.markdown('<p class="main-header">📝 계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
+                st.markdown('<p class="main-header">계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
                 if st.session_state.reg_stage == 0:
                     with st.form("form_reg_email", border=False):
                         e_in = st.text_input("1. 회사 이메일 주소")
@@ -572,9 +574,9 @@ with col_main:
                                 with st.spinner("이메일을 발송 중입니다..."):
                                     email_res = send_verification_email(e_in, v_code)
                                     if email_res == "SUCCESS": st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
-                                    else: st.error(f"🚨 이메일 발송 실패 상세 원인: {email_res}")
+                                    else: st.error(f"이메일 발송 실패 상세 원인: {email_res}")
                 elif st.session_state.reg_stage == 1:
-                    st.info(f"📧 [{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
+                    st.info(f"[{st.session_state.temp_email}]로 인증번호가 발송되었습니다.")
                     with st.form("form_reg_code", border=False):
                         v_in = st.text_input("인증번호 6자리 입력")
                         if st.form_submit_button("인증 확인", use_container_width=True):
@@ -588,12 +590,12 @@ with col_main:
                     c5, c6 = st.columns(2); n_phone = c5.text_input("7. 연락처"); n_purpose = c6.text_input("8. 사용용도")
                     
                     st.markdown("---")
-                    st.markdown("#### 💎 Pro Max 계정 승인 요청 (선택)")
+                    st.markdown("#### Pro Max 계정 승인 요청 (선택)")
                     st.info("Pro Max 계정은 일반 Pro와 달리 귀사만의 독립적인 소재/공정 데이터베이스(VIP 전용 DB Center)를 별도 구축해 드리는 기업 맞춤형 서비스입니다.")
                     is_vip_request = st.checkbox("네, Pro Max Mode로 가입을 신청합니다. (관리자 승인 필요)") 
                     
                     st.markdown("---")
-                    st.markdown("#### 🔒 보안 및 개인정보 처리 방침 (필수)")
+                    st.markdown("#### 보안 및 개인정보 처리 방침 (필수)")
                     terms_text = """[SynoCore Pro Max 개인정보 수집 및 이용 동의]
     1. 수집 항목: 이름, 회사명, 부서, 직책, 연락처, 이메일, 사용용도
     2. 이용 목적: B2B 서비스 제공, 본인 확인, VIP DB 권한 부여, 고객 대응
@@ -1100,7 +1102,7 @@ with col_main:
                             )
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot beta) 패널 - 우측 고정 배치
+# 🤖 시노봇 (SynoBot beta) 패널 - 우측 고정 배치 (토글 시에도 항상 유지)
 # -----------------------------------------------------------------------------
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")

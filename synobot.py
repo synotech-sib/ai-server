@@ -38,7 +38,7 @@ except ImportError:
 # =====================================================================
 ADMIN_HELP_SOP = """
 [관리자 운영 수칙(SOP)]
-1. 파일 명명 규칙: [분류]_[키워드1]_[키워드2]_[연도] (MAT:소재, PRO:공정, ANL:분석, PPR:논문, MKT:관련시장)
+1. 파일 명명 규칙: [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)
 2. OCR 처리: 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 감지하여 'Tdb 스캔 및 OCR 실행' 기능을 통해 AI가 자동 변환함.
 """
 
@@ -110,7 +110,7 @@ def load_tdb_documents():
         creds = service_account.Credentials.from_service_account_info(creds_info)
         service = build('drive', 'v3', credentials=creds)
     except Exception as e:
-        return f"⚠️ Secrets 설정 오류: {e}"
+        return f"경고: Secrets 설정 오류: {e}"
 
     def recursive_fetch(folder_id):
         inner_context = ""
@@ -174,7 +174,7 @@ def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False):
         response = model.generate_content(full_prompt, stream=True)
         for chunk in response:
             if chunk.text: yield chunk.text
-    except Exception as e: yield f"\n⚠️ Gemini 엔진 오류: {e}"
+    except Exception as e: yield f"\n경고: Gemini 엔진 오류: {e}"
 
 def get_openai_response_stream(messages, sim_result, api_key, is_admin=False):
     client = OpenAI(api_key=api_key)
@@ -190,7 +190,7 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False):
         response = client.chat.completions.create(model="gpt-4o-mini", messages=full_messages, temperature=0.3, stream=True)
         for chunk in response:
             if chunk.choices[0].delta.content: yield chunk.choices[0].delta.content
-    except Exception as e: yield f"\n⚠️ OpenAI 엔진 오류: {e}"
+    except Exception as e: yield f"\n경고: OpenAI 엔진 오류: {e}"
 
 def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
     retrieved_context = load_tdb_documents()
@@ -220,7 +220,7 @@ def check_parameter_discrepancy(current_params, engine_choice, api_key):
     [현재 입력된 파라미터]\n{current_params}
     [Tdb 기술 문서]\n{context}
     [출력 예시]
-    [{{"항목": "Cathode 용량", "현재입력값": "150", "Tdb권장값": "160", "상태": "불일치 ⚠️"}}]
+    [{{"항목": "Cathode 용량", "현재입력값": "150", "Tdb권장값": "160", "상태": "불일치 경고"}}]
     """
     try:
         if "Gemini" in engine_choice:
