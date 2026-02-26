@@ -407,9 +407,6 @@ with col_main:
             st.markdown("<p style='font-size: 15px; color: #555;'>연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)</p>", unsafe_allow_html=True)
             st.markdown("---")
             
-            # ---------------------------------------------------------
-            # 1. [DB 관리자] Tdb 스캔 및 OCR 동기화 + 관리자 종합 매뉴얼(검색)
-            # ---------------------------------------------------------
             col_db_t, col_db_b = st.columns([0.8, 0.2])
             col_db_t.markdown("### [DB 관리자] Tdb 스캔 및 OCR 동기화")
             if col_db_b.button("Tdb 스캔 및 OCR 실행", key="admin_sync_btn", use_container_width=True):
@@ -422,12 +419,11 @@ with col_main:
             st.markdown("<br>", unsafe_allow_html=True)
             search_kw = st.text_input("🔍 관리자 종합 매뉴얼 실시간 검색", placeholder="예: OCR, 명명, 로고, 승인, 마스킹...", help="키워드를 입력하면 해당하는 매뉴얼 내용만 보여줍니다.")
 
-            # 🌟 [업데이트 완료] 관리자 매뉴얼 (6개 챕터 구성)
             manual_data = {
                 "제1장. Tdb 문서 관리 및 OCR 동기화": "<ul><li><b>명명 규칙:</b> [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)</li><li><b>분류 기준:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li><li><b>OCR 자동 변환:</b> 텍스트 복사가 불가능한 스캔본 PDF는 시스템이 감지하며, <b>'Tdb 스캔 및 OCR 실행'</b> 버튼을 누르면 Vision API를 통해 고정밀 텍스트로 자동 변환됩니다.</li></ul>",
                 "제2장. AI 엔진 및 시노봇 관리": "<ul><li><b>Gemini 2.5 Flash:</b> 평상시 빠른 챗봇 응답 및 스캔용으로 사용합니다.</li><li><b>OpenAI GPT-4o:</b> 비상 상황이나 보다 정밀한 논문 분석이 필요할 때 스위칭하여 활용합니다.</li><li><b>빠른 도움말 모드:</b> 관리자가 매뉴얼 검색 등 즉각적인 답변이 필요할 때 Tdb 원본 스캔을 생략하고 1초 만에 즉답하는 기능입니다.</li></ul>",
                 "제3장. Data Source 및 유저 관리": "<ul><li><b>유저 관리:</b> 가입자의 Pro Max 등급 승인, 정보 수정, 탈퇴 처리를 화면에서 직접 수행합니다.</li><li><b>DB 통합 관리:</b> 소재, 파라미터, 로그 DB를 다운로드 없이 인라인 에디터로 직접 수정하고 클라우드에 영구 저장합니다. (admin_master 시트는 모든 VIP 데이터를 모아보는 읽기 전용 뷰입니다.)</li></ul>",
-                "제4장. VIP 소재 관리 및 공개용 마스킹 처리": "<ul><li><b>VIP 직접 추가:</b> Pro Max 고객은 시뮬레이션 패널의 '내 전용 DB에 새 소재 추가'를 통해 비공개 소재를 직접 등록할 수 있습니다.</li><li><b>공개용 마스킹 배포:</b> 관리자는 VIP 소재를 일반 유저에게 제공할 때, 소재 DB 에디터에서 해당 VIP의 데이터를 복사하여 'material_list' 탭에 붙여넣습니다. 이후 업체명 마스킹(예: OOO 양극재) 및 핵심 스펙 수치를 평균값으로 하향 조정(너프)한 후 저장하여 안전하게 배포합니다.</li></ul>",
+                "제4장. VIP 소재 관리 및 공개용 마스킹 처리": "<ul><li><b>VIP 직접 추가:</b> Pro Max 고객은 시뮬레이션 패널의 'My 전용 DB에 새 소재 추가'를 통해 비공개 소재를 직접 등록할 수 있습니다.</li><li><b>공개용 마스킹 배포:</b> 관리자는 VIP 소재를 일반 유저에게 제공할 때, 소재 DB 에디터에서 해당 VIP의 데이터를 복사하여 'material_list' 탭에 붙여넣습니다. 이후 업체명 마스킹(예: OOO 양극재) 및 핵심 스펙 수치를 평균값으로 하향 조정(너프)한 후 저장하여 안전하게 배포합니다.</li></ul>",
                 "제5장. 스폰서 로고 설정": "<ul><li>메인 화면 하단 푸터에 노출될 스폰서 로고를 관리합니다.</li><li>투명 배경의 PNG 파일이 권장되며, <b>GitHub 저장소의 원본 링크(raw URL)</b> 사용 시 이미지 깨짐을 방지할 수 있습니다. 칸을 비우고 저장하면 하단 로고와 'Sponsored by' 텍스트가 완전히 삭제됩니다.</li></ul>",
                 "제6장. 파라미터 실시간 검증": "<ul><li>현재 메인 화면 UI에 설정된 배터리 파라미터(용량, 전압 등) 값들이 실제 Tdb 원본 기술 문서 내용과 맞는지 <b>'파라미터 일치 검증'</b> 버튼을 통해 즉시 교차 검증하고 결과를 표로 띄웁니다.</li></ul>"
             }
@@ -444,9 +440,6 @@ with col_main:
                 
             st.markdown("<hr style='border: 3px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
-            # ---------------------------------------------------------
-            # 2. [Master 관리자] Data 및 고객 관리
-            # ---------------------------------------------------------
             st.markdown("### [Master 관리자] Data 및 고객 관리")
             
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>1. AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
@@ -523,9 +516,6 @@ with col_main:
 
             st.markdown("---")
 
-            # ---------------------------------------------------------
-            # 3. [System 관리자] Parameter 실시간 검증
-            # ---------------------------------------------------------
             st.markdown("### [System 관리자] Parameter 실시간 검증")
             col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
             col_sys_text.markdown("<div style='padding-top: 10px; font-size: 15px; color: #333;'>현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다.</div>", unsafe_allow_html=True)
@@ -677,7 +667,6 @@ with col_main:
         with st.container(height=1000, border=False):
             st.markdown("<div id='main-scroll-anchor'></div>", unsafe_allow_html=True) 
             
-            # [섹션 1]
             st.markdown('<p class="main-header" style="margin-top:10px;">1. Material Selection</p>', unsafe_allow_html=True)
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
@@ -720,8 +709,9 @@ with col_main:
 
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
+                    # 🌟 [디자인 개선] VIP 텍스트 대신 블루 다이아몬드(🔹) 특수기호 적용
                     def format_mat_name(name): 
-                        prefix = "[VIP] " if name in vip_names else ""
+                        prefix = "🔹 " if name in vip_names else ""
                         if not st.session_state.logged_in:
                             for comp in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]:
                                 if comp in name:
@@ -751,9 +741,9 @@ with col_main:
                             "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
                         }
 
-                # 🌟 [복구 완료] VIP(Pro Max) 고객 전용 '내 소재 추가' 패널
+                # 🌟 [기능 복구 및 이름 변경] VIP 고객 전용 'My 전용 DB 추가' 패널
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-                    with st.expander("➕ 내 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
+                    with st.expander("➕ My 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
                         st.info("💡 여기에 저장된 소재는 귀사의 전용 워크스페이스에만 안전하게 보관되며, 일반 유저에게는 노출되지 않습니다.")
                         with st.form("form_add_vip_mat", border=False):
                             c1_vip, c2_vip, c3_vip = st.columns(3)
@@ -767,7 +757,7 @@ with col_main:
                             n_life = c6_vip.number_input("기본 수명 (Cyc)", value=4000.0, step=100.0)
                             n_load = c7_vip.number_input("기본 로딩 (mg/cm2)", value=14.0, step=0.1)
                             
-                            if st.form_submit_button("내 DB에 저장", use_container_width=True):
+                            if st.form_submit_button("My DB에 저장", use_container_width=True):
                                 if n_mat:
                                     conn = st.connection("gsheets", type=GSheetsConnection)
                                     ws_name = st.session_state.workspace
