@@ -24,19 +24,29 @@ except ImportError:
     genai = None
 
 # =====================================================================
-# [1] 시노봇 시스템 지침 (Persona)
+# [1] 시노봇 시스템 지침 (관리자 권한에 따른 동적 생성)
 # =====================================================================
-SYSTEM_PROMPT = """
-You are 'SynoBot', an elite SIB R&D engineer for SynoCore.
-- 당신은 구글 드라이브의 Tdb(Technical Database) 자료를 실시간으로 참조하여 답변합니다.
-- 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오.
-- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.
-- 답변의 맨 마지막 줄에는 반드시 아래 문구를 정확히 그대로 추가하십시오:
-  "[출처] 시노봇 AI가 학습한 내부 자료임."
+ADMIN_HELP_SOP = """
+[관리자 운영 수칙(SOP)]
+1. 파일명 규칙: [분류]_[연도]_[키워드]_[버전].pdf (MAT:소재, PRO:공정, ANL:논문, RPT:리포트)
+2. 데이터 동기화: 파일 업로드 후 반드시 '새로고침 (30초 소요)' 버튼을 클릭해야 함.
+3. OCR 처리: 텍스트 드래그가 안 되는 PDF는 Google Cloud Vision OCR 모듈을 가동해야 함.
 """
 
+def get_system_prompt(is_admin=False):
+    base_prompt = """You are 'SynoBot', an elite SIB R&D engineer for SynoCore.
+- 당신은 구글 드라이브의 Tdb(Technical Database) 자료를 실시간으로 참조하여 답변합니다.
+- 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오."""
+    
+    if is_admin:
+        # 관리자 전용: 출처 파일명 나열 + 운영 가이드 숙지
+        return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [운영 수칙]을 바탕으로 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
+    else:
+        # 일반 유저: 보안 처리 (고정 문구)
+        return base_prompt + "\n- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.\n- 답변의 맨 마지막 줄에는 반드시 아래 문구를 정확히 그대로 추가하십시오:\n  \"[출처] 시노봇 AI가 학습한 내부 자료임.\""
+
 # =====================================================================
-# [2] 구글 드라이브 실시간 하위 폴더 스캔 함수
+# [2] 구글 드라이브 실시간 스캔 (OCR 탐지 기능 강화)
 # =====================================================================
 def load_tdb_documents():
     context = ""
@@ -68,14 +78,15 @@ def load_tdb_documents():
 
                     if item['mimeType'] == 'text/plain':
                         content = fh.read().decode('utf-8', errors='ignore')
-                        inner_context += f"\n\n--- [참조 데이터] ---\n{content}"
+                        inner_context += f"\n\n--- [파일명: {item['name']}] ---\n{content}"
                     elif item['mimeType'] == 'application/pdf' and PdfReader:
                         reader = PdfReader(fh)
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
                         if not pdf_text.strip():
-                            inner_context += f"\n\n--- [참조 데이터] ---\n[내부 경고: 이 파일({item['name']})은 스캔본이므로 텍스트 인식이 불가능합니다.]"
+                            # 이미지 PDF 감지 알림
+                            inner_context += f"\n\n--- [파일명: {item['name']}] ---\n[내부 시스템 경고: 해당 파일은 텍스트가 없는 스캔본(이미지 PDF)이므로 내용 추출에 실패했습니다. 관리자 패널에서 고정밀 OCR 변환이 필요합니다.]"
                         else:
-                            inner_context += f"\n\n--- [참조 데이터] ---\n{pdf_text}"
+                            inner_context += f"\n\n--- [파일명: {item['name']}] ---\n{pdf_text}"
                 except Exception:
                     pass 
         return inner_context
@@ -84,11 +95,13 @@ def load_tdb_documents():
     return context if context else "Tdb 폴더 내에 자료가 없습니다."
 
 # =====================================================================
-# [3] AI 엔진 챗봇 응답 함수
+# [3] AI 엔진 챗봇 응답 함수 (관리자 권한 매개변수 is_admin 추가)
 # =====================================================================
-def get_gemini_response_stream(messages, sim_result, api_key):
+def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False):
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=SYSTEM_PROMPT)
+    system_instruction = get_system_prompt(is_admin)
+    model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=system_instruction)
+    
     retrieved_context = load_tdb_documents()
     last_user_msg = messages[-1]["content"]
     
@@ -102,10 +115,12 @@ def get_gemini_response_stream(messages, sim_result, api_key):
             if chunk.text: yield chunk.text
     except Exception as e: yield f"\n⚠️ Gemini 엔진 오류: {e}"
 
-def get_openai_response_stream(messages, sim_result, api_key):
+def get_openai_response_stream(messages, sim_result, api_key, is_admin=False):
     client = OpenAI(api_key=api_key)
     retrieved_context = load_tdb_documents()
-    sys_content = SYSTEM_PROMPT + f"\n\n### [Context]\n{retrieved_context}"
+    system_instruction = get_system_prompt(is_admin)
+    
+    sys_content = system_instruction + f"\n\n### [Context]\n{retrieved_context}"
     if sim_result: sys_content += f"\n\n### [Sim State]\n{sim_result}"
     
     full_messages = [{"role": "system", "content": sys_content}] + [m for m in messages if m["role"] != "system"]
@@ -118,7 +133,8 @@ def get_openai_response_stream(messages, sim_result, api_key):
 
 def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
     retrieved_context = load_tdb_documents()
-    sys_content = SYSTEM_PROMPT + f"\n\n[Context]\n{retrieved_context}\n\n[Sim State]\n{sim_result}"
+    # 자동 브리핑은 일반 유저 시나리오를 기준으로 작동합니다.
+    sys_content = get_system_prompt(is_admin=False) + f"\n\n[Context]\n{retrieved_context}\n\n[Sim State]\n{sim_result}"
     user_prompt = "분석 브리핑을 3~4줄로 작성하십시오."
     try:
         if "Gemini" in engine_choice:
@@ -133,7 +149,7 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
         return f"자동 브리핑 생성 오류: {e}"
 
 # =====================================================================
-# [4] Material 파라미터 검증 (표 출력용 JSON 생성)
+# [4] Material 파라미터 실시간 검증
 # =====================================================================
 def check_parameter_discrepancy(current_params, engine_choice, api_key):
     context = load_tdb_documents()

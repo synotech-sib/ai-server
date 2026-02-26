@@ -37,7 +37,7 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max", layout="wide")
+st.set_page_config(page_title="SynoCore Pro Max 1.1", layout="wide")
 
 st.markdown("""
     <style>
@@ -58,6 +58,21 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
+    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전) */
+    .stSpinner > div > div {
+        border-color: #1A729A transparent transparent transparent !important;
+        animation: spin 0.8s linear infinite !important;
+        border-width: 4px !important;
+    }
+    
+    /* 새로고침 (30초 소요) 버튼 전용 CSS */
+    div.st-key-admin_refresh_btn > button {
+        width: auto !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+        min-width: 180px !important;
+    }
+
     div[data-testid="stMetric"] { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px 10px; height: 120px; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; text-align: center !important; }
     div[data-testid="stMetricValue"] { font-size: 26px !important; color: #1A729A !important; margin-top: 5px; text-align: center !important; justify-content: center !important; display: flex !important; width: 100%;} 
     div[data-testid="stMetricDelta"] { font-size: 14px !important; margin-top: 3px; justify-content: center !important; display: flex !important; width: 100%;}
@@ -91,7 +106,7 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 인쇄 시 화면 그대로 1:1 출력되도록 완벽 고정 CSS (WYSIWYG 강제 적용) */
+    /* PDF 인쇄 시 화면 그대로 1:1 출력되도록 완벽 고정 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
         button { display: none !important; }
@@ -103,21 +118,18 @@ st.markdown("""
             margin: 0 !important;
         }
         
-        /* 인쇄 시 스크롤 컨테이너의 고정 높이 강제 해제 (잘림 방지) */
         .stScrollableContainer, div[data-testid="stVerticalBlock"] { 
             height: auto !important; 
             max-height: none !important; 
             overflow: visible !important; 
         }
         
-        /* 컬럼(단)이 아래로 깨지지 않고 좌우로 강제 정렬되도록 고정 */
         div[data-testid="stHorizontalBlock"] { 
             display: flex !important; 
             flex-direction: row !important; 
             flex-wrap: nowrap !important; 
         }
         
-        /* 좌측 여백 숨김, 메인 패널 0.72 비율 유지, 우측 챗봇 0.28 비율 유지 */
         div[data-testid="stHorizontalBlock"] > div:nth-child(1) { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { flex: 7.2 !important; width: 72% !important; display: block !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { flex: 2.8 !important; width: 28% !important; display: block !important; }
@@ -275,7 +287,7 @@ default_vars = {
     'trigger_auto_bot': False, 'trigger_bot_reply': False, 'bot_user_input': "", 
     'scroll_to_result': False, 'scroll_to_data': False, 'acc_step': 1,
     'engine_choice': "Gemini 2.5 Flash (기본/쾌속)",  
-    'trigger_scroll_top': False # 시노봇 스크롤 방지용 변수 추가
+    'trigger_scroll_top': False
 }
 
 for key, val in default_vars.items():
@@ -302,7 +314,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro Max 2.6</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro Max 1.1</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -321,7 +333,6 @@ if not is_pro:
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
-                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드] 통합 브리핑을 시작하겠습니다."}]
                             st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -369,15 +380,31 @@ def sync_n_to_s(s_key, n_key, p_key=None):
 def change_acc_step(step): st.session_state.acc_step = step
 
 # -----------------------------------------------------------------------------
-# 👑 최고 관리자 패널 (듀얼 엔진 스위치 탑재 + 파라미터 수동 검증 변경)
+# 👑 최고 관리자 패널
 # -----------------------------------------------------------------------------
 if is_pro and st.session_state.get('is_admin', False):
     if st.session_state.admin_view is not None or st.session_state.show_profile is False:
         with st.container(border=True):
             st.markdown('<p class="main-header" style="color:#D35400;">👑 최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
             
+            # [Admin Help 가이드 - 접이식]
+            with st.expander("📘 Tdb 운영 표준 가이드 (직원 필독)", expanded=False):
+                st.markdown("""
+                ### 1. 파일 명명 규칙
+                - **형식:** `[분류]_[연도]_[키워드]_[버전].pdf`
+                - **분류:** MAT(소재), PRO(공정), ANL(분석), RPT(보고서)
+                
+                ### 2. OCR 및 데이터 가공
+                - 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.
+                - 추후 [Google Vision OCR] 기능이 연결되면 해당 파일을 우선 변환하세요.
+                
+                ### 3. 보안 및 출처 표기 (Security)
+                - 유저 화면: **'[출처] 시노봇 AI가 학습한 내부 자료임.'**으로 고정 표기됩니다.
+                - 관리자 화면: 실제 참조한 파일명이 그대로 노출되므로 검증에 활용하십시오.
+                """)
+
             # ---------------------------------------------------------
-            # [AI 엔진 마스터 스위치] - 절대 풀리지 않는 완벽 동기화 로직
+            # [AI 엔진 마스터 스위치]
             # ---------------------------------------------------------
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
@@ -446,10 +473,10 @@ if is_pro and st.session_state.get('is_admin', False):
             
             st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
             col_t, col_b = st.columns([0.8, 0.2])
-            refresh_clicked = col_b.button("🔄 새로고침", key="admin_refresh_btn")
+            refresh_clicked = col_b.button("새로고침 (30초 소요)", key="admin_refresh_btn")
 
             if refresh_clicked:
-                with st.spinner("Tdb 문서와 현재 파라미터를 비교 분석 중입니다..."):
+                with st.spinner("Tdb 문서 및 파라미터 실시간 검증을 진행 중입니다..."):
                     try:
                         cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
                         cur_ano = st.session_state.get('sel_ano_m', '알 수 없음')
@@ -474,7 +501,7 @@ if is_pro and st.session_state.get('is_admin', False):
                 styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
             elif not refresh_clicked:
-                st.info("💡 우측의 '🔄 새로고침' 버튼을 누르면 AI가 Tdb 문서와 현재 파라미터를 비교 검증합니다.")
+                st.info("💡 우측의 '새로고침 (30초 소요)' 버튼을 누르면 AI가 Tdb 문서와 현재 파라미터를 비교 검증합니다.")
 
 # -----------------------------------------------------------------------------
 # 5. 메인 UI 및 시뮬레이터 본문
@@ -495,7 +522,7 @@ with col_main:
                         if not e_in or "@" not in e_in: st.error("올바른 이메일 주소를 입력해주세요.")
                         else:
                             v_code = str(random.randint(100000, 999999))
-                            with st.spinner("📧 이메일을 발송 중입니다..."):
+                            with st.spinner("이메일을 발송 중입니다..."):
                                 email_res = send_verification_email(e_in, v_code)
                                 if email_res == "SUCCESS": st.session_state.update({'v_code': v_code, 'temp_email': e_in, 'reg_stage': 1}); st.rerun()
                                 else: st.error(f"🚨 이메일 발송 실패 상세 원인: {email_res}")
@@ -880,7 +907,7 @@ with col_main:
                         "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Briefing": ""
                     }
                     
-                    with st.spinner("🚀 물리 엔진 연산 중..."):
+                    with st.spinner("물리 엔진 연산 중..."):
                         time.sleep(0.5) 
                         st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
                         st.session_state.trigger_auto_bot = True 
@@ -1015,7 +1042,6 @@ with col_main:
                         file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
                     btn3.download_button("📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
-                    # 💡 [핵심 수정 포인트 1] PDF 인쇄 버튼 (JS 타임스탬프 주입으로 반복 인쇄 가능하도록 패치)
                     if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
                         components.html(
                             f"""
@@ -1029,9 +1055,8 @@ with col_main:
                             height=0, width=0
                         )
 
-
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot beta) 패널 [완벽한 역순 정렬 & 자동 스크롤 적용]
+# 🤖 시노봇 (SynoBot beta) 패널
 # -----------------------------------------------------------------------------
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
@@ -1039,7 +1064,7 @@ def handle_chat_submit():
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
         save_chat_log(st.session_state.user_email, st.session_state.workspace, "user", user_input)
         st.session_state.trigger_bot_reply = True
-        st.session_state.trigger_scroll_top = True  # 💡 [핵심 수정 포인트 3-1] 엔터 치는 즉시 최상단 스크롤 트리거 활성화
+        st.session_state.trigger_scroll_top = True
         st.session_state.bot_user_input = "" 
 
 if col_bot:
@@ -1052,7 +1077,6 @@ if col_bot:
         
         chat_container = st.container(height=730, border=True) 
         with chat_container:
-            # 💡 [핵심 수정 포인트 3-2] 최상단 앵커 및 자동 스크롤 JS 주입
             st.markdown('<div id="chat-top"></div>', unsafe_allow_html=True)
             if st.session_state.get('trigger_scroll_top', False):
                 components.html(
@@ -1067,7 +1091,7 @@ if col_bot:
                     """,
                     height=0, width=0
                 )
-                st.session_state.trigger_scroll_top = False # 1회 작동 후 초기화
+                st.session_state.trigger_scroll_top = False
 
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             
@@ -1079,7 +1103,8 @@ if col_bot:
                 st.stop()
 
             if not st.session_state.chat_messages: 
-                st.session_state.chat_messages = [{"role": "assistant", "content": "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."}]
+                initial_msg = "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. DB 관리 및 운영 가이드(Admin Help)를 도와드리겠습니다." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
+                st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
             # 1. 시뮬레이션 직후 자동 브리핑
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
@@ -1106,21 +1131,20 @@ if col_bot:
                             try:
                                 messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
                                 api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
+                                is_admin_mode = st.session_state.get('is_admin', False)
                                 
                                 if "Gemini" in st.session_state.engine_choice:
-                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key)
+                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode)
                                 else:
-                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key)
+                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode)
 
                                 reply = st.write_stream(stream_gen)
                                 
-                                # 대화 기록에 답변 추가
                                 st.session_state.chat_messages.append({"role": "assistant", "content": reply})
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                                 
                             except Exception as e: st.error(f"AI 응답 오류: {e}")
                 
-                # 방금 추가된 최신 답변(마지막 요소)을 제외한 나머지를 역순으로 순회
                 for message in reversed(st.session_state.chat_messages[:-1]):
                     with st.chat_message(message["role"]):
                         content = message["content"].replace("\n- ", "\n\n- ")
@@ -1128,14 +1152,12 @@ if col_bot:
                         st.markdown(content)
                         
             else:
-                # 일반 렌더링 시 (항상 완벽한 최신순 정렬)
                 for message in reversed(st.session_state.chat_messages):
                     with st.chat_message(message["role"]):
                         content = message["content"].replace("\n- ", "\n\n- ")
                         if content.startswith("- "): content = "- " + content[2:]
                         st.markdown(content)
 
-        # [스크롤 마법] 채팅 컨테이너가 렌더링 된 직후 무조건 맨 위(0)로 올리기
         components.html(
             """
             <script>
