@@ -65,8 +65,8 @@ st.markdown("""
         border-width: 4px !important;
     }
     
-    /* 새로고침 (30초 소요) 버튼 전용 CSS */
-    div.st-key-admin_refresh_btn > button {
+    /* 새로고침 및 검증 버튼 전용 CSS */
+    div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button {
         width: auto !important;
         padding-left: 20px !important;
         padding-right: 20px !important;
@@ -398,11 +398,11 @@ if is_pro and st.session_state.get('is_admin', False):
                 - **분류:** MAT(소재), PRO(공정), ANL(분석), RPT(보고서)
                 
                 ### 2. 파라미터 검증 및 대조
-                - 파일 업로드 후 시스템 데이터와 AI 학습 내용의 차이를 대조하려면 **'새로고침 (30초 소요)'** 버튼을 클릭하십시오.
+                - 파일 업로드 후 시스템 데이터와 AI 학습 내용의 차이를 대조하려면 **'파라미터 일치 검증'** 버튼을 클릭하십시오.
                 
                 ### 3. OCR 및 데이터 가공
                 - 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 ⚠️ 아이콘과 함께 감지합니다.
-                - 감지된 파일은 [Google Vision OCR] 기능을 통해 변환해 주십시오.
+                - 감지된 파일은 **'Tdb 스캔 및 OCR 실행'** 기능을 통해 AI가 자동 변환합니다.
                 
                 ### 4. 보안 및 출처 표기 (Security)
                 - 유저 화면: **'[출처] 시노봇 AI가 학습한 내부 자료임.'**으로 고정 표기됩니다.
@@ -489,12 +489,32 @@ if is_pro and st.session_state.get('is_admin', False):
 
             st.markdown("---")
             
-            st.markdown("### 🔍 Tdb 파라미터 실시간 검증")
-            col_t, col_b = st.columns([0.8, 0.2])
-            refresh_clicked = col_b.button("새로고침 (30초 소요)", key="admin_refresh_btn")
+            # ---------------------------------------------------------
+            # [역할 분담] 1. 최서연 관리자용: DB 동기화 및 OCR 변환
+            # ---------------------------------------------------------
+            st.markdown("### 🗄️ [DB 관리자] Tdb 스캔 및 OCR 동기화")
+            st.info("💡 새로운 파일을 업로드했거나 OCR 변환이 필요할 때 클릭하세요. (최서연 관리자)")
+            
+            if st.button("🔄 Tdb 스캔 및 OCR 실행 (새로고침)", key="admin_sync_btn"):
+                with st.spinner("구글 드라이브 스캔 및 이미지 PDF OCR 변환을 진행 중입니다. (문서량에 따라 시간 소요)..."):
+                    if synobot:
+                        # 기존 메모리 캐시 삭제 후 새로 스캔
+                        synobot.load_tdb_documents.clear() 
+                        synobot.load_tdb_documents()
+                    st.success("✅ Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
-            if refresh_clicked:
-                with st.spinner("Tdb 문서 및 파라미터 실시간 검증을 진행 중입니다..."):
+            st.markdown("---")
+
+            # ---------------------------------------------------------
+            # [역할 분담] 2. 최우석 관리자용: 파라미터 실시간 검증
+            # ---------------------------------------------------------
+            st.markdown("### 🔍 [시스템 관리자] 파라미터 실시간 검증")
+            st.info("💡 현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다. (최우석 관리자)")
+            col_t, col_b = st.columns([0.8, 0.2])
+            verify_clicked = col_b.button("파라미터 일치 검증", key="admin_verify_btn")
+
+            if verify_clicked:
+                with st.spinner("Tdb 문서 데이터와 현재 파라미터를 대조 검증 중입니다..."):
                     try:
                         cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
                         cur_ano = st.session_state.get('sel_ano_m', '알 수 없음')
@@ -518,8 +538,6 @@ if is_pro and st.session_state.get('is_admin', False):
                     return ['background-color: #ffe6e6' if is_mismatch else '' for _ in row]
                 styled_df = st.session_state.param_diff_table.style.apply(highlight_mismatch, axis=1)
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
-            elif not refresh_clicked:
-                st.info("💡 우측의 '새로고침 (30초 소요)' 버튼을 누르면 AI가 Tdb 문서와 현재 파라미터를 비교 검증합니다.")
 
 # -----------------------------------------------------------------------------
 # 5. 메인 UI 및 시뮬레이터 본문

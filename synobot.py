@@ -39,8 +39,8 @@ except ImportError:
 ADMIN_HELP_SOP = """
 [관리자 운영 수칙(SOP)]
 1. 파일명 규칙: [분류]_[연도]_[키워드]_[버전].pdf (MAT:소재, PRO:공정, ANL:논문, RPT:리포트)
-2. 파라미터 검증: 신규 문서를 업로드한 후, 기존 DB 설정값과 AI가 학습한 문서 내용의 차이를 대조하려면 '새로고침 (30초 소요)' 버튼을 클릭해야 함.
-3. OCR 처리: 텍스트 드래그가 안 되는 PDF는 Google Cloud Vision OCR 모듈이 자동 가동되어 텍스트를 추출함.
+2. DB 동기화 및 OCR (최서연): 신규 문서 업로드 시 반드시 'Tdb 스캔 및 OCR 실행'을 눌러야 AI가 학습함. 이미지 PDF는 이때 자동 OCR 텍스트 추출됨.
+3. 파라미터 검증 (최우석): UI에 설정된 파라미터가 Tdb 원본 문서와 맞는지 대조할 때는 '파라미터 일치 검증'을 수행함.
 """
 
 def get_system_prompt(is_admin=False):
@@ -100,8 +100,9 @@ def extract_text_with_vision(pdf_bytes):
 
 
 # =====================================================================
-# [3] 구글 드라이브 실시간 하위 폴더 스캔 (자동 OCR 연동)
+# [3] 구글 드라이브 실시간 하위 폴더 스캔 및 캐시 (자동 OCR 연동)
 # =====================================================================
+@st.cache_data(ttl=3600, show_spinner=False)  # 1시간 동안 메모리 캐시 유지 (속도 대폭 향상)
 def load_tdb_documents():
     context = ""
     try:
@@ -212,7 +213,7 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
 # [5] Material 파라미터 검증 (표 출력용 JSON 생성)
 # =====================================================================
 def check_parameter_discrepancy(current_params, engine_choice, api_key):
-    context = load_tdb_documents()
+    context = load_tdb_documents()  # 캐시된 내용을 즉시 불러옴 (속도 향상)
     prompt = f"""
     당신은 배터리 소재 스펙 검증 AI입니다. 
     아래 [현재 입력된 파라미터]와 [Tdb 기술 문서]를 비교하여 일치 여부를 분석하십시오.
