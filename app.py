@@ -403,7 +403,7 @@ with col_main:
     # =========================================================================
     if st.session_state.get('is_admin', False) and st.session_state.get('show_admin_panel', True):
         with st.container(border=True):
-            st.markdown('<p class="main-header" style="color:#D35400;">최고 관리자(Admin) 전용 패널</p>', unsafe_allow_html=True)
+            st.markdown('<p class="main-header" style="color:#D35400;">최고 관리자 전용 패널</p>', unsafe_allow_html=True)
             st.markdown("<p style='font-size: 15px; color: #555;'>연동된 Tdb 외부 경로: Google Drive 연동 폴더 내 전체 .txt 및 .pdf 파일 (실시간 스캔 중)</p>", unsafe_allow_html=True)
             st.markdown("---")
             
@@ -415,22 +415,21 @@ with col_main:
             if col_db_b.button("Tdb 스캔 및 OCR 실행", key="admin_sync_btn", use_container_width=True):
                 with st.spinner("구글 드라이브 스캔 및 이미지 PDF OCR 변환을 진행 중입니다. (문서량에 따라 시간 소요)..."):
                     if synobot:
-                        # 기존 메모리 캐시 삭제 후 새로 스캔
                         synobot.load_tdb_documents.clear() 
                         synobot.load_tdb_documents()
                     st.success("Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
-            # [Tdb 운영 표준 가이드]
+            # [Tdb 운영 표준 가이드] (마크다운 오류 수정 및 HTML 적용)
             with st.expander("Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
-                **1. 파일 명명 규칙**
-                <ul style="font-size: 16px; padding-top: 5px;">
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">1. 파일 명명 규칙</div>
+                <ul style="font-size: 16px; margin-top: 0px;">
                     <li><b>형식:</b> <b>[분류]_[키워드1]_[키워드2]_[연도]</b> (예: MAT_알트리스 양극재_코인셀 평가_2025)</li>
                     <li><b>분류:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li>
                 </ul>
                 <br>
-                **2. OCR 및 데이터 가공**
-                <ul style="font-size: 16px; padding-top: 5px;">
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">2. OCR 및 데이터 가공</div>
+                <ul style="font-size: 16px; margin-top: 0px;">
                     <li>텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 경고 메시지와 함께 감지합니다.</li>
                     <li>감지된 파일은 <b>'Tdb 스캔 및 OCR 실행'</b> 기능을 통해 AI가 자동 변환합니다.</li>
                 </ul>
@@ -440,12 +439,12 @@ with col_main:
             st.markdown("<hr style='border: 3px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
             # ---------------------------------------------------------
-            # 2. [Master 관리자] Data source 및 고객 관리
+            # 2. [Master 관리자] Data 및 고객 관리
             # ---------------------------------------------------------
-            st.markdown("### [Master 관리자]")
+            st.markdown("### [Master 관리자] Data 및 고객 관리")
             
-            # AI 엔진 마스터 스위치
-            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
+            # 2-1. AI 엔진 마스터 스위치
+            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>1. AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
             if "engine_radio_widget" not in st.session_state:
@@ -464,8 +463,8 @@ with col_main:
             if selected_engine != st.session_state.get("engine_choice"):
                 st.session_state.engine_choice = selected_engine
 
-            # Data source 관리
-            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>Data source 관리</p>", unsafe_allow_html=True)
+            # 2-2. Data Source 관리
+            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>2. Data Source 관리</p>", unsafe_allow_html=True)
             
             a1, a2, a3, a4, a5 = st.columns(5)
             if a1.button("유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
@@ -511,9 +510,8 @@ with col_main:
                             conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
                 except Exception as e: pass
 
-            # 하단 스폰서 로고 설정
-            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>하단 스폰서 로고 설정</p>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size: 15px; color: #555; margin-bottom: 5px;'>메인 화면 최하단(푸터)에 노출될 스폰서/파트너사의 로고 이미지 URL을 입력해 주세요. (예: 이미지 호스팅 링크)</div>", unsafe_allow_html=True)
+            # 2-3. 하단 스폰서 로고 설정
+            st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>3. 하단 스폰서 로고 설정</p>", unsafe_allow_html=True)
             col_l_t, col_l_b = st.columns([0.8, 0.2])
             logo_url_input = col_l_t.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''), label_visibility="collapsed", placeholder="https://example.com/logo.png")
             if col_l_b.button("로고 저장 및 적용", key="btn_save_logo", use_container_width=True):
@@ -523,7 +521,7 @@ with col_main:
             st.markdown("---")
 
             # ---------------------------------------------------------
-            # 4. [System 관리자] Parameter 실시간 검증
+            # 3. [System 관리자] Parameter 실시간 검증
             # ---------------------------------------------------------
             st.markdown("### [System 관리자] Parameter 실시간 검증")
             col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
@@ -624,7 +622,7 @@ with col_main:
 
         if st.session_state.get('show_profile') and st.session_state.logged_in and not st.session_state.get('is_admin', False):
             with st.container(border=True):
-                st.markdown('<p class="main-header">👤 My 계정 정보 수정</p>', unsafe_allow_html=True)
+                st.markdown('<p class="main-header">My 계정 정보 수정</p>', unsafe_allow_html=True)
                 df_u = get_user_db(); u_row = df_u[df_u['Email'] == st.session_state.user_email].iloc[0] if not df_u[df_u['Email'] == st.session_state.user_email].empty else {}
                 st.markdown(f"**이메일(ID):** {st.session_state.user_email}")
                 
@@ -658,7 +656,7 @@ with col_main:
                     st.session_state.user_name = m_name; st.session_state.user_tier = m_tier; st.session_state.show_profile = False; st.success("수정 완료!"); st.rerun()
                 
                 st.markdown("---")
-                del_check = st.checkbox("⚠️ 탈퇴 신청 (체크 시 활성화)")
+                del_check = st.checkbox("탈퇴 신청 (체크 시 활성화)")
                 if del_check:
                     del_col1, del_col2 = st.columns([0.7, 0.3])
                     del_reason = del_col1.text_input("탈퇴 사유 입력", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
@@ -682,7 +680,7 @@ with col_main:
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
                 if not st.session_state.logged_in:
-                    st.info("🔒 **비로그인 상태 안내:** 일부 제조사 정보가 마스킹(OOO) 처리되며, 정확한 클라우드 DB 연동 없이 표준 샘플값으로만 동작합니다. 상세 DB 연동 및 VIP 전용 기능은 로그인이 필요합니다.")
+                    st.info("비로그인 상태 안내: 일부 제조사 정보가 마스킹(OOO) 처리되며, 정확한 클라우드 DB 연동 없이 표준 샘플값으로만 동작합니다. 상세 DB 연동 및 VIP 전용 기능은 로그인이 필요합니다.")
 
                 with st.container(border=True):
                     physical_ws = "material_list" if st.session_state.workspace == "general_user" else st.session_state.workspace
@@ -704,9 +702,7 @@ with col_main:
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
                     def format_mat_name(name): 
-                        prefix = "💎 " if name in vip_names else ""
-                        if any(p in name for p in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]): prefix += "☑️ "
-                        
+                        prefix = "[VIP] " if name in vip_names else ""
                         if not st.session_state.logged_in:
                             for comp in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]:
                                 if comp in name:
@@ -747,7 +743,7 @@ with col_main:
             st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
             sp2, c_2 = st.columns([0.03, 0.97])
             with c_2:
-                with st.expander(f"{'✅ ' if st.session_state.acc_step > 1 else ''}Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
+                with st.expander(f"Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
                     s1, s2, s3 = st.columns(3)
                     with s1:
                         st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
@@ -783,7 +779,7 @@ with col_main:
                         
                     st.button("다음 단계: 공정 설계 ➡️", key="btn_next_1", on_click=change_acc_step, args=(2,))
 
-                with st.expander(f"{'✅ ' if st.session_state.acc_step > 2 else ''}Step 2. 셀 공정 설계 (Process Parameters)", expanded=(st.session_state.acc_step == 2)):
+                with st.expander(f"Step 2. 셀 공정 설계 (Process Parameters)", expanded=(st.session_state.acc_step == 2)):
                     p1, p2, p3 = st.columns(3)
                     with p1:
                         st.markdown('<p class="sub-header-bold">(A) Cathode Process</p>', unsafe_allow_html=True)
@@ -799,7 +795,7 @@ with col_main:
                         cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                         
                         c_poro = (1 - st.session_state.c_press_s / st.session_state.c_den_s) * 100 if st.session_state.c_den_s > 0 else 0
-                        st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
                         
                         st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                         cf1, cf2 = st.columns([0.7, 0.3])
@@ -838,7 +834,7 @@ with col_main:
                         apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                         
                         a_poro = (1 - st.session_state.a_press_s / st.session_state.a_den_s) * 100 if st.session_state.a_den_s > 0 else 0
-                        st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>📊 음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
                         
                         st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                         af1, af2 = st.columns([0.7, 0.3])
@@ -913,7 +909,7 @@ with col_main:
             sp5, c_5 = st.columns([0.03, 0.97])
             with c_5:
                 with st.container(border=True):
-                    if st.button("🚀 RUN SIMULATION", key="btn_run_m", use_container_width=True):
+                    if st.button("RUN SIMULATION", key="btn_run_m", use_container_width=True):
                         cell_v = max(0.1, v_volt - (0.1 + (v_tc * 0.02)))
                         
                         c_areal_cap = v_c_lod * (v_c_act / 100.0) * v_cap / 1000.0 
@@ -999,7 +995,7 @@ with col_main:
                         
                         if res.get("AI_Briefing"):
                             st.markdown("<br>", unsafe_allow_html=True)
-                            show_ai = st.checkbox("**:red[펼쳐보기]** 🤖 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
+                            show_ai = st.checkbox("**[AI 브리핑 펼쳐보기]** 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
                                 
                             if show_ai:
                                 with st.container(border=True):
@@ -1007,7 +1003,7 @@ with col_main:
                                     st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
 
                         if len(st.session_state.history) > 0:
-                            st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>🕒 당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
+                            st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
                             df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
                             df_session.insert(0, 'No.', range(len(df_session), 0, -1))
                             try: st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
@@ -1026,7 +1022,7 @@ with col_main:
                 sp6, c_6 = st.columns([0.03, 0.97])
                 with c_6:
                     with st.container(border=True):
-                        st.caption("ℹ️ 표 안의 **[User Comment]** 셀을 더블클릭하여 해당 시뮬레이션에 대한 메모를 남기실 수 있습니다.")
+                        st.caption("표 안의 **[User Comment]** 셀을 더블클릭하여 해당 시뮬레이션에 대한 메모를 남기실 수 있습니다.")
                         db_df_all = pd.DataFrame(); selected_times = []
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection)
@@ -1043,7 +1039,7 @@ with col_main:
                                     original_comments = df_display['User Comment'].tolist()
                                     disabled_cols = [col for col in df_display.columns if col not in ["선택", "User Comment"]]
                                     
-                                    edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True, disabled=disabled_cols, column_config={"Time": st.column_config.TextColumn("Time", disabled=True), "User Comment": st.column_config.TextColumn("📝 코멘트 입력", width="large")})
+                                    edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True, disabled=disabled_cols, column_config={"Time": st.column_config.TextColumn("Time", disabled=True), "User Comment": st.column_config.TextColumn("코멘트 입력", width="large")})
                                     
                                     if edited_df['User Comment'].tolist() != original_comments:
                                         if 'User Comment' not in db_df_all.columns: db_df_all['User Comment'] = ""
@@ -1058,7 +1054,7 @@ with col_main:
                         st.markdown("<br>", unsafe_allow_html=True)
                         btn1, btn2, btn3, btn4 = st.columns(4)
                         
-                        if btn1.button("💾 임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
+                        if btn1.button("임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
                             try:
                                 conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
                                 new_records = []
@@ -1073,7 +1069,7 @@ with col_main:
                                     st.warning("이미 모든 기록이 클라우드에 저장되어 있습니다.")
                             except Exception as e: st.error("저장 오류")
 
-                        if btn2.button("🗑️ 선택 삭제", key="btn_del_sel", use_container_width=True):
+                        if btn2.button("선택 삭제", key="btn_del_sel", use_container_width=True):
                             if not selected_times: st.warning("항목을 체크해주세요.")
                             elif not db_df_all.empty:
                                 mask = ~((db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'general_user').isin([st.session_state.workspace, 'material_list'])) & (db_df_all['Time'].isin(selected_times)))
@@ -1086,9 +1082,9 @@ with col_main:
                             file_data = buffer.getvalue(); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.xlsx"; mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         except ImportError:
                             file_data = df_export.to_csv(index=False).encode('utf-8-sig'); file_name = f"SynoCore_Logs_{datetime.now(KST).strftime('%m%d_%H%M')}.csv"; mime_type = "text/csv"
-                        btn3.download_button("📥 엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
+                        btn3.download_button("엑셀 다운로드", data=file_data, file_name=file_name, mime=mime_type, key="btn_excel", use_container_width=True)
 
-                        if btn4.button("📄 화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
+                        if btn4.button("화면 PDF 인쇄", key="btn_print_pdf", use_container_width=True):
                             components.html(
                                 f"""
                                 <script>
@@ -1115,7 +1111,7 @@ def handle_chat_submit():
 
 if col_bot:
     with col_bot:
-        st.markdown("#### 🤖 SynoBot (beta)")
+        st.markdown("#### SynoBot (beta)")
         
         c_in1, c_in2 = st.columns([0.75, 0.25])
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="Tdb 문서나 SIB 기술에 대해 질문하세요...", key="bot_user_input", on_change=handle_chat_submit)
@@ -1160,7 +1156,7 @@ if col_bot:
                         with st.spinner(f"{st.session_state.engine_choice.split(' ')[0]} 엔진으로 결과 분석 중..."):
                             try:
                                 reply = synobot.generate_auto_briefing(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY)
-                                bot_reply = f"📊 **[실시간 AI 진단 ({st.session_state.engine_choice.split(' ')[0]})]**\n\n" + reply
+                                bot_reply = f"**[실시간 AI 진단 ({st.session_state.engine_choice.split(' ')[0]})]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                                 if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
