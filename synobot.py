@@ -12,7 +12,7 @@ try:
 except ImportError:
     PdfReader = None
 
-# [신규] OCR 추출 부품 (Google Cloud Vision & pdf2image)
+# OCR 추출 부품 (Google Cloud Vision & pdf2image)
 try:
     from google.cloud import vision
     from google.api_core.client_options import ClientOptions
@@ -59,25 +59,17 @@ def get_system_prompt(is_admin=False):
 # [2] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
 # =====================================================================
 def extract_text_with_vision(pdf_bytes):
-    """
-    Google Cloud Vision API 키를 사용하여 스캔본 PDF에서 텍스트를 정밀 추출합니다.
-    """
     if not vision or not convert_from_bytes:
         return "\n[시스템 알림: Vision API 관련 라이브러리(google-cloud-vision, pdf2image)가 서버에 설치되지 않았습니다.]"
     
     try:
-        # 1. secrets.toml에서 발급받은 API 키 불러오기
         api_key = st.secrets["GOOGLE_VISION_API_KEY"]
-        
-        # 2. ClientOptions를 사용해 API 키 방식으로 Vision 클라이언트 인증
         client_options = ClientOptions(api_key=api_key)
         client = vision.ImageAnnotatorClient(client_options=client_options)
         
-        # 3. PDF를 이미지 리스트로 변환 (해상도 200dpi)
         images = convert_from_bytes(pdf_bytes, dpi=200)
         extracted_text = ""
         
-        # 4. 각 페이지(이미지)마다 고정밀 텍스트 감지 수행
         for i, image in enumerate(images):
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='JPEG')
@@ -101,7 +93,7 @@ def extract_text_with_vision(pdf_bytes):
 # =====================================================================
 # [3] 구글 드라이브 실시간 하위 폴더 스캔 및 캐시 (자동 OCR 연동)
 # =====================================================================
-@st.cache_data(ttl=3600, show_spinner=False)  # 1시간 동안 메모리 캐시 유지 (속도 대폭 향상)
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_tdb_documents():
     context = ""
     try:
@@ -135,12 +127,10 @@ def load_tdb_documents():
                         inner_context += f"\n\n--- [참조 데이터: {item['name']}] ---\n{content}"
                     
                     elif item['mimeType'] == 'application/pdf' and PdfReader:
-                        # fh 데이터를 bytes로 추출
                         pdf_bytes = fh.getvalue()
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
                         
-                        # 일반 텍스트 추출 실패 시 (이미지 PDF인 경우 Vision API 호출)
                         if not pdf_text.strip():
                             inner_context += f"\n\n--- [참조 데이터: {item['name']} (고정밀 OCR 자동 변환됨)] ---"
                             ocr_text = extract_text_with_vision(pdf_bytes)
@@ -156,14 +146,19 @@ def load_tdb_documents():
 
 
 # =====================================================================
-# [4] AI 엔진 챗봇 응답 함수 (관리자 분기 is_admin 적용)
+# [4] AI 엔진 챗봇 응답 함수 (빠른 도움말 use_tdb 플래그 적용)
 # =====================================================================
-def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False):
+def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False, use_tdb=True):
     genai.configure(api_key=api_key)
     system_instruction = get_system_prompt(is_admin)
     model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=system_instruction)
     
-    retrieved_context = load_tdb_documents()
+    # [핵심] use_tdb가 False면 무거운 문서 스캔을 패스하고 1초만에 즉답 유도
+    if use_tdb:
+        retrieved_context = load_tdb_documents()
+    else:
+        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 운영 가이드(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
+        
     last_user_msg = messages[-1]["content"]
     
     full_prompt = f"### [Google Drive Tdb Context]\n{retrieved_context}\n\n"
@@ -176,10 +171,14 @@ def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False):
             if chunk.text: yield chunk.text
     except Exception as e: yield f"\n경고: Gemini 엔진 오류: {e}"
 
-def get_openai_response_stream(messages, sim_result, api_key, is_admin=False):
+def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, use_tdb=True):
     client = OpenAI(api_key=api_key)
-    retrieved_context = load_tdb_documents()
     system_instruction = get_system_prompt(is_admin)
+    
+    if use_tdb:
+        retrieved_context = load_tdb_documents()
+    else:
+        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 운영 가이드(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
     
     sys_content = system_instruction + f"\n\n### [Context]\n{retrieved_context}"
     if sim_result: sys_content += f"\n\n### [Sim State]\n{sim_result}"
@@ -209,10 +208,10 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
         return f"자동 브리핑 생성 오류: {e}"
 
 # =====================================================================
-# [5] Material 파라미터 검증 (표 출력용 JSON 생성)
+# [5] Material 파라미터 검증
 # =====================================================================
 def check_parameter_discrepancy(current_params, engine_choice, api_key):
-    context = load_tdb_documents()  # 캐시된 내용을 즉시 불러옴 (속도 향상)
+    context = load_tdb_documents() 
     prompt = f"""
     당신은 배터리 소재 스펙 검증 AI입니다. 
     아래 [현재 입력된 파라미터]와 [Tdb 기술 문서]를 비교하여 일치 여부를 분석하십시오.

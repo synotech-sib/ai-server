@@ -335,7 +335,6 @@ if not is_pro:
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
-                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 모드] 통합 브리핑을 시작하겠습니다."}]
                             st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -358,7 +357,6 @@ else:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True) 
         r_my, r_out = st.columns([1, 1], gap="small")
         with r_my:
-            # 관리자일 경우 패널 전환 토글, 유저일 경우 My 계정
             if st.session_state.get('is_admin', False):
                 toggle_label = "시뮬레이션 가기" if st.session_state.get('show_admin_panel', True) else "관리자 패널"
                 if st.button(toggle_label, key="btn_admin_toggle", use_container_width=True):
@@ -420,7 +418,6 @@ with col_main:
                         synobot.load_tdb_documents()
                     st.success("Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
-            # [Tdb 운영 표준 가이드] (마크다운 오류 수정 및 HTML 적용, 이모티콘 제거)
             with st.expander("Tdb 운영 표준 가이드 (필독)", expanded=False):
                 st.markdown("""
                 <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">1. 파일 명명 규칙</div>
@@ -436,7 +433,6 @@ with col_main:
                 </ul>
                 """, unsafe_allow_html=True)
                 
-            # [DB관리자와 Master관리자를 구분하는 두꺼운 구분선]
             st.markdown("<hr style='border: 3px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
             # ---------------------------------------------------------
@@ -444,7 +440,6 @@ with col_main:
             # ---------------------------------------------------------
             st.markdown("### [Master 관리자] Data 및 고객 관리")
             
-            # 2-1. AI 엔진 마스터 스위치 (들여쓰기 적용)
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 10px;'>1. AI 엔진 마스터 스위치</p>", unsafe_allow_html=True)
             engine_opts = ["Gemini 2.5 Flash (기본/쾌속)", "OpenAI GPT-4o (비상/정밀)"]
             
@@ -464,7 +459,6 @@ with col_main:
             if selected_engine != st.session_state.get("engine_choice"):
                 st.session_state.engine_choice = selected_engine
 
-            # 2-2. Data Source 관리
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>2. Data Source 관리</p>", unsafe_allow_html=True)
             
             a1, a2, a3, a4, a5 = st.columns(5)
@@ -511,7 +505,6 @@ with col_main:
                             conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
                 except Exception as e: pass
 
-            # 2-3. 하단 스폰서 로고 설정
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>3. 하단 스폰서 로고 설정</p>", unsafe_allow_html=True)
             col_l_t, col_l_b = st.columns([0.8, 0.2])
             logo_url_input = col_l_t.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''), label_visibility="collapsed", placeholder="https://example.com/logo.png")
@@ -522,7 +515,7 @@ with col_main:
             st.markdown("---")
 
             # ---------------------------------------------------------
-            # 3. [System 관리자] Parameter 실시간 검증 (버튼 우측 배치)
+            # 3. [System 관리자] Parameter 실시간 검증
             # ---------------------------------------------------------
             st.markdown("### [System 관리자] Parameter 실시간 검증")
             col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
@@ -556,10 +549,9 @@ with col_main:
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
     # =========================================================================
-    # [일반 유저 및 시뮬레이션 화면] - 관리자가 '시뮬레이션 가기' 토글 시에도 노출
+    # [일반 유저 및 시뮬레이션 화면]
     # =========================================================================
     else:
-        # --- 가입 및 프로필 영역 ---
         if st.session_state.show_reg and not st.session_state.logged_in:
             with st.container(border=True):
                 st.markdown('<p class="main-header">계정 가입 (Pro Mode)</p>', unsafe_allow_html=True)
@@ -684,7 +676,6 @@ with col_main:
                     st.info("비로그인 상태 안내: 일부 제조사 정보가 마스킹(OOO) 처리되며, 정확한 클라우드 DB 연동 없이 표준 샘플값으로만 동작합니다. 상세 DB 연동 및 VIP 전용 기능은 로그인이 필요합니다.")
 
                 with st.container(border=True):
-                    # 관리자일 경우 모든 VIP 목록을 통합해서 로드
                     _dfs = []
                     if is_pro:
                         if st.session_state.workspace == 'admin_master':
@@ -1136,6 +1127,12 @@ if col_bot:
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="Tdb 문서나 SIB 기술에 대해 질문하세요...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
         
+        # [신규] 관리자 전용 "빠른 도움말 모드" (Tdb 패스)
+        if st.session_state.get('is_admin', False):
+            st.markdown("<div style='margin-top:-10px; margin-bottom:5px;'>", unsafe_allow_html=True)
+            st.checkbox("⚡ 빠른 도움말 모드 (Tdb 검색 생략)", value=False, key="fast_admin_help", help="체크 시 무거운 Tdb 스캔을 생략하고 관리자 운영 가이드(SOP) 내용만 바탕으로 1초 만에 즉답합니다.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
         chat_container = st.container(height=730, border=True) 
         with chat_container:
             st.markdown('<div id="chat-top"></div>', unsafe_allow_html=True)
@@ -1182,22 +1179,26 @@ if col_bot:
                             except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 (Tdb 패스 로직 연결)
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
                 if synobot:
                     with st.chat_message("assistant"):
-                        with st.spinner("시노코어 기술 데이터베이스(Tdb) 분석 중..."):
+                        # 빠른 도움말 모드 여부에 따른 스피너 메시지 및 플래그 동적 변경
+                        is_admin_mode = st.session_state.get('is_admin', False)
+                        use_tdb_flag = not st.session_state.get('fast_admin_help', False) if is_admin_mode else True
+                        spinner_msg = "시노코어 기술 데이터베이스(Tdb) 분석 중..." if use_tdb_flag else "관리자 운영 가이드(SOP) 확인 중..."
+                        
+                        with st.spinner(spinner_msg):
                             try:
                                 messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
                                 api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
-                                is_admin_mode = st.session_state.get('is_admin', False)
                                 
                                 if "Gemini" in st.session_state.engine_choice:
-                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode)
+                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
                                 else:
-                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode)
+                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
 
                                 reply = st.write_stream(stream_gen)
                                 
