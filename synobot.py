@@ -12,7 +12,7 @@ try:
 except ImportError:
     PdfReader = None
 
-# 🌟 [핵심 누락 복구] OCR 추출 부품 (Google Cloud Vision & pdf2image)
+# OCR 추출 부품 (Google Cloud Vision & pdf2image)
 try:
     from google.cloud import vision
     from google.api_core.client_options import ClientOptions
@@ -34,12 +34,32 @@ except ImportError:
     genai = None
 
 # =====================================================================
-# [1] 시노봇 시스템 지침 (관리자 권한에 따른 동적 생성)
+# [1] 시노봇 시스템 지침 (업데이트된 관리자 종합 매뉴얼)
 # =====================================================================
 ADMIN_HELP_SOP = """
-[관리자 운영 수칙(SOP)]
-1. 파일 명명 규칙: [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)
-2. OCR 처리: 텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 감지하여 'Tdb 스캔 및 OCR 실행' 기능을 통해 AI가 자동 변환함.
+[관리자 종합 매뉴얼 (SOP)]
+제1장. Tdb 문서 관리 및 OCR 동기화
+- 명명 규칙: [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)
+- 분류: MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)
+- OCR 실행: 스캔본 PDF 업로드 후 'Tdb 스캔 및 OCR 실행' 버튼을 누르면 Vision API를 통해 텍스트가 자동 변환됩니다.
+
+제2장. AI 엔진 및 시노봇 관리
+- 평상시 'Gemini 2.5 Flash'를 사용하며, 정밀 분석 시 'OpenAI GPT-4o'로 스위칭합니다.
+- 빠른 도움말 모드: 체크 시 무거운 Tdb 스캔을 건너뛰고 매뉴얼 내용만 바탕으로 1초 만에 즉답합니다.
+
+제3장. Data Source 및 유저 관리
+- 유저 관리: 가입자의 Pro Max 등급 승인 및 탈퇴 처리를 인라인 에디터로 수행합니다.
+- DB 직접 관리: 소재, 파라미터, 로그 DB를 화면에서 수정 후 클라우드에 영구 저장합니다. (admin_master 탭은 모든 VIP 데이터를 취합한 읽기 전용 뷰입니다.)
+
+제4장. VIP 소재 관리 및 공개용 마스킹 처리
+- VIP 직접 추가: Pro Max 고객은 메인 화면의 '내 전용 DB에 새 소재 추가'를 통해 비공개 소재를 자체 등록할 수 있습니다.
+- 공개용 마스킹 배포: VIP 소재를 일반 유저에게 공개할 때, 소재 DB 에디터에서 해당 VIP 데이터를 복사해 'material_list(공용)'에 붙여넣습니다. 이후 업체명은 OOO로 가리고 핵심 수치(용량, 수명 등)를 평균값으로 하향 조정(너프)한 후 배포합니다.
+
+제5장. 스폰서 로고 설정
+- 하단 푸터 로고는 투명 배경 PNG를 권장하며, GitHub 저장소 원본 링크(raw URL)를 사용하여 깨짐을 방지합니다. 입력칸을 지우고 저장하면 로고가 완전히 삭제됩니다.
+
+제6장. 파라미터 실시간 검증
+- UI에 설정된 파라미터 값들이 Tdb 원본 기술 문서와 일치하는지 '파라미터 일치 검증' 버튼을 통해 교차 검증합니다.
 """
 
 def get_system_prompt(is_admin=False):
@@ -48,15 +68,12 @@ def get_system_prompt(is_admin=False):
 - 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오."""
     
     if is_admin:
-        # 관리자 전용: 출처 파일명 나열 + 운영 가이드 숙지
-        return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [운영 수칙]을 바탕으로 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
+        return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [관리자 종합 매뉴얼]을 바탕으로 명확히 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
     else:
-        # 일반 유저: 보안 처리 (고정 문구)
         return base_prompt + "\n- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.\n- 답변의 맨 마지막 줄에는 반드시 아래 문구를 정확히 그대로 추가하십시오:\n  \"[출처] 시노봇 AI가 학습한 내부 자료임.\""
 
-
 # =====================================================================
-# [2] 🌟 [핵심 누락 복구] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
+# [2] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
 # =====================================================================
 def extract_text_with_vision(pdf_bytes):
     if not vision or not convert_from_bytes:
@@ -131,7 +148,6 @@ def load_tdb_documents():
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
                         
-                        # 🌟 [핵심] 텍스트가 안 읽히면 위에서 만든 Vision API로 무조건 돌림
                         if not pdf_text.strip():
                             inner_context += f"\n\n--- [참조 데이터: {item['name']} (고정밀 OCR 자동 변환됨)] ---"
                             ocr_text = extract_text_with_vision(pdf_bytes)
@@ -157,7 +173,7 @@ def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False, us
     if use_tdb:
         retrieved_context = load_tdb_documents()
     else:
-        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 운영 가이드(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
+        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
         
     last_user_msg = messages[-1]["content"]
     
@@ -178,7 +194,7 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, us
     if use_tdb:
         retrieved_context = load_tdb_documents()
     else:
-        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 운영 가이드(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
+        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
     
     sys_content = system_instruction + f"\n\n### [Context]\n{retrieved_context}"
     if sim_result: sys_content += f"\n\n### [Sim State]\n{sim_result}"
