@@ -335,6 +335,7 @@ if not is_pro:
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
+                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 종합 매뉴얼]이 숙지되었습니다. 검색을 통해 편하게 도움말을 확인하세요."}]
                             st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -398,7 +399,7 @@ with col_left: st.empty()
 
 with col_main:
     # =========================================================================
-    # [관리자 전용 화면] - "show_admin_panel"이 켜져 있을 때 렌더링
+    # [관리자 전용 화면]
     # =========================================================================
     if st.session_state.get('is_admin', False) and st.session_state.get('show_admin_panel', True):
         with st.container(border=True):
@@ -407,7 +408,7 @@ with col_main:
             st.markdown("---")
             
             # ---------------------------------------------------------
-            # 1. [DB 관리자] Tdb 스캔 및 OCR 동기화
+            # 1. [DB 관리자] Tdb 스캔 및 OCR 동기화 + 관리자 종합 매뉴얼(검색)
             # ---------------------------------------------------------
             col_db_t, col_db_b = st.columns([0.8, 0.2])
             col_db_t.markdown("### [DB 관리자] Tdb 스캔 및 OCR 동기화")
@@ -418,20 +419,26 @@ with col_main:
                         synobot.load_tdb_documents()
                     st.success("Tdb 문서 동기화 및 OCR 변환이 완벽하게 완료되었습니다! (AI 학습 완료)")
 
-            with st.expander("Tdb 운영 표준 가이드 (필독)", expanded=False):
-                st.markdown("""
-                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">1. 파일 명명 규칙</div>
-                <ul style="font-size: 16px; margin-top: 0px;">
-                    <li><b>형식:</b> <b>[분류]_[키워드1]_[키워드2]_[연도]</b> (예: MAT_알트리스 양극재_코인셀 평가_2025)</li>
-                    <li><b>분류:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li>
-                </ul>
-                <br>
-                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">2. OCR 및 데이터 가공</div>
-                <ul style="font-size: 16px; margin-top: 0px;">
-                    <li>텍스트 선택이 안 되는 PDF(스캔본)는 시스템이 자동으로 경고 메시지와 함께 감지합니다.</li>
-                    <li>감지된 파일은 <b>'Tdb 스캔 및 OCR 실행'</b> 기능을 통해 AI가 자동 변환합니다.</li>
-                </ul>
-                """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            search_kw = st.text_input("🔍 관리자 종합 매뉴얼 실시간 검색", placeholder="예: OCR, 명명, 로고, 승인...", help="키워드를 입력하면 해당하는 매뉴얼 내용만 보여줍니다.")
+
+            manual_data = {
+                "제1장. Tdb 문서 관리 및 OCR 동기화": "<ul><li><b>명명 규칙:</b> [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)</li><li><b>분류 기준:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li><li><b>OCR 자동 변환:</b> 텍스트 복사가 불가능한 스캔본 PDF는 시스템이 감지하며, <b>'Tdb 스캔 및 OCR 실행'</b> 버튼을 누르면 AI가 즉시 자동 변환합니다.</li></ul>",
+                "제2장. AI 엔진 마스터 스위치": "<ul><li><b>Gemini 2.5 Flash:</b> 평상시 빠른 챗봇 응답 및 스캔용으로 사용합니다.</li><li><b>OpenAI GPT-4o:</b> 비상 상황이나 보다 정밀한 논문 분석이 필요할 때 스위칭하여 활용합니다.</li></ul>",
+                "제3장. Data Source 및 고객 관리": "<ul><li><b>유저 관리:</b> 가입자의 Pro Max 등급 승인, 정보 수정, 탈퇴 처리를 화면에서 직접 수행합니다.</li><li><b>DB 통합 관리:</b> 소재, 파라미터, 로그 DB를 다운로드 없이 인라인 에디터로 직접 수정하고 클라우드에 영구 저장합니다.</li></ul>",
+                "제4장. 스폰서 로고 설정": "<ul><li>메인 화면 하단 푸터에 노출될 스폰서 로고를 관리합니다.</li><li>투명 배경의 PNG 파일이 권장되며, GitHub 저장소의 원본 링크(raw URL) 사용 시 이미지 깨짐을 방지할 수 있습니다. 칸을 비우고 저장하면 로고가 삭제됩니다.</li></ul>",
+                "제5장. 파라미터 실시간 검증": "<ul><li>현재 메인 화면 UI에 설정된 배터리 파라미터(용량, 전압 등) 값들이 실제 Tdb 원본 기술 문서 내용과 맞는지 <b>'파라미터 일치 검증'</b> 버튼을 통해 즉시 교차 검증하고 경고를 띄웁니다.</li></ul>"
+            }
+
+            with st.expander("관리자 종합 매뉴얼 보기 (SOP)", expanded=True if search_kw else False):
+                found = False
+                for title, content in manual_data.items():
+                    if not search_kw or (search_kw.lower() in title.lower() or search_kw.lower() in content.lower()):
+                        st.markdown(f"<div style='font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #1A729A;'>{title}</div>{content}", unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        found = True
+                if not found:
+                    st.warning("검색된 매뉴얼 내용이 없습니다. 키워드를 다시 확인해 주세요.")
                 
             st.markdown("<hr style='border: 3px solid #1A729A; margin-top: 30px; margin-bottom: 30px;'>", unsafe_allow_html=True)
 
@@ -507,7 +514,7 @@ with col_main:
 
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>3. 하단 스폰서 로고 설정</p>", unsafe_allow_html=True)
             col_l_t, col_l_b = st.columns([0.8, 0.2])
-            logo_url_input = col_l_t.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''), label_visibility="collapsed", placeholder="https://example.com/logo.png")
+            logo_url_input = col_l_t.text_input("스폰서 로고 URL", value=st.session_state.get('sponsor_logo_url', ''), label_visibility="collapsed", placeholder="https://raw.githubusercontent.com/...")
             if col_l_b.button("로고 저장 및 적용", key="btn_save_logo", use_container_width=True):
                 st.session_state.sponsor_logo_url = logo_url_input
                 st.success("스폰서 로고가 하단에 성공적으로 적용되었습니다!")
@@ -549,7 +556,7 @@ with col_main:
                 st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
     # =========================================================================
-    # [일반 유저 및 시뮬레이션 화면]
+    # [일반 유저 및 시뮬레이션 화면] 
     # =========================================================================
     else:
         if st.session_state.show_reg and not st.session_state.logged_in:
@@ -741,6 +748,43 @@ with col_main:
                             "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
                             "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
                         }
+
+                # 🌟 [복구 완료] VIP(Pro Max) 고객 전용 '내 소재 추가' 패널
+                if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
+                    with st.expander("➕ 내 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
+                        st.info("💡 여기에 저장된 소재는 귀사의 전용 워크스페이스에만 안전하게 보관되며, 일반 유저에게는 노출되지 않습니다.")
+                        with st.form("form_add_vip_mat", border=False):
+                            c1_vip, c2_vip, c3_vip = st.columns(3)
+                            n_mat = c1_vip.text_input("소재명", placeholder="예: Altris_Cathode_V2")
+                            n_cat = c2_vip.selectbox("분류", ["Cathode", "Anode", "Electrolyte", "Separator"])
+                            n_cap = c3_vip.number_input("기본 용량 (mAh/g)", value=160.0, step=1.0)
+                            
+                            c4_vip, c5_vip, c6_vip, c7_vip = st.columns(4)
+                            n_volt = c4_vip.number_input("기본 전압 (V)", value=3.05, step=0.01)
+                            n_den = c5_vip.number_input("진밀도 (g/cc)", value=4.5, step=0.1)
+                            n_life = c6_vip.number_input("기본 수명 (Cyc)", value=4000.0, step=100.0)
+                            n_load = c7_vip.number_input("기본 로딩 (mg/cm2)", value=14.0, step=0.1)
+                            
+                            if st.form_submit_button("내 DB에 저장", use_container_width=True):
+                                if n_mat:
+                                    conn = st.connection("gsheets", type=GSheetsConnection)
+                                    ws_name = st.session_state.workspace
+                                    try:
+                                        df_my = conn.read(spreadsheet=URL_MATS, worksheet=ws_name, ttl=0)
+                                    except:
+                                        df_my = pd.DataFrame(columns=["Name", "Category", "Cap_Def", "Volt_Def", "Den_Def", "Life_Def", "Load_Def"])
+                                    
+                                    new_row = pd.DataFrame([{
+                                        "Name": n_mat, "Category": n_cat, "Cap_Def": n_cap, 
+                                        "Volt_Def": n_volt, "Den_Def": n_den, "Life_Def": n_life, "Load_Def": n_load
+                                    }])
+                                    df_updated = pd.concat([df_my, new_row], ignore_index=True)
+                                    conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=df_updated)
+                                    st.cache_data.clear()
+                                    st.success(f"[{n_mat}] 소재가 성공적으로 저장되었습니다!")
+                                    st.rerun()
+                                else:
+                                    st.error("소재명을 입력해주세요.")
 
             qp = st.query_params
             for k, v in init_vals.items():
@@ -1127,10 +1171,10 @@ if col_bot:
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="Tdb 문서나 SIB 기술에 대해 질문하세요...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
         
-        # [신규] 관리자 전용 "빠른 도움말 모드" (Tdb 패스)
+        # 관리자 전용 "빠른 도움말 모드" 
         if st.session_state.get('is_admin', False):
             st.markdown("<div style='margin-top:-10px; margin-bottom:5px;'>", unsafe_allow_html=True)
-            st.checkbox("⚡ 빠른 도움말 모드 (Tdb 검색 생략)", value=False, key="fast_admin_help", help="체크 시 무거운 Tdb 스캔을 생략하고 관리자 운영 가이드(SOP) 내용만 바탕으로 1초 만에 즉답합니다.")
+            st.checkbox("⚡ 빠른 도움말 모드 (Tdb 검색 생략)", value=False, key="fast_admin_help", help="체크 시 무거운 Tdb 스캔을 생략하고 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변합니다.")
             st.markdown("</div>", unsafe_allow_html=True)
 
         chat_container = st.container(height=730, border=True) 
@@ -1161,7 +1205,7 @@ if col_bot:
                 st.stop()
 
             if not st.session_state.chat_messages: 
-                initial_msg = "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. DB 관리 및 운영 가이드(Admin Help)를 도와드리겠습니다." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
+                initial_msg = "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. [관리자 종합 매뉴얼]이 숙지되었습니다. 검색을 통해 편하게 도움말을 확인하세요." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
             # 1. 시뮬레이션 직후 자동 브리핑
@@ -1179,16 +1223,15 @@ if col_bot:
                             except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 (Tdb 패스 로직 연결)
+            # 2. 챗봇 질문-응답 처리 및 스트리밍
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
                 if synobot:
                     with st.chat_message("assistant"):
-                        # 빠른 도움말 모드 여부에 따른 스피너 메시지 및 플래그 동적 변경
                         is_admin_mode = st.session_state.get('is_admin', False)
                         use_tdb_flag = not st.session_state.get('fast_admin_help', False) if is_admin_mode else True
-                        spinner_msg = "시노코어 기술 데이터베이스(Tdb) 분석 중..." if use_tdb_flag else "관리자 운영 가이드(SOP) 확인 중..."
+                        spinner_msg = "시노코어 기술 데이터베이스(Tdb) 분석 중..." if use_tdb_flag else "관리자 종합 매뉴얼 확인 중..."
                         
                         with st.spinner(spinner_msg):
                             try:
@@ -1239,6 +1282,11 @@ st.markdown("<br><hr>", unsafe_allow_html=True)
 
 sponsor_url = st.session_state.get('sponsor_logo_url', '')
 if sponsor_url:
-    st.markdown(f"<div style='text-align: center; margin-bottom: 10px;'><img src='{sponsor_url}' height='40' style='object-fit: contain;'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style='display: flex; align-items: center; justify-content: flex-start; margin-bottom: 15px; padding-left: 5px;'>
+            <span style='color: black; font-weight: bold; font-size: 16px; margin-right: 12px;'>Sponsored by</span>
+            <img src='{sponsor_url}' height='40' style='object-fit: contain;'>
+        </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("<div style='text-align: center; color: #888; font-size: 14px; margin-bottom: 20px;'>ⓒ 2026. SynoTech. All rights reserved.<br><i>* All simulation logic is based on verified electrochemical models (Newman-type) and official material data from partners.</i></div>", unsafe_allow_html=True)
