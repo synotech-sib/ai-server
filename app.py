@@ -163,6 +163,10 @@ auto_summary_steps = [
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+# 범위 안전 장치 (min과 max를 벗어나지 않게 def 값을 조정)
+def clamp(val, min_val, max_val):
+    return max(min_val, min(val, max_val))
+
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
@@ -292,7 +296,7 @@ ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "
 ADMIN_PW = st.secrets.get("ADMIN_PW", "1234")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
-# [신규 통합 DB 주소 연결]
+# [신규 통합 DB 주소 연결 및 파라미터 DB 삭제]
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1eEBcBkN00Y8ylH9eI0MU6l56NLYD_8bBNhYB1jCmbVw/edit?usp=sharing"
 URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqNVcWJrapWWxNvSVGQ/edit?usp=sharing"
 
@@ -328,10 +332,6 @@ def get_user_db(): return get_user_db_cached()
 def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
     except: return default
-
-# 범위 안전 장치 (min과 max를 벗어나지 않게 def 값을 조정)
-def clamp(val, min_val, max_val):
-    return max(min_val, min(val, max_val))
 
 # -----------------------------------------------------------------------------
 # ✉️ 이메일 발송 시스템
@@ -565,7 +565,7 @@ with col_main:
                 "제1장. Tdb 문서 관리 및 OCR 동기화": "<ul><li><b>명명 규칙:</b> [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)</li><li><b>분류 기준:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li><li><b>OCR 자동 변환:</b> 텍스트 복사가 불가능한 스캔본 PDF는 시스템이 감지하며, <b>'Tdb 스캔 및 OCR 실행'</b> 버튼을 누르면 Vision API를 통해 고정밀 텍스트로 자동 변환됩니다.</li></ul>",
                 "제2장. AI 엔진 및 시노봇 관리": "<ul><li><b>Gemini 2.5 Flash:</b> 평상시 빠른 챗봇 응답 및 스캔용으로 사용합니다.</li><li><b>OpenAI GPT-4o:</b> 비상 상황이나 보다 정밀한 논문 분석이 필요할 때 스위칭하여 활용합니다.</li><li><b>빠른 도움말 모드:</b> 관리자가 매뉴얼 검색 등 즉각적인 답변이 필요할 때 Tdb 원본 스캔을 생략하고 1초 만에 즉답하는 기능입니다.</li></ul>",
                 "제3장. Data Source 및 유저 관리": "<ul><li><b>유저 관리:</b> 가입자의 Pro Max 등급 승인, 정보 수정, 탈퇴 처리를 화면에서 직접 수행합니다.</li><li><b>DB 통합 관리:</b> 소재, 파라미터, 로그 DB를 다운로드 없이 인라인 에디터로 직접 수정하고 클라우드에 영구 저장합니다. (admin_master 시트는 모든 VIP 데이터를 모아보는 읽기 전용 뷰입니다.)</li></ul>",
-                "제4장. VIP 소재 관리 및 공개용 마스킹 처리": "<ul><li><b>VIP 직접 추가:</b> Pro Max 고객은 시뮬레이션 패널의 'My 전용 DB에 새 소재 추가'를 통해 비공개 소재를 직접 등록할 수 있습니다.</li><li><b>공개용 마스킹 배포:</b> 관리자는 VIP 소재를 일반 유저에게 제공할 때, 소재 DB 에디터에서 해당 VIP의 데이터를 복사하여 'material_list' 탭에 붙여넣습니다. 이후 업체명 마스킹(예: OOO 양극재) 및 핵심 스펙 수치를 평균값으로 하향 조정(너프)한 후 저장하여 안전하게 배포합니다.</li></ul>",
+                "제4장. VIP 소재 관리 및 공개용 마스킹 처리": "<ul><li><b>VIP 직접 추가:</b> Pro Max 고객은 시뮬레이션 패널의 'VIP 인라인 에디터'를 통해 비공개 소재를 직접 등록할 수 있습니다.</li><li><b>공개용 마스킹 배포:</b> 관리자는 VIP 소재를 일반 유저에게 제공할 때, 소재 DB 에디터에서 해당 VIP의 데이터를 복사하여 'material_list' 탭에 붙여넣습니다. 이후 업체명 마스킹(예: OOO 양극재) 및 핵심 스펙 수치를 평균값으로 하향 조정(너프)한 후 저장하여 안전하게 배포합니다.</li></ul>",
                 "제5장. 스폰서 로고 설정": "<ul><li>메인 화면 하단 푸터에 노출될 스폰서 로고를 관리합니다.</li><li>투명 배경의 PNG 파일이 권장되며, <b>GitHub 저장소의 원본 링크(raw URL)</b> 사용 시 이미지 깨짐을 방지할 수 있습니다. 칸을 비우고 저장하면 하단 로고와 'Sponsored by' 텍스트가 완전히 삭제됩니다.</li></ul>",
                 "제6장. 파라미터 실시간 검증": "<ul><li>현재 메인 화면 UI에 설정된 배터리 파라미터(용량, 전압 등) 값들이 실제 Tdb 원본 기술 문서 내용과 맞는지 <b>'파라미터 일치 검증'</b> 버튼을 통해 즉시 교차 검증하고 결과를 표로 띄웁니다.</li></ul>"
             }
@@ -608,6 +608,7 @@ with col_main:
 
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>2. Data Source 관리</p>", unsafe_allow_html=True)
             
+            # [수정사항] 파라미터 DB 버튼 삭제
             a1, a2, a3, a4 = st.columns(4)
             if a1.button("유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
             if a2.button("통합 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
@@ -868,8 +869,8 @@ with col_main:
                     row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                     ano_row = mat_df[mat_df['Name']==ano_sel].iloc[0] if not mat_df.empty and ano_sel in ano_list else pd.Series()
                     
-                    # [통합 DB 연동 로직 적용] Min, Max, Def 모두 동적으로 읽어옵니다.
-                    bounds = {
+                    # [신규 통합 DB 동적 로직] Min, Max, Def 모두 동적으로 읽어옵니다.
+                    raw_bounds = {
                         "cap": (safe_float(row.get('Cap_Min'), 50.0), safe_float(row.get('Cap_Max'), 400.0), safe_float(row.get('Cap_Def'), 160.0)),
                         "volt": (safe_float(row.get('Volt_Min'), 1.0), safe_float(row.get('Volt_Max'), 5.0), safe_float(row.get('Volt_Def'), 3.05)),
                         "c_den": (safe_float(row.get('Den_Min'), 0.5), safe_float(row.get('Den_Max'), 6.0), safe_float(row.get('Den_Def'), 4.5)),
@@ -894,12 +895,16 @@ with col_main:
                         "tl": (safe_float(row.get('TL_Min'), 500.0), safe_float(row.get('TL_Max'), 15000.0), safe_float(row.get('TL_Def'), 2000.0)),
                     }
 
-                    # 안전하게 값을 clamp 처리하여 에러 방지
+                    # 안전장치: DB 오기입으로 Min > Max 일 경우 자동 보정
+                    safe_bounds = {}
                     init_vals = {}
-                    for k, v in bounds.items():
+                    for k, v in raw_bounds.items():
                         min_val, max_val, def_val = v
-                        # 혹시 DB에서 min 값이 max 값보다 크게 잘못 설정되었을 경우 안전하게 정렬
-                        if min_val > max_val: min_val, max_val = max_val, min_val 
+                        if min_val > max_val: 
+                            min_val, max_val = max_val, min_val
+                        if min_val == max_val: 
+                            max_val = min_val + 0.1 # Streamlit 슬라이더 충돌 방지
+                        safe_bounds[k] = (min_val, max_val)
                         init_vals[k] = clamp(def_val, min_val, max_val)
 
                     if "prev_cat" not in st.session_state: st.session_state.prev_cat = cat_list[0] if cat_list else ""
@@ -913,41 +918,41 @@ with col_main:
                             st.session_state[f"{k}_n"] = v
                         st.rerun()
 
+                # [신규] VIP 전용 인라인 에디터 방어막 로직
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
-                    with st.expander("➕ My 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
-                        st.info("💡 여기에 저장된 소재는 귀사의 전용 워크스페이스에만 안전하게 보관되며, 일반 유저에게는 노출되지 않습니다.")
-                        with st.form("form_add_vip_mat", border=False):
-                            c1_vip, c2_vip, c3_vip = st.columns(3)
-                            n_mat = c1_vip.text_input("소재명", placeholder="예: Altris_Cathode_V2")
-                            n_cat = c2_vip.selectbox("분류", ["Cathode", "Anode", "Electrolyte", "Separator"])
-                            n_cap = c3_vip.number_input("기본 용량 (mAh/g)", value=160.0, step=1.0)
+                    with st.expander("🛠️ My 전용 소재 DB 관리 (VIP 인라인 에디터)", expanded=False):
+                        st.info("💡 귀사의 전용 워크스페이스입니다. 엑셀처럼 직접 행을 추가하고 빈칸을 채워 소재를 안전하게 등록/수정할 수 있습니다.")
+                        try:
+                            conn = st.connection("gsheets", type=GSheetsConnection)
+                            ws_name = st.session_state.workspace
                             
-                            c4_vip, c5_vip, c6_vip, c7_vip = st.columns(4)
-                            n_volt = c4_vip.number_input("기본 전압 (V)", value=3.05, step=0.01)
-                            n_den = c5_vip.number_input("진밀도 (g/cc)", value=4.5, step=0.1)
-                            n_life = c6_vip.number_input("기본 수명 (Cyc)", value=4000.0, step=100.0)
-                            n_load = c7_vip.number_input("기본 로딩 (mg/cm2)", value=14.0, step=0.1)
+                            try:
+                                df_vip = conn.read(spreadsheet=URL_MATS, worksheet=ws_name, ttl=0)
+                                if df_vip is not None and not df_vip.empty:
+                                    df_vip.columns = [str(c).split('(')[0].strip() for c in df_vip.columns]
+                            except:
+                                df_vip = pd.DataFrame(columns=mat_df_public.columns if not mat_df_public.empty else ["Category", "Name"])
                             
-                            if st.form_submit_button("My DB에 저장", use_container_width=True):
-                                if n_mat:
-                                    conn = st.connection("gsheets", type=GSheetsConnection)
-                                    ws_name = st.session_state.workspace
-                                    try:
-                                        df_my = conn.read(spreadsheet=URL_MATS, worksheet=ws_name, ttl=0)
-                                    except:
-                                        df_my = pd.DataFrame(columns=["Category", "Name", "Cap_Def", "Volt_Def", "Den_Def", "Life_Def", "Load_Def"])
-                                    
-                                    new_row = pd.DataFrame([{
-                                        "Name": n_mat, "Category": n_cat, "Cap_Def": n_cap, 
-                                        "Volt_Def": n_volt, "Den_Def": n_den, "Life_Def": n_life, "Load_Def": n_load
-                                    }])
-                                    df_updated = pd.concat([df_my, new_row], ignore_index=True)
-                                    conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=df_updated)
-                                    st.cache_data.clear()
-                                    st.success(f"[{n_mat}] 소재가 성공적으로 저장되었습니다!")
-                                    st.rerun()
-                                else:
-                                    st.error("소재명을 입력해주세요.")
+                            # 1단계 방어: Category를 드롭다운으로 고정
+                            col_config_rules = {
+                                "Category": st.column_config.SelectboxColumn("Category (분류)", options=["Cathode", "Anode", "Electrolyte", "Separator"], required=True),
+                                "Name": st.column_config.TextColumn("Name (소재명)", required=True)
+                            }
+                            
+                            # 2단계 방어: 나머지 파라미터는 무조건 '숫자 포맷'만 들어가도록 자동 강제
+                            for col in df_vip.columns:
+                                if col not in ["Category", "Name", "Remarks", "Source (VIP)", "Is_VIP"]:
+                                    col_config_rules[col] = st.column_config.NumberColumn(col, format="%f")
+
+                            edited_vip_df = st.data_editor(df_vip, num_rows="dynamic", use_container_width=True, key="vip_mat_editor", column_config=col_config_rules)
+                            
+                            if st.button("My DB에 변경사항 영구 저장", use_container_width=True):
+                                conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=edited_vip_df.fillna(""))
+                                st.cache_data.clear()
+                                st.success("VIP 전용 소재 DB가 성공적으로 업데이트되었습니다!")
+                                st.rerun()
+                        except Exception as e:
+                            st.warning("DB 연결에 실패했거나 초기 세팅이 필요합니다.")
 
             qp = st.query_params
             for k, v in init_vals.items():
@@ -969,19 +974,19 @@ with col_main:
                     with s1:
                         st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
                         v1, v2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["cap"][0], bounds["cap"][1]
+                        b_min, b_max = safe_bounds["cap"][0], safe_bounds["cap"][1]
                         v1.slider("Cap_S", b_min, b_max, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
                         v2.number_input("Cap_N", b_min, b_max, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
                     with s2:
                         st.markdown("<p class='param-label'>Voltage (V)</p>", unsafe_allow_html=True)
                         vv1, vv2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["volt"][0], bounds["volt"][1]
+                        b_min, b_max = safe_bounds["volt"][0], safe_bounds["volt"][1]
                         vv1.slider("Volt_S", b_min, b_max, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                         vv2.number_input("Volt_N", b_min, b_max, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                     with s3:
                         st.markdown("<p class='param-label'>Base Life (Cycles)</p>", unsafe_allow_html=True)
                         lf1, lf2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["life"][0], bounds["life"][1]
+                        b_min, b_max = safe_bounds["life"][0], safe_bounds["life"][1]
                         lf1.slider("Life_S", b_min, b_max, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
                         lf2.number_input("Life_N", b_min, b_max, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
                     
@@ -991,13 +996,13 @@ with col_main:
                     with s4:
                         st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
                         d1, d2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_den"][0], bounds["c_den"][1]
+                        b_min, b_max = safe_bounds["c_den"][0], safe_bounds["c_den"][1]
                         d1.slider("CDen_S", b_min, b_max, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
                         d2.number_input("CDen_N", b_min, b_max, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
                     with s5:
                         st.markdown("<p class='param-label'>Anode True Den (g/cc)</p>", unsafe_allow_html=True)
                         ad1, ad2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["a_den"][0], bounds["a_den"][1]
+                        b_min, b_max = safe_bounds["a_den"][0], safe_bounds["a_den"][1]
                         ad1.slider("ADen_S", b_min, b_max, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
                         ad2.number_input("ADen_N", b_min, b_max, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
                     with s6:
@@ -1011,14 +1016,14 @@ with col_main:
                         st.markdown('<p class="sub-header-bold">(A) Cathode Process</p>', unsafe_allow_html=True)
                         st.markdown("<p class='param-label'>Areal Loading (mg/cm2)</p>", unsafe_allow_html=True)
                         cl1, cl2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_lod"][0], bounds["c_lod"][1]
+                        b_min, b_max = safe_bounds["c_lod"][0], safe_bounds["c_lod"][1]
                         cl1.slider("CLod_S", b_min, b_max, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                         cl2.number_input("CLod_N", b_min, b_max, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                         cpr1, cpr2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_press"][0], bounds["c_press"][1]
+                        b_min, b_max = safe_bounds["c_press"][0], safe_bounds["c_press"][1]
                         cpr1.slider("CPress_S", b_min, b_max, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                         cpr2.number_input("CPress_N", b_min, b_max, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                         
@@ -1027,28 +1032,28 @@ with col_main:
                         
                         st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                         cf1, cf2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_foil"][0], bounds["c_foil"][1]
+                        b_min, b_max = safe_bounds["c_foil"][0], safe_bounds["c_foil"][1]
                         cf1.slider("CFoil_S", b_min, b_max, step=1.0, key="c_foil_s", on_change=sync_s_to_n, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
                         cf2.number_input("CFoil_N", b_min, b_max, step=0.1, key="c_foil_n", on_change=sync_n_to_s, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
                         ca1, ca2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_act"][0], bounds["c_act"][1]
+                        b_min, b_max = safe_bounds["c_act"][0], safe_bounds["c_act"][1]
                         ca1.slider("CAct_S", b_min, b_max, step=0.5, key="c_act_s", on_change=sync_s_to_n, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
                         ca2.number_input("CAct_N", b_min, b_max, step=0.1, key="c_act_n", on_change=sync_n_to_s, args=("c_act_s", "c_act_n", "c_act"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
                         cb1, cb2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_bin"][0], bounds["c_bin"][1]
+                        b_min, b_max = safe_bounds["c_bin"][0], safe_bounds["c_bin"][1]
                         cb1.slider("CBin_S", b_min, b_max, step=0.5, key="c_bin_s", on_change=sync_s_to_n, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
                         cb2.number_input("CBin_N", b_min, b_max, step=0.1, key="c_bin_n", on_change=sync_n_to_s, args=("c_bin_s", "c_bin_n", "c_bin"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
                         cc1, cc2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["c_con"][0], bounds["c_con"][1]
+                        b_min, b_max = safe_bounds["c_con"][0], safe_bounds["c_con"][1]
                         cc1.slider("CCon_S", b_min, b_max, step=0.5, key="c_con_s", on_change=sync_s_to_n, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
                         cc2.number_input("CCon_N", b_min, b_max, step=0.1, key="c_con_n", on_change=sync_n_to_s, args=("c_con_s", "c_con_n", "c_con"), label_visibility="collapsed")
                         
@@ -1056,14 +1061,14 @@ with col_main:
                         st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
                         st.markdown("<p class='param-label' title='N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.'>N/P Ratio</p>", unsafe_allow_html=True)
                         n1, n2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["np"][0], bounds["np"][1]
+                        b_min, b_max = safe_bounds["np"][0], safe_bounds["np"][1]
                         n1.slider("NP_S", b_min, b_max, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
                         n2.number_input("NP_N", b_min, b_max, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                         apr1, apr2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["a_press"][0], bounds["a_press"][1]
+                        b_min, b_max = safe_bounds["a_press"][0], safe_bounds["a_press"][1]
                         apr1.slider("APress_S", b_min, b_max, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                         apr2.number_input("APress_N", b_min, b_max, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                         
@@ -1072,28 +1077,28 @@ with col_main:
                         
                         st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                         af1, af2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["a_foil"][0], bounds["a_foil"][1]
+                        b_min, b_max = safe_bounds["a_foil"][0], safe_bounds["a_foil"][1]
                         af1.slider("AFoil_S", b_min, b_max, step=1.0, key="a_foil_s", on_change=sync_s_to_n, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
                         af2.number_input("AFoil_N", b_min, b_max, step=0.1, key="a_foil_n", on_change=sync_n_to_s, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
                         aa1, aa2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["a_act"][0], bounds["a_act"][1]
+                        b_min, b_max = safe_bounds["a_act"][0], safe_bounds["a_act"][1]
                         aa1.slider("AAct_S", b_min, b_max, step=0.5, key="a_act_s", on_change=sync_s_to_n, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
                         aa2.number_input("AAct_N", b_min, b_max, step=0.1, key="a_act_n", on_change=sync_n_to_s, args=("a_act_s", "a_act_n", "a_act"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Binder Ratio (%)</p>", unsafe_allow_html=True)
                         ab1, ab2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["a_bin"][0], bounds["a_bin"][1]
+                        b_min, b_max = safe_bounds["a_bin"][0], safe_bounds["a_bin"][1]
                         ab1.slider("ABin_S", b_min, b_max, step=0.5, key="a_bin_s", on_change=sync_s_to_n, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
                         ab2.number_input("ABin_N", b_min, b_max, step=0.1, key="a_bin_n", on_change=sync_n_to_s, args=("a_bin_s", "a_bin_n", "a_bin"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Conductive Carbon (%)</p>", unsafe_allow_html=True)
                         ac1, ac2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["a_con"][0], bounds["a_con"][1]
+                        b_min, b_max = safe_bounds["a_con"][0], safe_bounds["a_con"][1]
                         ac1.slider("ACon_S", b_min, b_max, step=0.5, key="a_con_s", on_change=sync_s_to_n, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
                         ac2.number_input("ACon_N", b_min, b_max, step=0.1, key="a_con_n", on_change=sync_n_to_s, args=("a_con_s", "a_con_n", "a_con"), label_visibility="collapsed")
 
@@ -1101,14 +1106,14 @@ with col_main:
                         st.markdown('<p class="sub-header-bold">(C) Cell & Electrolyte</p>', unsafe_allow_html=True)
                         st.markdown("<p class='param-label' title='전해액/용량 비율. 2.5 이하시 수명 급감 위험.'>E/C Ratio (g/Ah)</p>", unsafe_allow_html=True)
                         e1, e2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["ec"][0], bounds["ec"][1]
+                        b_min, b_max = safe_bounds["ec"][0], safe_bounds["ec"][1]
                         e1.slider("EC_S", b_min, b_max, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                         e2.number_input("EC_N", b_min, b_max, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Separator Thickness (μm)</p>", unsafe_allow_html=True)
                         st1, st2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["sep_thick"][0], bounds["sep_thick"][1]
+                        b_min, b_max = safe_bounds["sep_thick"][0], safe_bounds["sep_thick"][1]
                         st1.slider("SepThick_S", b_min, b_max, step=1.0, key="sep_thick_s", on_change=sync_s_to_n, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
                         st2.number_input("SepThick_N", b_min, b_max, step=0.1, key="sep_thick_n", on_change=sync_n_to_s, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
                         
@@ -1119,19 +1124,19 @@ with col_main:
                     with t1: 
                         st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
                         te1, te2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["te"][0], bounds["te"][1]
+                        b_min, b_max = safe_bounds["te"][0], safe_bounds["te"][1]
                         te1.slider("TE_S", b_min, b_max, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n", "te"), label_visibility="collapsed")
                         te2.number_input("TE_N", b_min, b_max, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n", "te"), label_visibility="collapsed")
                     with t2: 
                         st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True)
                         tc1, tc2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["tc"][0], bounds["tc"][1]
+                        b_min, b_max = safe_bounds["tc"][0], safe_bounds["tc"][1]
                         tc1.slider("TC_S", b_min, b_max, step=0.5, key="tc_s", on_change=sync_s_to_n, args=("tc_s", "tc_n", "tc"), label_visibility="collapsed")
                         tc2.number_input("TC_N", b_min, b_max, step=0.1, key="tc_n", on_change=sync_n_to_s, args=("tc_s", "tc_n", "tc"), label_visibility="collapsed")
                     with t3: 
                         st.markdown('<p class="sub-header-bold">Cycle Life</p>', unsafe_allow_html=True)
                         tl1, tl2 = st.columns([0.7, 0.3])
-                        b_min, b_max = bounds["tl"][0], bounds["tl"][1]
+                        b_min, b_max = safe_bounds["tl"][0], safe_bounds["tl"][1]
                         tl1.slider("TL_S", b_min, b_max, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
                         tl2.number_input("TL_N", b_min, b_max, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
 
