@@ -928,10 +928,15 @@ with col_main:
                             
                             try:
                                 df_vip = conn.read(spreadsheet=URL_MATS, worksheet=ws_name, ttl=0)
-                                if df_vip is not None and not df_vip.empty:
-                                    df_vip.columns = [str(c).split('(')[0].strip() for c in df_vip.columns]
                             except:
+                                df_vip = pd.DataFrame()
+                                
+                            # 시트가 완전히 비어있거나 제목줄만 있는 경우의 에러 방지 처리
+                            if df_vip is None or df_vip.empty:
                                 df_vip = pd.DataFrame(columns=mat_df_public.columns if not mat_df_public.empty else ["Category", "Name"])
+                                
+                            # 컬럼명 깔끔하게 통일
+                            df_vip.columns = [str(c).split('(')[0].strip() for c in df_vip.columns]
                             
                             # 1단계 방어: Category를 드롭다운으로 고정
                             col_config_rules = {
@@ -942,6 +947,8 @@ with col_main:
                             # 2단계 방어: 나머지 파라미터는 무조건 '숫자 포맷'만 들어가도록 자동 강제
                             for col in df_vip.columns:
                                 if col not in ["Category", "Name", "Remarks", "Source (VIP)", "Is_VIP"]:
+                                    # [핵심 해결책] 빈 데이터프레임일 때 Streamlit 에러를 막기 위해 강제 숫자형 변환
+                                    df_vip[col] = pd.to_numeric(df_vip[col], errors='coerce')
                                     col_config_rules[col] = st.column_config.NumberColumn(col, format="%f")
 
                             edited_vip_df = st.data_editor(df_vip, num_rows="dynamic", use_container_width=True, key="vip_mat_editor", column_config=col_config_rules)
@@ -952,7 +959,8 @@ with col_main:
                                 st.success("VIP 전용 소재 DB가 성공적으로 업데이트되었습니다!")
                                 st.rerun()
                         except Exception as e:
-                            st.warning("DB 연결에 실패했거나 초기 세팅이 필요합니다.")
+                            # 만약 또 다른 원인으로 실패한다면, 어떤 에러인지 텍스트로 바로 보여주도록 수정
+                            st.warning(f"DB 연결에 실패했거나 초기 세팅이 필요합니다. (상세 에러 원인: {e})")
 
             qp = st.query_params
             for k, v in init_vals.items():
