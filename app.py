@@ -1002,7 +1002,7 @@ with col_main:
                             
                             col_vip_btn1, col_vip_btn2 = st.columns(2)
                             with col_vip_btn1:
-                                if st.button("💾 My DB에 변경사항 영구 저장", use_container_width=True):
+                                if st.button("💾 My DB에 변경사항 저장", use_container_width=True):
                                     save_df = edited_vip_df.drop(columns=["삭제 선택"], errors="ignore")
                                     conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=save_df.fillna(""))
                                     st.cache_data.clear()
