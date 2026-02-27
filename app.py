@@ -140,7 +140,8 @@ chat_tdb_steps = [
     (25.0, "4/6: 추출된 데이터 문맥 매칭 및 팩트 체크 중..."),
     (38.0, "5/6: 질문에 대한 최적의 답변 구조 설계 중..."),
     (53.0, "6/6: SynoBot AI 엔진으로 최종 답변 생성 중... (잠시만 기다려주세요)"),
-    (65.0, "6/6: 잠시 지체되고 있습니다. 지루하시더라도 조금만 더 기다려 주세요...")
+    (65.0, "6/6: 잠시 지체되고 있습니다. 지루하시더라도 조금만 더 기다려 주세요..."),
+    (85.0, "6/6: 거의 다 왔습니다. 잠시만 기다려 주세요...")
 ]
 
 chat_fast_steps = [
@@ -157,7 +158,9 @@ auto_summary_steps = [
     (25.0, "4/6: 물리 엔진 연산 결과 AI 문맥 분석 중..."),
     (38.0, "5/6: 소재별 최적화 인사이트 추출 중..."),
     (53.0, "6/6: SynoBot AI 엔진으로 최종 요약 리포 생성 중... (잠시만 기다려주세요)"),
-    (65.0, "6/6: 잠시 지체되고 있습니다. 지루하시더라도 조금만 더 기다려 주세요...")
+    (65.0, "6/6: 잠시 지체되고 있습니다. 지루하시더라도 조금만 더 기다려 주세요..."),
+    (85.0, "6/6: 거의 다 왔습니다. 잠시만 기다려 주세요...")
+
 ]
 
 def hash_password(password):
@@ -1454,7 +1457,7 @@ if col_bot:
             st.checkbox("⚡ 빠른 도움말 모드 (Tdb 검색 생략)", value=False, key="fast_admin_help", help="체크 시 무거운 Tdb 스캔을 생략하고 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변합니다.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        chat_container = st.container(height=730, border=True) 
+        chat_container = st.container(height=920, border=True) 
         with chat_container:
             st.markdown('<div id="chat-top"></div>', unsafe_allow_html=True)
             if st.session_state.get('trigger_scroll_top', False):
@@ -1531,7 +1534,7 @@ if col_bot:
                                 messages_for_api[-1]["content"] += format_instruction
 
                             api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
-                               
+
                             if "Gemini" in st.session_state.engine_choice:
                                 stream_gen = synobot.get_gemini_response_stream(
                                     messages_for_api, st.session_state.sim_result, api_key, 
