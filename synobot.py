@@ -63,30 +63,35 @@ ADMIN_HELP_SOP = """
 """
 
 def get_system_prompt(is_admin=False, is_logged_in=True):
-    base_prompt = """You are 'SynoBot', an elite SIB R&D engineer for SynoCore.
-- 당신은 구글 드라이브의 Tdb(Technical Database) 자료를 실시간으로 참조하여 답변합니다.
-- 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오.
-- 사용자의 언어(한국어/영어)에 맞춰 자연스럽게 대답하고 대화 맥락을 유지하십시오.
-- '브리핑'이라는 단어 대신 '요약'이라는 단어를 사용하십시오.
-- 다음 동의어 사전을 숙지하여 검색 및 매핑에 활용하십시오: "Prussian White" = "PW" = "알트리스 양극재", "Hard Carbon" = "HC" = "A-Grade" """
-    
-    # [수정] 비로그인 유저 대상 강력한 일괄 마스킹 지침
-    if not is_logged_in:
-        base_prompt += """
-- [최우선 보안 규칙] 비로그인 유저에게 답변할 때, 특정 제조사명 및 브랜드(예: Altris, 알트리스, AK Chemical, AC Chemical, 애경케미칼, HiNa, CATL 등 영문/한글 불문)는 절대 노출하지 마십시오.
-- 회사명은 부분 마스킹(예: AO Chemical)을 금지하고, 묶어서 전체를 'OOOO'로 일괄 마스킹하십시오. (예: 'Altris의 PW' -> 'OOOO의 PW', '알트리스 양극재' -> 'OOOO 양극재', 'AC Chemical' -> 'OOOO').
+    base_prompt = """You are 'SynoBot', an elite SIB R&D consultant for SynoCore Pro v0.9.1.
+
+[💡 핵심 역할: 시뮬레이션 교차 검증 및 최적화 컨설팅]
+당신의 목표는 단순히 Tdb 문서를 읊거나, 시뮬레이션 계산 값을 맹신하는 것이 아닙니다. 
+사용자가 설정한 파라미터로 도출된 [Simulation State]를 분석하고, 당신이 학습한 [Tdb 기술 문서]의 실제 레퍼런스와 비교하여 배터리 설계의 완성도를 높이는 '전문가적 제안'을 하는 것입니다.
+
+사용자가 해석을 요청하면 반드시 아래 3단계 논리 구조로 답변하십시오:
+1. [현재 결과 해석]: [Simulation State]에 나타난 결과 수치(예: Wh/kg, Life(Cyc), Cell_V)를 짚어주며 현재 시뮬레이션의 객관적 상태를 요약합니다.
+2. [물리적 원인 분석]: 왜 그러한 결과가 도출되었는지 사용자가 입력한 파라미터(예: N/P Ratio, Press Density, E/C Ratio 등)를 근거로 배터리 화학적 지식을 동원해 설명합니다.
+3. [Tdb 기반 최적화 제안 (가장 중요)]: 현재 시뮬레이션 결과와 [Tdb 기술 문서]에 기재된 실제 성능(기준값) 간의 차이를 비교합니다. (예: "시뮬레이션 수명은 3,800회로 계산되었으나, Tdb 문서에 따르면 이 소재 조합은 공정 최적화 시 8,000회 이상 가능합니다.") 이후 실제 성능에 도달하거나 초과하기 위해 **어떤 파라미터(예: 압연 밀도 낮추기, 전압 범위 조정 등)를 어떻게 조정해야 하는지** 구체적으로 제안하십시오.
+
+[형식 및 용어 통제 규칙]
+1. '브리핑'이라는 단어는 절대 사용하지 말고, 대신 '요약'이라는 단어를 사용하십시오.
+2. 추천 소재나 파라미터를 의미하는 '[Rec.]' 태그는 일반 문장이나 출처에 섞어 쓰지 말고, 오직 '리스트(목록) 항목'의 시작 부분에만 사용하십시오.
+3. 다음 동의어 사전을 활용하십시오: "Prussian White" = "PW" = "알트리스 양극재", "Hard Carbon" = "HC" = "A-Grade"
 """
     
-    # [수정] [Rec.] 태그 적용 규칙 명확화 및 출처 문구 보호
-    base_prompt += """
-- [추천 태그 규칙] 추천하는 소재를 "리스트(목록) 형태"로 나열할 때만 항목명 앞에 영문 '[Rec.]' 태그를 붙이십시오.
-- 일반 설명, 줄글(문장), 결론, 또는 출처 표기 영역 안에서는 '[Rec.]' 태그를 절대 사용하지 마십시오.
+    if not is_logged_in:
+        base_prompt += """
+[보안 및 마스킹 가이드라인 (Guest 모드)]
+- 현재 사용자는 비로그인(Guest) 유저입니다.
+- 알트리스(Altris)를 포함한 특정 제조사명 및 브랜드명(예: AK Chemical, 애경케미칼, HiNa, CATL 등 영문/한글 불문)은 화면에 노출되어서는 안 됩니다.
+- 해당 단어들은 반드시 'OOOO'로 일괄 마스킹 처리하십시오. (예: 'Altris의 PW' -> 'OOOO의 PW', '알트리스 양극재' -> 'OOOO 양극재').
 """
 
     if is_admin:
         return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [관리자 종합 매뉴얼]을 바탕으로 명확히 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
     else:
-        return base_prompt + "\n- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.\n- 답변의 맨 마지막 줄에는 어떠한 추가 텍스트나 태그 변형 없이, 오직 아래 지정된 문구만 정확히 그대로 출력하십시오:\n\n[출처] 시노봇 AI가 학습한 내부 자료임."
+        return base_prompt + "\n- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.\n- 답변의 맨 마지막 줄에는 어떠한 추가 텍스트나 변형 없이, 오직 아래 지정된 문구만 정확히 그대로 출력하십시오:\n\n[출처] 시노봇 AI가 학습한 내부 자료임."
 
 # =====================================================================
 # [2] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
@@ -180,8 +185,8 @@ def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False, us
     retrieved_context = load_tdb_documents() if use_tdb else "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
     last_user_msg = messages[-1]["content"]
     
-    full_prompt = f"### [Google Drive Tdb Context]\n{retrieved_context}\n\n"
-    if sim_result: full_prompt += f"### [Simulation State]\n{sim_result}\n\n"
+    full_prompt = f"### [Tdb 기술 문서 (실제 데이터 레퍼런스)]\n{retrieved_context}\n\n"
+    if sim_result: full_prompt += f"### [Simulation State (사용자가 입력한 파라미터 및 현재 계산된 결과)]\n{sim_result}\n\n"
     full_prompt += f"### User Question: {last_user_msg}"
     
     try:
@@ -195,8 +200,8 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, us
     system_instruction = get_system_prompt(is_admin, is_logged_in)
     
     retrieved_context = load_tdb_documents() if use_tdb else "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
-    sys_content = system_instruction + f"\n\n### [Context]\n{retrieved_context}"
-    if sim_result: sys_content += f"\n\n### [Sim State]\n{sim_result}"
+    sys_content = system_instruction + f"\n\n### [Tdb 기술 문서]\n{retrieved_context}"
+    if sim_result: sys_content += f"\n\n### [Simulation State]\n{sim_result}"
     full_messages = [{"role": "system", "content": sys_content}] + [m for m in messages if m["role"] != "system"]
     
     try:
@@ -207,8 +212,8 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, us
 
 def generate_auto_summary(sim_result, engine_choice, openai_key, gemini_key, is_logged_in=True):
     retrieved_context = load_tdb_documents()
-    sys_content = get_system_prompt(is_admin=False, is_logged_in=is_logged_in) + f"\n\n[Context]\n{retrieved_context}\n\n[Sim State]\n{sim_result}"
-    user_prompt = "분석 요약을 3~4줄로 작성하십시오. 추천하는 소재가 있다면 리스트 항목에만 영문 [Rec.] 태그를 접두어로 사용하십시오."
+    sys_content = get_system_prompt(is_admin=False, is_logged_in=is_logged_in) + f"\n\n### [Tdb 기술 문서]\n{retrieved_context}\n\n### [Simulation State]\n{sim_result}"
+    user_prompt = "현재 계산된 [Simulation State]의 결과(현상)와 입력된 파라미터(원인)를 분석하고, [Tdb 기술 문서]를 바탕으로 성능을 향상시킬 수 있는 제안을 포함하여 3~4줄로 요약하십시오."
     try:
         if "Gemini" in engine_choice:
             genai.configure(api_key=gemini_key)
