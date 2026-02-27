@@ -223,6 +223,24 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
+    /* 슬라이더 트랙 및 디자인 일관성 강제 고정 */
+    div[data-baseweb="slider"] {
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
+    }
+    div[data-baseweb="slider"] > div > div {
+        height: 6px !important; /* 슬라이더 트랙 두께 고정 */
+        border-radius: 3px !important;
+    }
+    div[data-baseweb="slider"] [role="slider"] {
+        height: 16px !important; /* 슬라이더 핸들(동그라미) 크기 고정 */
+        width: 16px !important;
+    }
+    /* 비활성화된 슬라이더도 동일한 두께와 형태를 유지하도록 처리 */
+    div[data-testid="stSlider"] div[aria-disabled="true"] {
+        opacity: 0.7 !important; /* 비활성화 느낌만 살짝 주고 두께는 유지 */
+    }
+
     @media print {
         header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
         button { display: none !important; }
