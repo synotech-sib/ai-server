@@ -157,7 +157,7 @@ auto_summary_steps = [
     (15.0, "3/6: 입력된 파라미터와 원본 수치 정밀 대조 중..."),
     (25.0, "4/6: 물리 엔진 연산 결과 AI 문맥 분석 중..."),
     (38.0, "5/6: 소재별 최적화 인사이트 추출 중..."),
-    (53.0, "6/6: SynoBot AI 엔진으로 최종 요약 리포 생성 중... (잠시만 기다려주세요)"),
+    (53.0, "6/6: SynoBot AI 엔진으로 최종 요약 리포트 생성 중... (잠시만 기다려주세요)"),
     (65.0, "6/6: 잠시 지체되고 있습니다. 지루하시더라도 조금만 더 기다려 주세요..."),
     (85.0, "6/6: 거의 다 왔습니다. 잠시만 기다려 주세요...")
 ]
@@ -1008,7 +1008,7 @@ with col_main:
                             col_vip_btn1, col_vip_btn2 = st.columns(2)
                             with col_vip_btn1:
                                 if st.button("💾 My DB에 변경사항 저장", use_container_width=True):
-                                    # [신규] 저장 전 데이터 유효성 검사 로직 (완벽 보완)
+                                    # [신규] 저장 전 데이터 유효성 검사 로직 (독립 검사로 완벽 보완)
                                     is_valid = True
                                     err_msg = ""
                                     
@@ -1021,25 +1021,43 @@ with col_main:
                                         for p in prefixes:
                                             c_min, c_max, c_def = f"{p}_Min", f"{p}_Max", f"{p}_Def"
                                             
-                                            if c_min in row and c_max in row:
-                                                val_min = row[c_min]
-                                                val_max = row[c_max]
-                                                
-                                                # 1. 최소값이 최대값보다 큰지 단독 검사
-                                                if pd.notna(val_min) and pd.notna(val_max):
-                                                    if float(val_min) > float(val_max):
-                                                        is_valid = False
-                                                        err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 최소값({val_min})이 최대값({val_max})보다 클 수 없습니다."
-                                                        break
-                                                
-                                                # 2. 기본값이 입력된 경우, 범위를 벗어나는지 단독 검사
-                                                if c_def in row:
-                                                    val_def = row[c_def]
-                                                    if pd.notna(val_min) and pd.notna(val_max) and pd.notna(val_def):
-                                                        if float(val_def) < float(val_min) or float(val_def) > float(val_max):
-                                                            is_valid = False
-                                                            err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 기본값({val_def})은 반드시 최소값({val_min})과 최대값({val_max}) 사이여야 합니다."
-                                                            break
+                                            v_min = row.get(c_min)
+                                            v_max = row.get(c_max)
+                                            v_def = row.get(c_def)
+                                            
+                                            # 문자열 등 예외 방지를 위해 안전한 실수형(float) 변환 (빈칸은 None으로 처리)
+                                            try: num_min = float(v_min) if pd.notna(v_min) and str(v_min).strip() != "" else None
+                                            except: num_min = None
+                                            
+                                            try: num_max = float(v_max) if pd.notna(v_max) and str(v_max).strip() != "" else None
+                                            except: num_max = None
+                                            
+                                            try: num_def = float(v_def) if pd.notna(v_def) and str(v_def).strip() != "" else None
+                                            except: num_def = None
+                                            
+                                            mat_name = row.get('Name', '이름없음')
+                                            
+                                            # 1. 최소값이 최대값보다 큰지 단독 검사
+                                            if num_min is not None and num_max is not None:
+                                                if num_min > num_max:
+                                                    is_valid = False
+                                                    err_msg = f"[{mat_name}] {p} 오류: 최소값({num_min})이 최대값({num_max})보다 큽니다."
+                                                    break
+                                                    
+                                            # 2. 기본값이 최소값보다 작은지 단독 검사
+                                            if num_min is not None and num_def is not None:
+                                                if num_def < num_min:
+                                                    is_valid = False
+                                                    err_msg = f"[{mat_name}] {p} 오류: 기준값({num_def})이 최소값({num_min})보다 작습니다."
+                                                    break
+                                                    
+                                            # 3. 기본값이 최대값보다 큰지 단독 검사
+                                            if num_max is not None and num_def is not None:
+                                                if num_def > num_max:
+                                                    is_valid = False
+                                                    err_msg = f"[{mat_name}] {p} 오류: 기준값({num_def})이 최대값({num_max})보다 큽니다."
+                                                    break
+                                                    
                                         if not is_valid: break
 
                                     # 검사를 통과했을 때만 클라우드에 영구 저장
@@ -1334,7 +1352,7 @@ with col_main:
                         
                         st.markdown("<br><br>", unsafe_allow_html=True)
                         
-                        # [적용 확인] 4개의 그래프를 2x2 레이아웃으로 배치 및 축 이름 명시
+                        # [요청 반영] 1. Discharge Profile / 2. Cycle Life Prediction
                         row1_1, sp_r1, row1_2 = st.columns([1, 0.05, 1])
                         
                         with row1_1:
@@ -1344,22 +1362,6 @@ with col_main:
                             st.plotly_chart(fig1, use_container_width=True)
                             
                         with row1_2:
-                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">dQ/dV Profile</p>', unsafe_allow_html=True)
-                            fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-                            fig2.update_layout(xaxis_title="Voltage (V)", yaxis_title="dQ/dV (Ah/V)", height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
-                            st.plotly_chart(fig2, use_container_width=True)
-                            
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        row2_1, sp_r2, row2_2 = st.columns([1, 0.05, 1])
-                        
-                        with row2_1:
-                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Cell Performance</p>', unsafe_allow_html=True)
-                            fig3 = go.Figure(go.Scatterpolar(r=[min(100, res.get('Wh/kg', 0)/2.5), min(100, res.get('C-rate', 1)*20), min(100, res.get('Life(Cyc)', 0)/50), min(100, res.get('Cell_V', 0)*25), min(100, res.get('C_Load', 0)*4)], theta=['Energy', 'Power', 'Life', 'Voltage', 'Loading'], fill='toself', line=dict(color='#E4B526', width=2)))
-                            fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
-                            st.plotly_chart(fig3, use_container_width=True)
-                            
-                        with row2_2:
                             st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Cycle Life Prediction</p>', unsafe_allow_html=True)
                             target_life = max(1, res.get('Life(Cyc)', 1000))
                             cycles = np.linspace(0, target_life, 100)
@@ -1367,6 +1369,23 @@ with col_main:
                             fig4 = go.Figure(go.Scatter(x=cycles, y=retention, line=dict(color='#2CA02C', width=3)))
                             fig4.update_layout(xaxis_title="Cycle Number", yaxis_title="Capacity Retention (%)", height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
                             st.plotly_chart(fig4, use_container_width=True)
+                            
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        # [요청 반영] 3. dQ/dV Profile / 4. Cell Performance
+                        row2_1, sp_r2, row2_2 = st.columns([1, 0.05, 1])
+                        
+                        with row2_1:
+                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">dQ/dV Profile</p>', unsafe_allow_html=True)
+                            fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
+                            fig2.update_layout(xaxis_title="Voltage (V)", yaxis_title="dQ/dV (Ah/V)", height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
+                            st.plotly_chart(fig2, use_container_width=True)
+                            
+                        with row2_2:
+                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Cell Performance</p>', unsafe_allow_html=True)
+                            fig3 = go.Figure(go.Scatterpolar(r=[min(100, res.get('Wh/kg', 0)/2.5), min(100, res.get('C-rate', 1)*20), min(100, res.get('Life(Cyc)', 0)/50), min(100, res.get('Cell_V', 0)*25), min(100, res.get('C_Load', 0)*4)], theta=['Energy', 'Power', 'Life', 'Voltage', 'Loading'], fill='toself', line=dict(color='#E4B526', width=2)))
+                            fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
+                            st.plotly_chart(fig3, use_container_width=True)
                         
                         if res.get("AI_Summary"):
                             st.markdown("<br>", unsafe_allow_html=True)
