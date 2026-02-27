@@ -969,8 +969,9 @@ with col_main:
                 # [신규] VIP 전용 인라인 에디터 (삭제 선택 및 Product Name, 툴팁 완벽 적용)
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
                     with st.expander("🛠️ My 전용 소재 DB 관리 (VIP 인라인 에디터)", expanded=False):
-                        st.info("""1. 귀사의 전용 워크스페이스입니다. 엑셀처럼 직접 행을 추가하고 빈칸을 채워 소재를 안전하게 등록/수정할 수 있습니다.
-                                2. 각 항목에 마우스를 올리면 설명이 나타납니다.""")
+                        st.info("💡 **귀사의 전용 워크스페이스입니다.**\n\n"
+                                "1. 엑셀처럼 직접 행을 추가하고 빈칸을 채워 소재를 안전하게 등록/수정할 수 있습니다.\n"
+                                "2. 각 항목에 마우스를 올리면 설명이 나타납니다.")
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection)
                             ws_name = st.session_state.workspace
