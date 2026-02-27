@@ -1524,8 +1524,14 @@ if col_bot:
                             
                         try:
                             messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
-                            api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
                             
+                            # [신규] 시노봇에게 간결한 블릿형 답변을 강제하는 시스템 지시어 은닉 주입
+                            if messages_for_api and messages_for_api[-1]["role"] == "user":
+                                format_instruction = "\n\n[System Instruction: 사용자의 빠른 인지를 위해 길고 장황한 서술형 문장을 절대 피하고, 핵심 데이터와 결론만 추출하여 반드시 간결한 글머리 기호(-, *, 1. 등) 형태로 요약해서 답변할 것.]"
+                                messages_for_api[-1]["content"] += format_instruction
+
+                            api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
+                               
                             if "Gemini" in st.session_state.engine_choice:
                                 stream_gen = synobot.get_gemini_response_stream(
                                     messages_for_api, st.session_state.sim_result, api_key, 
