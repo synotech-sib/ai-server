@@ -719,7 +719,6 @@ with col_main:
 
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
-                    # [e1] UI 화면상 업체명 마스킹 제거 (모두 원본 출력)
                     def format_mat_name(name): 
                         prefix = "🔹 " if name in vip_names else ""
                         return f"{prefix}{name}"
@@ -729,7 +728,6 @@ with col_main:
                     with m3: st.selectbox("Electrolyte", elec_list, format_func=format_mat_name, key="sel_ele_m")
                     with m4: st.selectbox("Separator", sep_list, format_func=format_mat_name, key="sel_sep_m")
                     
-                    # [e5] 선택한 소재에 맞춰 하단 2번 파라미터 값 실시간 연동 (Session State 동기화)
                     row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                     ano_row = mat_df[mat_df['Name']==ano_sel].iloc[0] if not mat_df.empty and ano_sel in ano_list else pd.Series()
                     
@@ -803,7 +801,6 @@ with col_main:
             st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
             sp2, c_2 = st.columns([0.03, 0.97])
             with c_2:
-                # [e5] 비로그인 유저는 전체 흐름을 한눈에 볼 수 있도록 Expander 전체 오픈
                 exp_step1 = True if not is_pro else (st.session_state.acc_step == 1)
                 exp_step2 = True if not is_pro else (st.session_state.acc_step == 2)
                 exp_step3 = True if not is_pro else (st.session_state.acc_step == 3)
@@ -813,13 +810,13 @@ with col_main:
                     with s1:
                         st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
                         v1, v2 = st.columns([0.7, 0.3])
-                        # 스케일 대폭 확장 (50.0 ~ 350.0) - NVP 등 저용량 소재 안전 연동
-                        v1.slider("Cap_S", 50.0, 350.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
-                        v2.number_input("Cap_N", 50.0, 350.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
+                        # [수정] 슬라이더 스케일 대폭 확장 (50.0 ~ 400.0)
+                        v1.slider("Cap_S", 50.0, 400.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
+                        v2.number_input("Cap_N", 50.0, 400.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
                     with s2:
                         st.markdown("<p class='param-label'>Voltage (V)</p>", unsafe_allow_html=True)
                         vv1, vv2 = st.columns([0.7, 0.3])
-                        # 스케일 확장 (1.0 ~ 5.0)
+                        # [수정] 스케일 확장 (1.0 ~ 5.0)
                         vv1.slider("Volt_S", 1.0, 5.0, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                         vv2.number_input("Volt_N", 1.0, 5.0, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                     with s3:
@@ -834,13 +831,13 @@ with col_main:
                     with s4:
                         st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
                         d1, d2 = st.columns([0.7, 0.3])
-                        d1.slider("CDen_S", 0.5, 5.5, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
-                        d2.number_input("CDen_N", 0.5, 5.5, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                        d1.slider("CDen_S", 0.5, 6.0, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                        d2.number_input("CDen_N", 0.5, 6.0, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
                     with s5:
                         st.markdown("<p class='param-label'>Anode True Den (g/cc)</p>", unsafe_allow_html=True)
                         ad1, ad2 = st.columns([0.7, 0.3])
-                        ad1.slider("ADen_S", 0.5, 5.5, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
-                        ad2.number_input("ADen_N", 0.5, 5.5, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                        ad1.slider("ADen_S", 0.5, 6.0, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                        ad2.number_input("ADen_N", 0.5, 6.0, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
                     with s6:
                         st.empty() 
                         
@@ -1220,7 +1217,7 @@ if col_bot:
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 요약(브리핑) - 다중 스피너 로딩 시각화
+            # 1. 시뮬레이션 직후 자동 요약 - [수정] 딜레이 시간 대폭 연장
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
@@ -1229,9 +1226,9 @@ if col_bot:
                         
                         # 다중 스피너 로직 (시뮬레이션 요약 전용)
                         with bot_load_ph.container():
-                            with st.spinner("시뮬레이션 결과 데이터 수집 중..."): time.sleep(0.6)
+                            with st.spinner("시뮬레이션 결과 데이터 수집 중..."): time.sleep(2.0)
                         with bot_load_ph.container():
-                            with st.spinner("물리 엔진 연산 결과 AI 분석 중..."): time.sleep(0.8)
+                            with st.spinner("물리 엔진 연산 결과 AI 분석 중..."): time.sleep(2.5)
                         
                         with bot_load_ph.container():
                             with st.spinner("SynoBot AI 엔진으로 최종 요약 생성 중..."):
@@ -1252,7 +1249,7 @@ if col_bot:
                         bot_load_ph.empty()
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 - 다중 스피너 로딩 시각화
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 - [수정] 딜레이 시간 대폭 연장
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
@@ -1266,13 +1263,13 @@ if col_bot:
                         # 다중 스피너 로직 (검색 전용)
                         if use_tdb_flag:
                             with chat_load_ph.container():
-                                with st.spinner("Tdb 기술 문서 라이브러리 스캔 중..."): time.sleep(0.6)
+                                with st.spinner("Tdb 기술 문서 라이브러 스캔 중..."): time.sleep(2.0)
                             with chat_load_ph.container():
-                                with st.spinner("데이터 정밀 대조 및 문맥 매칭 중..."): time.sleep(0.8)
+                                with st.spinner("데이터 정밀 대조 및 문맥 매칭 중..."): time.sleep(2.5)
                             spinner_msg = "분석 결과 요약 생성 중..."
                         else:
                             with chat_load_ph.container():
-                                with st.spinner("관리자 보안 프로토콜 확인 중..."): time.sleep(0.5)
+                                with st.spinner("관리자 보안 프로토콜 확인 중..."): time.sleep(1.5)
                             spinner_msg = "관리자 매뉴얼(SOP) 바탕으로 요약 분석 중..."
                             
                         with chat_load_ph.container():

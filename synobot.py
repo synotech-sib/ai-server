@@ -67,14 +67,19 @@ def get_system_prompt(is_admin=False, is_logged_in=True):
 - 당신은 구글 드라이브의 Tdb(Technical Database) 자료를 실시간으로 참조하여 답변합니다.
 - 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오.
 - 사용자의 언어(한국어/영어)에 맞춰 자연스럽게 대답하고 대화 맥락을 유지하십시오.
-- 소재를 추천할 때는 반드시 영문 [Rec.] 태그를 소재명 앞에 붙이십시오.
 - '브리핑'이라는 단어 대신 '요약'이라는 단어를 사용하십시오.
 - 다음 동의어 사전을 숙지하여 검색 및 매핑에 활용하십시오: "Prussian White" = "PW" = "알트리스 양극재", "Hard Carbon" = "HC" = "A-Grade" """
     
-    # 비로그인 유저 대상 보안 지침 (채팅창에서만 적용됨)
+    # [수정 적용] 비로그인 유저 대상 강력한 보안 마스킹 지침
     if not is_logged_in:
-        base_prompt += "\n- [중요 보안] 비로그인 유저에게 답변할 때, 특정 업체명이나 제조사 브랜드(예: Altris, HiNa, CATL, BYD, Tiamat 등)는 절대 그대로 노출하지 말고, 반드시 첫 글자만 남기고 'OOO'로 마스킹(예: AOOO) 처리하여 답변하십시오."
+        base_prompt += """
+- [최우선 보안 규칙] 비로그인 유저에게 답변할 때, 모든 특정 제조사명 및 브랜드(예: Altris, 알트리스, AK Chemical, AC Chemical, 애경케미칼, HiNa, CATL 등 영문/한글 불문)는 절대 노출하지 마십시오.
+- 회사명은 부분 마스킹(예: AO Chemical)을 금지하고, 묶어서 전체를 'OOOO'로 일괄 마스킹하십시오. (예: 'Altris의 PW' -> 'OOOO의 PW', '알트리스 양극재' -> 'OOOO 양극재', 'AC Chemical' -> 'OOOO').
+"""
     
+    # [수정 적용] [Rec.] 태그 적용 규칙 명확화 (문장 내 포함 금지)
+    base_prompt += "\n- [추천 태그 규칙] 소재를 추천할 때 리스트(목록) 형태의 항목명 앞에만 영문 [Rec.] 태그를 붙이십시오. 일반적인 설명 문장(줄글) 안에서는 [Rec.] 태그를 절대 사용하지 마십시오."
+
     if is_admin:
         return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [관리자 종합 매뉴얼]을 바탕으로 명확히 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
     else:
@@ -225,7 +230,7 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, us
 def generate_auto_summary(sim_result, engine_choice, openai_key, gemini_key, is_logged_in=True):
     retrieved_context = load_tdb_documents()
     sys_content = get_system_prompt(is_admin=False, is_logged_in=is_logged_in) + f"\n\n[Context]\n{retrieved_context}\n\n[Sim State]\n{sim_result}"
-    user_prompt = "분석 요약을 3~4줄로 작성하십시오. 추천하는 소재가 있다면 반드시 영문 [Rec.] 태그를 접두어로 사용하십시오."
+    user_prompt = "분석 요약을 3~4줄로 작성하십시오. 추천하는 소재가 있다면 리스트 항목에만 영문 [Rec.] 태그를 접두어로 사용하십시오."
     try:
         if "Gemini" in engine_choice:
             genai.configure(api_key=gemini_key)
