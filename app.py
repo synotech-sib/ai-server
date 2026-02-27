@@ -157,7 +157,7 @@ auto_summary_steps = [
     (15.0, "3/6: 입력된 파라미터와 원본 수치 정밀 대조 중..."),
     (25.0, "4/6: 물리 엔진 연산 결과 AI 문맥 분석 중..."),
     (38.0, "5/6: 소재별 최적화 인사이트 추출 중..."),
-    (53.0, "6/6: SynoBot AI 엔진으로 최종 요약 리포트 생성 중... (잠시만 기다려주세요)"),
+    (53.0, "6/6: SynoBot AI 엔진으로 최종 요약 리포 생성 중... (잠시만 기다려주세요)"),
     (65.0, "6/6: 잠시 지체되고 있습니다. 지루하시더라도 조금만 더 기다려 주세요..."),
     (85.0, "6/6: 거의 다 왔습니다. 잠시만 기다려 주세요...")
 ]
@@ -989,7 +989,8 @@ with col_main:
                             df_vip.columns = [str(c).split('(')[0].strip() for c in df_vip.columns]
                             
                             # 삭제용 체크박스 열 맨 앞에 추가
-                            df_vip.insert(0, "삭제 선택", False)
+                            if "삭제 선택" not in df_vip.columns:
+                                df_vip.insert(0, "삭제 선택", False)
                             
                             # 1단계 방어: Category 고정, Product Name 변경 및 기본 툴팁 적용
                             col_config_rules = mat_col_config.copy()
@@ -1007,7 +1008,7 @@ with col_main:
                             col_vip_btn1, col_vip_btn2 = st.columns(2)
                             with col_vip_btn1:
                                 if st.button("💾 My DB에 변경사항 저장", use_container_width=True):
-                                    # [신규] 저장 전 데이터 유효성 검사 로직
+                                    # [신규] 저장 전 데이터 유효성 검사 로직 (완벽 보완)
                                     is_valid = True
                                     err_msg = ""
                                     
@@ -1019,19 +1020,26 @@ with col_main:
                                         
                                         for p in prefixes:
                                             c_min, c_max, c_def = f"{p}_Min", f"{p}_Max", f"{p}_Def"
-                                            if c_min in row and c_max in row and c_def in row:
-                                                val_min, val_max, val_def = row[c_min], row[c_max], row[c_def]
+                                            
+                                            if c_min in row and c_max in row:
+                                                val_min = row[c_min]
+                                                val_max = row[c_max]
                                                 
-                                                # 셋 다 빈칸(None/NaN)이 아닐 때만 수학적 비교 실행
-                                                if pd.notna(val_min) and pd.notna(val_max) and pd.notna(val_def):
+                                                # 1. 최소값이 최대값보다 큰지 단독 검사
+                                                if pd.notna(val_min) and pd.notna(val_max):
                                                     if float(val_min) > float(val_max):
                                                         is_valid = False
                                                         err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 최소값({val_min})이 최대값({val_max})보다 클 수 없습니다."
                                                         break
-                                                    if float(val_def) < float(val_min) or float(val_def) > float(val_max):
-                                                        is_valid = False
-                                                        err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 기본값({val_def})은 반드시 최소값과 최대값 사이여야 합니다."
-                                                        break
+                                                
+                                                # 2. 기본값이 입력된 경우, 범위를 벗어나는지 단독 검사
+                                                if c_def in row:
+                                                    val_def = row[c_def]
+                                                    if pd.notna(val_min) and pd.notna(val_max) and pd.notna(val_def):
+                                                        if float(val_def) < float(val_min) or float(val_def) > float(val_max):
+                                                            is_valid = False
+                                                            err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 기본값({val_def})은 반드시 최소값({val_min})과 최대값({val_max}) 사이여야 합니다."
+                                                            break
                                         if not is_valid: break
 
                                     # 검사를 통과했을 때만 클라우드에 영구 저장
