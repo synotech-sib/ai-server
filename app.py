@@ -9,6 +9,9 @@ import hashlib
 import io
 import time
 import smtplib
+import queue
+import threading
+import concurrent.futures
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import streamlit.components.v1 as components 
@@ -33,6 +36,108 @@ try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None
+
+# -----------------------------------------------------------------------------
+# [신규] 동적 로딩 스피너 및 역순 채팅 제어 함수
+# -----------------------------------------------------------------------------
+def consume_generator(gen, q):
+    try:
+        for chunk in gen: q.put(("chunk", chunk))
+    except Exception as e: q.put(("error", str(e)))
+    finally: q.put(("done", None))
+
+def safe_yield_with_dynamic_spinners(gen, placeholder, steps):
+    q = queue.Queue()
+    t = threading.Thread(target=consume_generator, args=(gen, q))
+    t.start()
+    
+    start_time = time.time()
+    cleared = False
+    
+    while True:
+        try:
+            msg_type, content = q.get(timeout=0.5)
+            if msg_type == "chunk":
+                if not cleared:
+                    placeholder.empty()
+                    cleared = True
+                yield content
+            elif msg_type == "error":
+                yield f"\n[오류 발생: {content}]"
+                break
+            elif msg_type == "done":
+                break
+        except queue.Empty:
+            if not cleared:
+                elapsed = time.time() - start_time
+                best_msg = steps[0][1]
+                for t_thresh, msg in steps:
+                    if elapsed >= t_thresh: best_msg = msg
+                placeholder.info(f"⏳ {best_msg}")
+
+def run_with_dynamic_spinners(func, args, kwargs, steps, placeholder_ui):
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(func, *args, **kwargs)
+    
+    start_time = time.time()
+    while not future.done():
+        elapsed = time.time() - start_time
+        best_msg = steps[0][1]
+        for t_thresh, msg in steps:
+            if elapsed >= t_thresh: best_msg = msg
+        placeholder_ui.info(f"⏳ {best_msg}")
+        time.sleep(0.5)
+        
+    placeholder_ui.empty()
+    return future.result()
+
+def render_chat_history(messages):
+    interactions = []
+    current_interaction = []
+    for msg in messages:
+        is_auto_summary = msg["role"] == "assistant" and "**[🤖 SynoBot 실시간 AI 요약]**" in msg["content"]
+        if msg["role"] == "user" or is_auto_summary:
+            if current_interaction:
+                interactions.append(current_interaction)
+                current_interaction = []
+        current_interaction.append(msg)
+    if current_interaction:
+        interactions.append(current_interaction)
+        
+    for interaction in reversed(interactions):
+        for msg in interaction:
+            with st.chat_message(msg["role"]):
+                content = msg["content"].replace("\n- ", "\n\n- ")
+                if content.startswith("- "): content = "- " + content[2:]
+                st.markdown(content)
+
+# [로딩 단계 문구 세팅 - 5초 간격]
+chat_tdb_steps = [
+    (0.0, "1/6: 사용자 질의 의도 파악 및 키워드 추출 중..."),
+    (5.0, "2/6: 연동된 Tdb 기술 문서 라이브러리 전체 스캔 중..."),
+    (10.0, "3/6: 관련 기술 데이터 및 논문 수치 교차 검증 중..."),
+    (15.0, "4/6: 추출된 데이터 문맥 매칭 및 팩트 체크 중..."),
+    (20.0, "5/6: 질문에 대한 최적의 답변 구조 설계 중..."),
+    (25.0, "6/6: SynoBot AI 엔진으로 최종 답변 생성 중... (잠시만 기다려주세요)"),
+    (35.0, "6/6: 잠시 지체되고 있습니다. 데이터가 방대하여 조금만 더 기다려 주세요...")
+]
+
+chat_fast_steps = [
+    (0.0, "1/3: 관리자 보안 프로토콜 및 권한 확인 중..."),
+    (3.0, "2/3: 관리자 종합 매뉴얼(SOP) 고속 스캔 중..."),
+    (6.0, "3/3: 매뉴얼 바탕으로 즉시 답변 생성 중..."),
+    (10.0, "3/3: 잠시 지체되고 있습니다. 조금만 더 기다려 주세요...")
+]
+
+auto_summary_steps = [
+    (0.0, "1/6: 시뮬레이션 결과 데이터 수집 및 전처리 중..."),
+    (5.0, "2/6: Tdb 클라우드 기술 문서 스캔 및 로드 중..."),
+    (10.0, "3/6: 입력된 파라미터와 원본 수치 정밀 대조 중..."),
+    (15.0, "4/6: 물리 엔진 연산 결과 AI 문맥 분석 중..."),
+    (20.0, "5/6: 소재별 최적화 인사이트 추출 중..."),
+    (25.0, "6/6: SynoBot AI 엔진으로 최종 요약 리포트 생성 중... (잠시만 기다려주세요)"),
+    (35.0, "6/6: 잠시 지체되고 있습니다. 데이터가 방대하여 조금만 더 기다려 주세요...")
+]
 
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
@@ -158,8 +263,6 @@ URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyM
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1qY4V0A-r8uKBQtb3Nr7VIHyuL_e5JkIdCEpdv9WMjos/edit?usp=sharing"
 URL_PARAM = "https://docs.google.com/spreadsheets/d/1-yO5ulPP4FAuAEOizriEOSmNZQa1DpKyYYQynHFVK4U/edit?usp=sharing"
 URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqNVcWJrapWWxNvSVGQ/edit?usp=sharing"
-
-def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
 @st.cache_data(ttl=3600)
 def load_cloud_data_cached(url, ws="Sheet1"):
@@ -1160,7 +1263,7 @@ with col_main:
                             )
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot beta) 패널 - 우측 고정 배치 (토글 시에도 항상 유지)
+# 🤖 시노봇 (SynoBot beta) 패널 - 우측 고정 배치
 # -----------------------------------------------------------------------------
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
@@ -1179,7 +1282,6 @@ if col_bot:
         c_in1.text_input("질문입력", label_visibility="collapsed", placeholder="Tdb 문서나 SIB 기술에 대해 질문하세요...", key="bot_user_input", on_change=handle_chat_submit)
         c_in2.button("전송", on_click=handle_chat_submit, use_container_width=True, key="btn_chat_send")
         
-        # 관리자 전용 "빠른 도움말 모드" 
         if st.session_state.get('is_admin', False):
             st.markdown("<div style='margin-top:-10px; margin-bottom:5px;'>", unsafe_allow_html=True)
             st.checkbox("⚡ 빠른 도움말 모드 (Tdb 검색 생략)", value=False, key="fast_admin_help", help="체크 시 무거운 Tdb 스캔을 생략하고 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변합니다.")
@@ -1216,46 +1318,35 @@ if col_bot:
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 요약 - [수정] 6단계 스피너 및 각 5초 딜레이 적용
+            # 1. 시뮬레이션 직후 자동 요약 (5초 인터벌 동적 스피너)
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
                     with st.chat_message("assistant"):
                         bot_load_ph = st.empty()
-                        
-                        with bot_load_ph.container():
-                            with st.spinner("1/6: 시뮬레이션 결과 데이터 수집 중..."): time.sleep(5.0)
-                        with bot_load_ph.container():
-                            with st.spinner("2/6: Tdb 클라우드 기술 문서 스캔 및 로드 중..."): time.sleep(5.0)
-                        with bot_load_ph.container():
-                            with st.spinner("3/6: 입력된 파라미터와 원본 수치 정밀 대조 중..."): time.sleep(5.0)
-                        with bot_load_ph.container():
-                            with st.spinner("4/6: 물리 엔진 연산 결과 AI 문맥 분석 중..."): time.sleep(5.0)
-                        with bot_load_ph.container():
-                            with st.spinner("5/6: 소재별 최적화 인사이트 및 요약 초안 작성 중..."): time.sleep(5.0)
-                        
-                        with bot_load_ph.container():
-                            with st.spinner("6/6: SynoBot AI 엔진으로 최종 요약 리포트 생성 중 (잠시만 기다려주세요)..."):
-                                try:
-                                    reply = synobot.generate_auto_summary(
-                                        st.session_state.sim_result, 
-                                        st.session_state.engine_choice, 
-                                        OPENAI_API_KEY, 
-                                        GEMINI_API_KEY,
-                                        is_logged_in=st.session_state.logged_in
-                                    )
-                                    bot_reply = "**[🤖 SynoBot 실시간 AI 요약]**\n\n" + reply
-                                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                    if st.session_state.history: st.session_state.history[0]["AI_Summary"] = bot_reply
-                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                                except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
-                        
-                        bot_load_ph.empty()
+                        try:
+                            reply = run_with_dynamic_spinners(
+                                synobot.generate_auto_summary,
+                                args=(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY),
+                                kwargs={"is_logged_in": st.session_state.logged_in},
+                                steps=auto_summary_steps,
+                                placeholder_ui=bot_load_ph
+                            )
+                            bot_reply = "**[🤖 SynoBot 실시간 AI 요약]**\n\n" + reply
+                            st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                            if st.session_state.history: st.session_state.history[0]["AI_Summary"] = bot_reply
+                            save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
+                        except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 - [수정] 6단계 스피너 및 각 5초 딜레이 적용
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 (5초 인터벌 동적 스피너 + 역순 렌더링)
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
+                
+                # 역순 렌더링을 위해 방금 입력한 질문을 가장 상단에 먼저 띄움
+                latest_user_msg = st.session_state.chat_messages[-1]
+                with st.chat_message(latest_user_msg["role"]):
+                    st.markdown(latest_user_msg["content"].replace("\n- ", "\n\n- "))
                 
                 if synobot:
                     with st.chat_message("assistant"):
@@ -1263,66 +1354,37 @@ if col_bot:
                         use_tdb_flag = not st.session_state.get('fast_admin_help', False) if is_admin_mode else True
                         
                         chat_load_ph = st.empty()
-                        
-                        if use_tdb_flag:
-                            with chat_load_ph.container():
-                                with st.spinner("1/6: 사용자 질의 의도 파악 및 키워드 추출 중..."): time.sleep(5.0)
-                            with chat_load_ph.container():
-                                with st.spinner("2/6: 연동된 Tdb 기술 문서 라이브러리 전체 스캔 중..."): time.sleep(5.0)
-                            with chat_load_ph.container():
-                                with st.spinner("3/6: 관련 기술 데이터 및 논문 수치 교차 검증 중..."): time.sleep(5.0)
-                            with chat_load_ph.container():
-                                with st.spinner("4/6: 추출된 데이터 문맥 매칭 및 팩트 체크 중..."): time.sleep(5.0)
-                            with chat_load_ph.container():
-                                with st.spinner("5/6: 질문에 대한 최적의 답변 구조 설계 중..."): time.sleep(5.0)
-                            spinner_msg = "6/6: SynoBot AI 엔진으로 최종 답변 생성 중 (잠시만 기다려주세요)..."
-                        else:
-                            with chat_load_ph.container():
-                                with st.spinner("1/3: 관리자 보안 프로토콜 및 권한 확인 중..."): time.sleep(3.0)
-                            with chat_load_ph.container():
-                                with st.spinner("2/3: 관리자 종합 매뉴얼(SOP) 고속 스캔 중..."): time.sleep(3.0)
-                            spinner_msg = "3/3: 매뉴얼 바탕으로 즉시 답변 생성 중..."
+                        steps_to_use = chat_tdb_steps if use_tdb_flag else chat_fast_steps
                             
-                        with chat_load_ph.container():
-                            with st.spinner(spinner_msg):
-                                try:
-                                    messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
-                                    api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
-                                    
-                                    if "Gemini" in st.session_state.engine_choice:
-                                        stream_gen = synobot.get_gemini_response_stream(
-                                            messages_for_api, st.session_state.sim_result, api_key, 
-                                            is_admin=is_admin_mode, use_tdb=use_tdb_flag, 
-                                            is_logged_in=st.session_state.logged_in
-                                        )
-                                    else:
-                                        stream_gen = synobot.get_openai_response_stream(
-                                            messages_for_api, st.session_state.sim_result, api_key, 
-                                            is_admin=is_admin_mode, use_tdb=use_tdb_flag, 
-                                            is_logged_in=st.session_state.logged_in
-                                        )
+                        try:
+                            messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
+                            api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
+                            
+                            if "Gemini" in st.session_state.engine_choice:
+                                stream_gen = synobot.get_gemini_response_stream(
+                                    messages_for_api, st.session_state.sim_result, api_key, 
+                                    is_admin=is_admin_mode, use_tdb=use_tdb_flag, 
+                                    is_logged_in=st.session_state.logged_in
+                                )
+                            else:
+                                stream_gen = synobot.get_openai_response_stream(
+                                    messages_for_api, st.session_state.sim_result, api_key, 
+                                    is_admin=is_admin_mode, use_tdb=use_tdb_flag, 
+                                    is_logged_in=st.session_state.logged_in
+                                )
 
-                                    reply = st.write_stream(stream_gen)
-                                    
-                                    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
-                                    
-                                except Exception as e: st.error(f"AI 응답 오류: {e}")
-                                
-                        chat_load_ph.empty()
-                
-                for message in reversed(st.session_state.chat_messages[:-1]):
-                    with st.chat_message(message["role"]):
-                        content = message["content"].replace("\n- ", "\n\n- ")
-                        if content.startswith("- "): content = "- " + content[2:]
-                        st.markdown(content)
+                            reply = st.write_stream(safe_yield_with_dynamic_spinners(stream_gen, chat_load_ph, steps_to_use))
+                            st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                            save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
+                            
+                        except Exception as e: st.error(f"AI 응답 오류: {e}")
+                        
+                # 방금 처리한 최신 질문/답변 제외하고 나머지 이전 기록을 그 아래에 렌더링
+                render_chat_history(st.session_state.chat_messages[:-2])
                         
             else:
-                for message in reversed(st.session_state.chat_messages):
-                    with st.chat_message(message["role"]):
-                        content = message["content"].replace("\n- ", "\n\n- ")
-                        if content.startswith("- "): content = "- " + content[2:]
-                        st.markdown(content)
+                # 일반적인 화면 리프레시 시 전체를 최신순으로 렌더링
+                render_chat_history(st.session_state.chat_messages)
 
         components.html(
             """

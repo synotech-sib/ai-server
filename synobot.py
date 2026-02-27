@@ -41,22 +41,22 @@ ADMIN_HELP_SOP = """
 제1장. Tdb 문서 관리 및 OCR 동기화
 - 명명 규칙: [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)
 - 분류: MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)
-- OCR 실행: 스캔본 PDF 업로드 후 'Tdb 스캔 및 OCR 실행' 버튼을 누르면 Vision API를 통해 텍스트가 자동 변환됩니다.
+- OCR 실행: 스캔본 PDF 업로드 후 'Tdb 스캔 및 OCR 실행' 버튼을 누르면 Vision API를 통해 고정밀 텍스트로 자동 변환됩니다.
 
 제2장. AI 엔진 및 시노봇 관리
 - 평상시 'Gemini 2.5 Flash'를 사용하며, 정밀 분석 시 'OpenAI GPT-4o'로 스위칭합니다.
 - 빠른 도움말 모드: 체크 시 무거운 Tdb 스캔을 건너뛰고 매뉴얼 내용만 바탕으로 1초 만에 즉답합니다.
 
 제3장. Data Source 및 유저 관리
-- 유저 관리: 가입자의 Pro Max 등급 승인 및 탈퇴 처리를 인라인 에디터로 수행합니다.
-- DB 직접 관리: 소재, 파라미터, 로그 DB를 화면에서 수정 후 클라우드에 영구 저장합니다. (admin_master 탭은 모든 VIP 데이터를 취합한 읽기 전용 뷰입니다.)
+- 유저 관리: 가입자의 Pro Max 등급 승인 및 탈퇴 처리를 화면에서 직접 수행합니다.
+- DB 직접 관리: 소재, 파라미터, 로그 DB를 화면에서 수정 후 클라우드에 영구 저장합니다.
 
 제4장. VIP 소재 관리 및 공개용 마스킹 처리
 - VIP 직접 추가: Pro Max 고객은 메인 화면의 '내 전용 DB에 새 소재 추가'를 통해 비공개 소재를 자체 등록할 수 있습니다.
-- 공개용 마스킹 배포: VIP 소재를 일반 유저에게 공개할 때, 소재 DB 에디터에서 해당 VIP 데이터를 복사해 'material_list(공용)'에 붙여넣습니다. 이후 업체명은 OOO로 가리고 핵심 수치(용량, 수명 등)를 평균값으로 하향 조정(너프)한 후 배포합니다.
+- 공개용 마스킹 배포: 일반 유저 공개 시, 소재 DB 에디터에서 VIP 데이터를 복사해 'material_list'에 넣고 핵심 수치를 너프하여 배포합니다.
 
 제5장. 스폰서 로고 설정
-- 하단 푸터 로고는 투명 배경 PNG를 권장하며, GitHub 저장소 원본 링크(raw URL)를 사용하여 깨짐을 방지합니다. 입력칸을 지우고 저장하면 로고가 완전히 삭제됩니다.
+- 하단 푸터 로고는 GitHub 저장소 원본 링크(raw URL)를 사용하여 깨짐을 방지합니다.
 
 제6장. 파라미터 실시간 검증
 - UI에 설정된 파라미터 값들이 Tdb 원본 기술 문서와 일치하는지 '파라미터 일치 검증' 버튼을 통해 교차 검증합니다.
@@ -70,10 +70,10 @@ def get_system_prompt(is_admin=False, is_logged_in=True):
 - '브리핑'이라는 단어 대신 '요약'이라는 단어를 사용하십시오.
 - 다음 동의어 사전을 숙지하여 검색 및 매핑에 활용하십시오: "Prussian White" = "PW" = "알트리스 양극재", "Hard Carbon" = "HC" = "A-Grade" """
     
-    # 비로그인 유저 대상 강력한 보안 마스킹 지침
+    # [수정] 비로그인 유저 대상 강력한 일괄 마스킹 지침
     if not is_logged_in:
         base_prompt += """
-- [최우선 보안 규칙] 비로그인 유저에게 답변할 때, 모든 특정 제조사명 및 브랜드(예: Altris, 알트리스, AK Chemical, AC Chemical, 애경케미칼, HiNa, CATL 등 영문/한글 불문)는 절대 노출하지 마십시오.
+- [최우선 보안 규칙] 비로그인 유저에게 답변할 때, 특정 제조사명 및 브랜드(예: Altris, 알트리스, AK Chemical, AC Chemical, 애경케미칼, HiNa, CATL 등 영문/한글 불문)는 절대 노출하지 마십시오.
 - 회사명은 부분 마스킹(예: AO Chemical)을 금지하고, 묶어서 전체를 'OOOO'로 일괄 마스킹하십시오. (예: 'Altris의 PW' -> 'OOOO의 PW', '알트리스 양극재' -> 'OOOO 양극재', 'AC Chemical' -> 'OOOO').
 """
     
@@ -94,30 +94,21 @@ def get_system_prompt(is_admin=False, is_logged_in=True):
 def extract_text_with_vision(pdf_bytes):
     if not vision or not convert_from_bytes:
         return "\n[시스템 알림: Vision API 관련 라이브러리(google-cloud-vision, pdf2image)가 서버에 설치되지 않았습니다.]"
-    
     try:
         api_key = st.secrets["GOOGLE_VISION_API_KEY"]
         client_options = ClientOptions(api_key=api_key)
         client = vision.ImageAnnotatorClient(client_options=client_options)
-        
         images = convert_from_bytes(pdf_bytes, dpi=200)
         extracted_text = ""
-        
         for i, image in enumerate(images):
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='JPEG')
             content = img_byte_arr.getvalue()
-
             vision_image = vision.Image(content=content)
             response = client.document_text_detection(image=vision_image)
-            
-            if response.error.message:
-                raise Exception(response.error.message)
-                
+            if response.error.message: raise Exception(response.error.message)
             if response.full_text_annotation:
-                extracted_text += f"\n--- [Page {i+1}] ---\n"
-                extracted_text += response.full_text_annotation.text
-
+                extracted_text += f"\n--- [Page {i+1}] ---\n" + response.full_text_annotation.text
         return extracted_text
     except Exception as e:
         return f"\n[OCR 추출 실패: {e}]"
@@ -164,20 +155,15 @@ def load_tdb_documents():
                     if item['mimeType'] == 'text/plain':
                         content = clean_text_parsing(fh.read())
                         inner_context += f"\n\n--- [참조 데이터: {item['name']}] ---\n{content}"
-                    
                     elif item['mimeType'] == 'application/pdf' and PdfReader:
                         pdf_bytes = fh.getvalue()
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         pdf_text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
-                        
                         if not pdf_text.strip():
-                            inner_context += f"\n\n--- [참조 데이터: {item['name']} (고정밀 OCR 자동 변환됨)] ---"
-                            ocr_text = extract_text_with_vision(pdf_bytes)
-                            inner_context += ocr_text
+                            inner_context += f"\n\n--- [참조 데이터: {item['name']} (고정밀 OCR 자동 변환됨)] ---" + extract_text_with_vision(pdf_bytes)
                         else:
                             inner_context += f"\n\n--- [참조 데이터: {item['name']}] ---\n{pdf_text}"
-                except Exception:
-                    pass 
+                except Exception: pass 
         return inner_context
 
     context = recursive_fetch(FOLDER_ID)
@@ -191,11 +177,7 @@ def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False, us
     system_instruction = get_system_prompt(is_admin, is_logged_in)
     model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=system_instruction)
     
-    if use_tdb:
-        retrieved_context = load_tdb_documents()
-    else:
-        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
-        
+    retrieved_context = load_tdb_documents() if use_tdb else "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
     last_user_msg = messages[-1]["content"]
     
     full_prompt = f"### [Google Drive Tdb Context]\n{retrieved_context}\n\n"
@@ -212,14 +194,9 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, us
     client = OpenAI(api_key=api_key)
     system_instruction = get_system_prompt(is_admin, is_logged_in)
     
-    if use_tdb:
-        retrieved_context = load_tdb_documents()
-    else:
-        retrieved_context = "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
-    
+    retrieved_context = load_tdb_documents() if use_tdb else "[빠른 도움말 모드 작동 중: Tdb 문서 로드가 생략되었습니다. 관리자 종합 매뉴얼(SOP) 내용만 바탕으로 즉시 답변하십시오.]"
     sys_content = system_instruction + f"\n\n### [Context]\n{retrieved_context}"
     if sim_result: sys_content += f"\n\n### [Sim State]\n{sim_result}"
-    
     full_messages = [{"role": "system", "content": sys_content}] + [m for m in messages if m["role"] != "system"]
     
     try:
@@ -255,15 +232,6 @@ def check_parameter_discrepancy(current_params, engine_choice, api_key):
     결과를 반드시 아래 형식의 순수 JSON 배열로 반환하십시오 (마크다운 금지).
     [현재 입력된 파라미터]\n{current_params}
     [Tdb 기술 문서]\n{context}
-    [출력 예시]
-    [{{
-        "항목": "Target Energy", 
-        "현재입력값": "100.0", 
-        "Tdb권장값": "160.0", 
-        "상태": "🚨 불일치", 
-        "수정UI위치": "Step 3. 타겟 성능 > Energy Density",
-        "원문발췌": "테스트 결과 해당 소재의 상용화 Target Energy는 160 Wh/kg을 권장함."
-    }}]
     """
     try:
         if "Gemini" in engine_choice:
