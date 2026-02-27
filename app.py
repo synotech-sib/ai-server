@@ -39,14 +39,12 @@ except ImportError:
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="SynoCore Pro v0.9.1", layout="wide")
 
-# [e9] Streamlit 워터마크 및 로고 3중 방어막 완벽 제거
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden !important; display: none !important;} 
     header {visibility: hidden !important; display: none !important;}
-    .stApp a[href^="https://streamlit.io"] {display: none !important;}
-    [data-testid="stDecoration"] {display: none !important;}
+    a[href^="https://streamlit.io"] {display: none !important;}
     [data-testid="stHeader"] {display: none !important;}
     .stApp > header {display: none !important;}
     .stApp [data-testid="stToolbar"] {display: none !important;}
@@ -60,13 +58,14 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* [e8] 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 8px) */
+    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 8px) */
     .stSpinner > div > div {
         border-color: #1A729A transparent transparent transparent !important;
         animation: spin 0.8s linear infinite !important;
         border-width: 8px !important; 
     }
     
+    /* 새로고침 및 검증 버튼 전용 CSS */
     div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button, div.st-key-btn_save_logo > button {
         width: auto !important;
         padding-left: 10px !important;
@@ -92,6 +91,7 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
+    /* Selectbox 드롭다운 텍스트 래핑(말줄임 방지) 강제 CSS */
     div[data-baseweb="select"] > div { white-space: normal !important; word-wrap: break-word !important; min-height: 40px; }
     div[role="listbox"] li { white-space: normal !important; word-wrap: break-word !important; padding-top: 10px; padding-bottom: 10px; }
     
@@ -106,16 +106,36 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
+    /* PDF 인쇄 시 화면 그대로 1:1 출력되도록 완벽 고정 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
         button { display: none !important; }
-        .main .block-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
-        .stScrollableContainer, div[data-testid="stVerticalBlock"] { height: auto !important; max-height: none !important; overflow: visible !important; }
-        div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; }
+        
+        .main .block-container { 
+            max-width: 100% !important; 
+            width: 100% !important; 
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        .stScrollableContainer, div[data-testid="stVerticalBlock"] { 
+            height: auto !important; 
+            max-height: none !important; 
+            overflow: visible !important; 
+        }
+        
+        div[data-testid="stHorizontalBlock"] { 
+            display: flex !important; 
+            flex-direction: row !important; 
+            flex-wrap: nowrap !important; 
+        }
+        
         div[data-testid="stHorizontalBlock"] > div:nth-child(1) { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { flex: 7.2 !important; width: 72% !important; display: block !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { flex: 2.8 !important; width: 28% !important; display: block !important; }
-        div[data-testid="element-container"]:has(#section4-anchor), div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
+        
+        div[data-testid="element-container"]:has(#section4-anchor),
+        div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
 
@@ -141,7 +161,6 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 
 def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
-# [e8] 캐시 TTL을 3600초(1시간)로 연장하여 로딩 속도 극대화
 @st.cache_data(ttl=3600)
 def load_cloud_data_cached(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
@@ -316,7 +335,6 @@ if not is_pro:
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
-                            # [e10, e11] 관리자 전용 환영 및 요약 문구 반영
                             st.session_state.chat_messages = [{"role": "assistant", "content": f"- **{ADMIN_USERS[u_id_clean]} 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오."}]
                             st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
@@ -663,7 +681,7 @@ with col_main:
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
                 if not st.session_state.logged_in:
-                    st.info("비로그인 상태 안내: 일부 제조사 정보가 마스킹(OOO) 처리되며, 선택하신 소재의 파라미터 값이 실시간으로 적용되어 시뮬레이션 연동을 체험하실 수 있습니다.")
+                    st.info("비로그인 상태 안내: 선택하신 소재의 파라미터 값이 실시간으로 하단 UI에 연동되어 시뮬레이션을 정상 체험하실 수 있습니다. (자세한 기술 및 맞춤 지원은 로그인이 필요합니다)")
 
                 with st.container(border=True):
                     _dfs = []
@@ -701,14 +719,9 @@ with col_main:
 
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
-                    # [e1] Names.txt 동적 마스킹 (영문: 첫글자+OOO, 한글: OOOO)
+                    # [e1] UI 마스킹 제거 (시노봇 채팅창에서만 마스킹 유지)
                     def format_mat_name(name): 
                         prefix = "🔹 " if name in vip_names else ""
-                        if not st.session_state.logged_in:
-                            if any('\uac00' <= char <= '\ud7a3' for char in name):
-                                name = "OOOO"
-                            else:
-                                name = name[0] + "OOO" if name else ""
                         return f"{prefix}{name}"
                     
                     with m1: cat_sel = st.selectbox("Cathode", cat_list, format_func=format_mat_name, key="sel_cat_m")
@@ -716,16 +729,32 @@ with col_main:
                     with m3: st.selectbox("Electrolyte", elec_list, format_func=format_mat_name, key="sel_ele_m")
                     with m4: st.selectbox("Separator", sep_list, format_func=format_mat_name, key="sel_sep_m")
                     
+                    # [e5] 선택한 소재에 맞춰 하단 2번 파라미터 값 실시간 연동 (Session State 동기화)
                     row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
+                    ano_row = mat_df[mat_df['Name']==ano_sel].iloc[0] if not mat_df.empty and ano_sel in ano_list else pd.Series()
                     
-                    # [e5] 비로그인 유저에게도 실제 DB 파라미터 값을 동적으로 연동
                     init_vals = {
-                        "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "c_den": safe_float(row.get('Den_Def'), 4.5), 
-                        "a_den": 2.1, "life": safe_float(row.get('Life_Def'), 4000.0),
-                        "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
+                        "cap": safe_float(row.get('Cap_Def'), 160.0), 
+                        "volt": safe_float(row.get('Volt_Def'), 3.05), 
+                        "c_den": safe_float(row.get('Den_Def'), 4.5), 
+                        "a_den": safe_float(ano_row.get('Den_Def'), 2.1), 
+                        "life": safe_float(row.get('Life_Def'), 4000.0),
+                        "c_lod": safe_float(row.get('Load_Def'), 14.0), 
+                        "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
                         "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
                         "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
                     }
+
+                    if "prev_cat" not in st.session_state: st.session_state.prev_cat = cat_list[0] if cat_list else ""
+                    if "prev_ano" not in st.session_state: st.session_state.prev_ano = ano_list[0] if ano_list else ""
+
+                    if st.session_state.prev_cat != cat_sel or st.session_state.prev_ano != ano_sel:
+                        st.session_state.prev_cat = cat_sel
+                        st.session_state.prev_ano = ano_sel
+                        for k, v in init_vals.items():
+                            st.session_state[f"{k}_s"] = v
+                            st.session_state[f"{k}_n"] = v
+                        st.rerun()
 
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
                     with st.expander("➕ My 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
@@ -774,7 +803,12 @@ with col_main:
             st.markdown('<p class="main-header" style="margin-top:20px;">2. Process Parameters</p>', unsafe_allow_html=True)
             sp2, c_2 = st.columns([0.03, 0.97])
             with c_2:
-                with st.expander(f"Step 1. 소재 물성 설정 (Material Specs)", expanded=(st.session_state.acc_step == 1)):
+                # [e5] 비로그인 유저는 전체 흐름을 한눈에 볼 수 있도록 Expander 전체 오픈
+                exp_step1 = True if not is_pro else (st.session_state.acc_step == 1)
+                exp_step2 = True if not is_pro else (st.session_state.acc_step == 2)
+                exp_step3 = True if not is_pro else (st.session_state.acc_step == 3)
+
+                with st.expander(f"Step 1. 소재 물성 설정 (Material Specs)", expanded=exp_step1):
                     s1, s2, s3 = st.columns(3)
                     with s1:
                         st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
@@ -810,7 +844,7 @@ with col_main:
                         
                     st.button("다음 단계: 공정 설계 ➡️", key="btn_next_1", on_click=change_acc_step, args=(2,))
 
-                with st.expander(f"Step 2. 셀 공정 설계 (Process Parameters)", expanded=(st.session_state.acc_step == 2)):
+                with st.expander(f"Step 2. 셀 공정 설계 (Process Parameters)", expanded=exp_step2):
                     p1, p2, p3 = st.columns(3)
                     with p1:
                         st.markdown('<p class="sub-header-bold">(A) Cathode Process</p>', unsafe_allow_html=True)
@@ -820,7 +854,7 @@ with col_main:
                         cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-                        # [e6] ❔ 마크 삭제 반영
+                        # [e6] 물음표 제거
                         st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                         cpr1, cpr2 = st.columns([0.7, 0.3])
                         cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
@@ -854,7 +888,6 @@ with col_main:
                         
                     with p2:
                         st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
-                        # [e6] ❔ 마크 삭제 반영
                         st.markdown("<p class='param-label' title='N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.'>N/P Ratio</p>", unsafe_allow_html=True)
                         n1, n2 = st.columns([0.7, 0.3])
                         n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
@@ -894,7 +927,6 @@ with col_main:
 
                     with p3:
                         st.markdown('<p class="sub-header-bold">(C) Cell & Electrolyte</p>', unsafe_allow_html=True)
-                        # [e6] ❔ 마크 삭제 반영
                         st.markdown("<p class='param-label' title='전해액/용량 비율. 2.5 이하시 수명 급감 위험.'>E/C Ratio (g/Ah)</p>", unsafe_allow_html=True)
                         e1, e2 = st.columns([0.7, 0.3])
                         e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
@@ -908,7 +940,7 @@ with col_main:
                         
                     st.button("다음 단계: 타겟 성능 ➡️", key="btn_next_2", on_click=change_acc_step, args=(3,))
 
-                with st.expander("Step 3. 타겟 성능 설정 (Target Settings)", expanded=(st.session_state.acc_step == 3)):
+                with st.expander("Step 3. 타겟 성능 설정 (Target Settings)", expanded=exp_step3):
                     t1, t2, t3 = st.columns(3)
                     with t1: 
                         st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
@@ -992,7 +1024,7 @@ with col_main:
                         with sim_ph.container():
                             with st.spinner("결과 요약 생성 중..."): time.sleep(0.5)
                         sim_ph.empty()
-                        
+                            
                         st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
                         st.session_state.trigger_auto_bot = True 
                         st.session_state.scroll_to_result = True 
@@ -1035,7 +1067,7 @@ with col_main:
                             fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                             st.plotly_chart(fig3, use_container_width=True)
                         
-                        # [e11] 요약 용어 변경
+                        # [e11] 요약 용어 통일
                         if res.get("AI_Summary"):
                             st.markdown("<br>", unsafe_allow_html=True)
                             show_ai = st.checkbox("**[AI 요약 펼쳐보기]** 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
@@ -1047,7 +1079,7 @@ with col_main:
 
                         if len(st.session_state.history) > 0:
                             st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
-                            df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Summary', 'AI_Briefing'], errors='ignore')
+                            df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Summary'], errors='ignore')
                             df_session.insert(0, 'No.', range(len(df_session), 0, -1))
                             try: st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
                             except TypeError: st.dataframe(df_session, use_container_width=True, hide_index=True)
@@ -1194,7 +1226,6 @@ if col_bot:
                 st.stop()
 
             if not st.session_state.chat_messages: 
-                # [e10] 관리자 환영 메시지 최적화 
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
@@ -1205,7 +1236,13 @@ if col_bot:
                     with st.chat_message("assistant"):
                         with st.spinner("SynoBot AI 엔진으로 결과 요약 중..."):
                             try:
-                                reply = synobot.generate_auto_summary(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY)
+                                reply = synobot.generate_auto_summary(
+                                    st.session_state.sim_result, 
+                                    st.session_state.engine_choice, 
+                                    OPENAI_API_KEY, 
+                                    GEMINI_API_KEY,
+                                    is_logged_in=st.session_state.logged_in
+                                )
                                 bot_reply = "**[🤖 SynoBot 실시간 AI 요약]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
                                 if st.session_state.history: st.session_state.history[0]["AI_Summary"] = bot_reply
@@ -1213,7 +1250,7 @@ if col_bot:
                             except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 (e11 로딩 적용)
+            # 2. 챗봇 질문-응답 처리 및 스트리밍
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
@@ -1235,9 +1272,17 @@ if col_bot:
                                     api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
                                     
                                     if "Gemini" in st.session_state.engine_choice:
-                                        stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
+                                        stream_gen = synobot.get_gemini_response_stream(
+                                            messages_for_api, st.session_state.sim_result, api_key, 
+                                            is_admin=is_admin_mode, use_tdb=use_tdb_flag, 
+                                            is_logged_in=st.session_state.logged_in
+                                        )
                                     else:
-                                        stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
+                                        stream_gen = synobot.get_openai_response_stream(
+                                            messages_for_api, st.session_state.sim_result, api_key, 
+                                            is_admin=is_admin_mode, use_tdb=use_tdb_flag, 
+                                            is_logged_in=st.session_state.logged_in
+                                        )
 
                                     reply = st.write_stream(stream_gen)
                                     
