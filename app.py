@@ -38,7 +38,7 @@ except ImportError:
     OpenAI = None
 
 # -----------------------------------------------------------------------------
-# [신규] 동적 로딩 스피너 및 역순 채팅 제어 함수
+# [신규] 동적 로딩 스피너 및 역순 채팅 제어 함수 (스피너 부활)
 # -----------------------------------------------------------------------------
 def consume_generator(gen, q):
     try:
@@ -73,7 +73,10 @@ def safe_yield_with_dynamic_spinners(gen, placeholder, steps):
                 best_msg = steps[0][1]
                 for t_thresh, msg in steps:
                     if elapsed >= t_thresh: best_msg = msg
-                placeholder.info(f"⏳ {best_msg}")
+                # ⏳ 이모티콘과 info 제거, 제미나이 스피너 유지
+                with placeholder.container():
+                    with st.spinner(best_msg):
+                        time.sleep(0.5)
 
 def run_with_dynamic_spinners(func, args, kwargs, steps, placeholder_ui):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -85,8 +88,11 @@ def run_with_dynamic_spinners(func, args, kwargs, steps, placeholder_ui):
         best_msg = steps[0][1]
         for t_thresh, msg in steps:
             if elapsed >= t_thresh: best_msg = msg
-        placeholder_ui.info(f"⏳ {best_msg}")
-        time.sleep(0.5)
+        
+        # ⏳ 이모티콘과 info 제거, 제미나이 스피너 유지
+        with placeholder_ui.container():
+            with st.spinner(best_msg):
+                time.sleep(0.5)
         
     placeholder_ui.empty()
     return future.result()
@@ -1263,7 +1269,7 @@ with col_main:
                             )
 
 # -----------------------------------------------------------------------------
-# 🤖 시노봇 (SynoBot beta) 패널 - 우측 고정 배치
+# 🤖 시노봇 (SynoBot beta) 패널 - 우측 고정 배치 (역순 렌더링)
 # -----------------------------------------------------------------------------
 def handle_chat_submit():
     user_input = st.session_state.get("bot_user_input", "")
@@ -1318,7 +1324,7 @@ if col_bot:
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 요약 (5초 인터벌 동적 스피너)
+            # 1. 시뮬레이션 직후 자동 요약 
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
@@ -1339,11 +1345,11 @@ if col_bot:
                         except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 (5초 인터벌 동적 스피너 + 역순 렌더링)
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 (역순 렌더링)
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
-                # 역순 렌더링을 위해 방금 입력한 질문을 가장 상단에 먼저 띄움
+                # 방금 입력한 질문을 가장 상단에 렌더링
                 latest_user_msg = st.session_state.chat_messages[-1]
                 with st.chat_message(latest_user_msg["role"]):
                     st.markdown(latest_user_msg["content"].replace("\n- ", "\n\n- "))
@@ -1379,11 +1385,10 @@ if col_bot:
                             
                         except Exception as e: st.error(f"AI 응답 오류: {e}")
                         
-                # 방금 처리한 최신 질문/답변 제외하고 나머지 이전 기록을 그 아래에 렌더링
+                # 방금 처리한 질문/답변 제외하고 이전 기록들을 역순으로 렌더링
                 render_chat_history(st.session_state.chat_messages[:-2])
                         
             else:
-                # 일반적인 화면 리프레시 시 전체를 최신순으로 렌더링
                 render_chat_history(st.session_state.chat_messages)
 
         components.html(
