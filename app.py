@@ -38,8 +38,17 @@ except ImportError:
     OpenAI = None
 
 # -----------------------------------------------------------------------------
-# [신규] 동적 로딩 스피너 및 역순 채팅 제어 함수 (스피너 부활)
+# [신규] 동적 로딩 스피너 (깜빡임 완벽 제거) 및 역순 채팅 제어 함수
 # -----------------------------------------------------------------------------
+def get_spinner_html(text):
+    return f"""
+    <div style="display: flex; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div style="width: 24px; height: 24px; border: 4px solid #1A729A; border-top-color: transparent; border-radius: 50%; animation: syno-spin 0.8s linear infinite;"></div>
+        <span style="margin-left: 15px; font-weight: bold; font-size: 15px; color: #1A729A;">{text}</span>
+        <style>@keyframes syno-spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}</style>
+    </div>
+    """
+
 def consume_generator(gen, q):
     try:
         for chunk in gen: q.put(("chunk", chunk))
@@ -53,6 +62,7 @@ def safe_yield_with_dynamic_spinners(gen, placeholder, steps):
     
     start_time = time.time()
     cleared = False
+    current_msg = "" # 상태 저장용 변수
     
     while True:
         try:
@@ -73,26 +83,31 @@ def safe_yield_with_dynamic_spinners(gen, placeholder, steps):
                 best_msg = steps[0][1]
                 for t_thresh, msg in steps:
                     if elapsed >= t_thresh: best_msg = msg
-                # ⏳ 이모티콘과 info 제거, 제미나이 스피너 유지
-                with placeholder.container():
-                    with st.spinner(best_msg):
-                        time.sleep(0.5)
+                
+                # [핵심] 메시지가 이전과 다를 때만 화면을 다시 그림 (깜빡임 제거)
+                if best_msg != current_msg:
+                    placeholder.markdown(get_spinner_html(best_msg), unsafe_allow_html=True)
+                    current_msg = best_msg
 
 def run_with_dynamic_spinners(func, args, kwargs, steps, placeholder_ui):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     future = executor.submit(func, *args, **kwargs)
     
     start_time = time.time()
+    current_msg = "" # 상태 저장용 변수
+    
     while not future.done():
         elapsed = time.time() - start_time
         best_msg = steps[0][1]
         for t_thresh, msg in steps:
             if elapsed >= t_thresh: best_msg = msg
         
-        # ⏳ 이모티콘과 info 제거, 제미나이 스피너 유지
-        with placeholder_ui.container():
-            with st.spinner(best_msg):
-                time.sleep(0.5)
+        # [핵심] 메시지가 이전과 다를 때만 화면을 다시 그림 (깜빡임 제거)
+        if best_msg != current_msg:
+            placeholder_ui.markdown(get_spinner_html(best_msg), unsafe_allow_html=True)
+            current_msg = best_msg
+        
+        time.sleep(0.5)
         
     placeholder_ui.empty()
     return future.result()
@@ -169,14 +184,6 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 8px) */
-    .stSpinner > div > div {
-        border-color: #1A729A transparent transparent transparent !important;
-        animation: spin 0.8s linear infinite !important;
-        border-width: 8px !important; 
-    }
-    
-    /* 새로고침 및 검증 버튼 전용 CSS */
     div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button, div.st-key-btn_save_logo > button {
         width: auto !important;
         padding-left: 10px !important;
@@ -202,7 +209,6 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
-    /* Selectbox 드롭다운 텍스트 래핑(말줄임 방지) 강제 CSS */
     div[data-baseweb="select"] > div { white-space: normal !important; word-wrap: break-word !important; min-height: 40px; }
     div[role="listbox"] li { white-space: normal !important; word-wrap: break-word !important; padding-top: 10px; padding-bottom: 10px; }
     
@@ -217,7 +223,6 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 인쇄 시 화면 그대로 1:1 출력되도록 완벽 고정 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
         button { display: none !important; }
@@ -837,7 +842,6 @@ with col_main:
                     with m3: st.selectbox("Electrolyte", elec_list, format_func=format_mat_name, key="sel_ele_m")
                     with m4: st.selectbox("Separator", sep_list, format_func=format_mat_name, key="sel_sep_m")
                     
-                    # [e5] 선택한 소재에 맞춰 하단 2번 파라미터 값 실시간 연동 (Session State 동기화)
                     row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                     ano_row = mat_df[mat_df['Name']==ano_sel].iloc[0] if not mat_df.empty and ano_sel in ano_list else pd.Series()
                     
@@ -1144,25 +1148,39 @@ with col_main:
                         
                         st.markdown("<br><br>", unsafe_allow_html=True)
                         
-                        g1, sp_g1, g2, sp_g2, g3 = st.columns([1, 0.08, 1, 0.08, 1])
+                        # [적용 확인] 4개의 그래프를 2x2 레이아웃으로 배치 및 축 이름 명시
+                        row1_1, sp_r1, row1_2 = st.columns([1, 0.05, 1])
                         
-                        with g1:
+                        with row1_1:
                             st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Discharge Profile</p>', unsafe_allow_html=True)
                             fig1 = go.Figure(go.Scatter(x=np.linspace(0,100,100), y=res['Cell_V']-(np.linspace(0,1,100)**1.5), line=dict(color='#1A729A', width=3)))
-                            fig1.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
+                            fig1.update_layout(xaxis_title="Depth of Discharge (%)", yaxis_title="Voltage (V)", height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
                             st.plotly_chart(fig1, use_container_width=True)
                             
-                        with g2:
+                        with row1_2:
                             st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">dQ/dV Profile</p>', unsafe_allow_html=True)
                             fig2 = go.Figure(go.Scatter(x=res.get('dq_x', []), y=res.get('dq_y', []), fill='tozeroy', line=dict(color='#e63946', width=2)))
-                            fig2.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
+                            fig2.update_layout(xaxis_title="Voltage (V)", yaxis_title="dQ/dV (Ah/V)", height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
                             st.plotly_chart(fig2, use_container_width=True)
                             
-                        with g3:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        row2_1, sp_r2, row2_2 = st.columns([1, 0.05, 1])
+                        
+                        with row2_1:
                             st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Cell Performance</p>', unsafe_allow_html=True)
                             fig3 = go.Figure(go.Scatterpolar(r=[min(100, res.get('Wh/kg', 0)/2.5), min(100, res.get('C-rate', 1)*20), min(100, res.get('Life(Cyc)', 0)/50), min(100, res.get('Cell_V', 0)*25), min(100, res.get('C_Load', 0)*4)], theta=['Energy', 'Power', 'Life', 'Voltage', 'Loading'], fill='toself', line=dict(color='#E4B526', width=2)))
                             fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                             st.plotly_chart(fig3, use_container_width=True)
+                            
+                        with row2_2:
+                            st.markdown('<p style="font-size: 16px; font-weight: bold; color: #222; text-align: center; margin-bottom: 10px;">Cycle Life Prediction</p>', unsafe_allow_html=True)
+                            target_life = max(1, res.get('Life(Cyc)', 1000))
+                            cycles = np.linspace(0, target_life, 100)
+                            retention = 100 - (20 * (cycles / target_life)**1.5)
+                            fig4 = go.Figure(go.Scatter(x=cycles, y=retention, line=dict(color='#2CA02C', width=3)))
+                            fig4.update_layout(xaxis_title="Cycle Number", yaxis_title="Capacity Retention (%)", height=260, margin=dict(l=10, r=10, t=10, b=10), template="plotly_white", plot_bgcolor="#f4f6f9")
+                            st.plotly_chart(fig4, use_container_width=True)
                         
                         if res.get("AI_Summary"):
                             st.markdown("<br>", unsafe_allow_html=True)
@@ -1324,7 +1342,7 @@ if col_bot:
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 요약 
+            # 1. 시뮬레이션 직후 자동 요약
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
@@ -1345,11 +1363,10 @@ if col_bot:
                         except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 (역순 렌더링)
+            # 2. 챗봇 질문-응답 처리 및 스트리밍
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
-                # 방금 입력한 질문을 가장 상단에 렌더링
                 latest_user_msg = st.session_state.chat_messages[-1]
                 with st.chat_message(latest_user_msg["role"]):
                     st.markdown(latest_user_msg["content"].replace("\n- ", "\n\n- "))
@@ -1385,7 +1402,6 @@ if col_bot:
                             
                         except Exception as e: st.error(f"AI 응답 오류: {e}")
                         
-                # 방금 처리한 질문/답변 제외하고 이전 기록들을 역순으로 렌더링
                 render_chat_history(st.session_state.chat_messages[:-2])
                         
             else:
