@@ -296,7 +296,6 @@ ADMIN_USERS = {"wschoi@synotech.co.kr": "최우석", "seoyeon@synotech.co.kr": "
 ADMIN_PW = st.secrets.get("ADMIN_PW", "1234")
 
 URL_USERS = "https://docs.google.com/spreadsheets/d/1dvEymhMnVxYJH9m0DhyWdp0ydyML9dBFagsbntfropw/edit?usp=sharing"
-# [신규 통합 DB 주소 연결 및 파라미터 DB 삭제]
 URL_MATS  = "https://docs.google.com/spreadsheets/d/1eEBcBkN00Y8ylH9eI0MU6l56NLYD_8bBNhYB1jCmbVw/edit?usp=sharing"
 URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqNVcWJrapWWxNvSVGQ/edit?usp=sharing"
 
@@ -332,6 +331,24 @@ def get_user_db(): return get_user_db_cached()
 def safe_float(val, default):
     try: return float(val) if val != "" and not pd.isna(val) else default
     except: return default
+
+# [신규] 컬럼명 변경(Product Name) 및 오버레이 툴팁(말풍선) 전역 설정
+mat_col_config = {
+    "Category": st.column_config.SelectboxColumn("Category", help="소재의 분류 (Cathode, Anode, Electrolyte, Separator)", options=["Cathode", "Anode", "Electrolyte", "Separator"], required=True),
+    "Name": st.column_config.TextColumn("Product Name", help="소재의 공식 명칭 또는 고유 식별 코드", required=True),
+    "Cap_Def": st.column_config.NumberColumn("Cap_Def", help="기본 방전 용량 (mAh/g)"),
+    "Volt_Def": st.column_config.NumberColumn("Volt_Def", help="기본 공칭 전압 (V)"),
+    "Den_Def": st.column_config.NumberColumn("Den_Def", help="진밀도 (True Density, g/cc) - 소재 고유의 밀도"),
+    "Life_Def": st.column_config.NumberColumn("Life_Def", help="기본 수명 (Cycles)"),
+    "Press_Def": st.column_config.NumberColumn("Press_Def", help="합제 밀도 (Press Density, g/cc) - 극판 프레스 후 밀도"),
+    "Act_Def": st.column_config.NumberColumn("Act_Def", help="활물질 비율 (Active Ratio, %)"),
+    "Bin_Def": st.column_config.NumberColumn("Bin_Def", help="바인더 비율 (Binder Ratio, %)"),
+    "Con_Def": st.column_config.NumberColumn("Con_Def", help="도전재 비율 (Conductive Carbon, %)"),
+    "Foil_Def": st.column_config.NumberColumn("Foil_Def", help="집전체 두께 (Al Foil, μm)"),
+    "NP_Def": st.column_config.NumberColumn("NP_Def", help="N/P Ratio (음극/양극 용량 비율)"),
+    "EC_Def": st.column_config.NumberColumn("EC_Def", help="E/C Ratio (전해액/용량 비율, g/Ah)"),
+    "SepThick_Def": st.column_config.NumberColumn("SepThick_Def", help="분리막 두께 (μm)")
+}
 
 # -----------------------------------------------------------------------------
 # ✉️ 이메일 발송 시스템
@@ -565,7 +582,7 @@ with col_main:
                 "제1장. Tdb 문서 관리 및 OCR 동기화": "<ul><li><b>명명 규칙:</b> [분류]_[키워드1]_[키워드2]_[연도] (예: MAT_알트리스 양극재_코인셀 평가_2025)</li><li><b>분류 기준:</b> MAT(소재), PRO(공정), ANL(분석), PPR(논문), MKT(관련시장)</li><li><b>OCR 자동 변환:</b> 텍스트 복사가 불가능한 스캔본 PDF는 시스템이 감지하며, <b>'Tdb 스캔 및 OCR 실행'</b> 버튼을 누르면 Vision API를 통해 고정밀 텍스트로 자동 변환됩니다.</li></ul>",
                 "제2장. AI 엔진 및 시노봇 관리": "<ul><li><b>Gemini 2.5 Flash:</b> 평상시 빠른 챗봇 응답 및 스캔용으로 사용합니다.</li><li><b>OpenAI GPT-4o:</b> 비상 상황이나 보다 정밀한 논문 분석이 필요할 때 스위칭하여 활용합니다.</li><li><b>빠른 도움말 모드:</b> 관리자가 매뉴얼 검색 등 즉각적인 답변이 필요할 때 Tdb 원본 스캔을 생략하고 1초 만에 즉답하는 기능입니다.</li></ul>",
                 "제3장. Data Source 및 유저 관리": "<ul><li><b>유저 관리:</b> 가입자의 Pro Max 등급 승인, 정보 수정, 탈퇴 처리를 화면에서 직접 수행합니다.</li><li><b>DB 통합 관리:</b> 소재, 파라미터, 로그 DB를 다운로드 없이 인라인 에디터로 직접 수정하고 클라우드에 영구 저장합니다. (admin_master 시트는 모든 VIP 데이터를 모아보는 읽기 전용 뷰입니다.)</li></ul>",
-                "제4장. VIP 소재 관리 및 공개용 마스킹 처리": "<ul><li><b>VIP 직접 추가:</b> Pro Max 고객은 시뮬레이션 패널의 'VIP 인라인 에디터'를 통해 비공개 소재를 직접 등록할 수 있습니다.</li><li><b>공개용 마스킹 배포:</b> 관리자는 VIP 소재를 일반 유저에게 제공할 때, 소재 DB 에디터에서 해당 VIP의 데이터를 복사하여 'material_list' 탭에 붙여넣습니다. 이후 업체명 마스킹(예: OOO 양극재) 및 핵심 스펙 수치를 평균값으로 하향 조정(너프)한 후 저장하여 안전하게 배포합니다.</li></ul>",
+                "제4장. VIP 소재 관리 및 공개용 마스킹 처리": "<ul><li><b>VIP 직접 추가:</b> Pro Max 고객은 시뮬레이션 패널의 'VIP 인라인 에디터'를 통해 비공개 소재를 직접 등록할 수 있습니다.</li><li><b>공개용 마스킹 배포:</b> 관리자는 VIP 소재를 일반 유저에게 제공할 때, 소재 DB 에디터에서 해당 VIP의 데이터를 <b>'배포 선택'</b>하여 버튼 클릭 한 번으로 'material_list'에 공개합니다. 이후 업체명 마스킹 및 스펙 하향 조정을 거칩니다.</li></ul>",
                 "제5장. 스폰서 로고 설정": "<ul><li>메인 화면 하단 푸터에 노출될 스폰서 로고를 관리합니다.</li><li>투명 배경의 PNG 파일이 권장되며, <b>GitHub 저장소의 원본 링크(raw URL)</b> 사용 시 이미지 깨짐을 방지할 수 있습니다. 칸을 비우고 저장하면 하단 로고와 'Sponsored by' 텍스트가 완전히 삭제됩니다.</li></ul>",
                 "제6장. 파라미터 실시간 검증": "<ul><li>현재 메인 화면 UI에 설정된 배터리 파라미터(용량, 전압 등) 값들이 실제 Tdb 원본 기술 문서 내용과 맞는지 <b>'파라미터 일치 검증'</b> 버튼을 통해 즉시 교차 검증하고 결과를 표로 띄웁니다.</li></ul>"
             }
@@ -608,7 +625,6 @@ with col_main:
 
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>2. Data Source 관리</p>", unsafe_allow_html=True)
             
-            # [수정사항] 파라미터 DB 버튼 삭제
             a1, a2, a3, a4 = st.columns(4)
             if a1.button("유저 관리 DB", use_container_width=True): st.session_state.admin_view = 'users'; st.session_state.admin_ws = 'Users'; st.rerun()
             if a2.button("통합 소재 DB", use_container_width=True): st.session_state.admin_view = 'mats'; st.session_state.admin_ws = 'admin_master'; st.rerun()
@@ -630,6 +646,7 @@ with col_main:
                 
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 try:
+                    # [신규 업데이트] 관리자 소재 뷰에서 Product Name 및 배포 버튼 처리
                     if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'admin_master':
                         st.markdown("<p style='font-size: 14px; color: #555;'>'admin_master'은 공용 및 모든 VIP 데이터가 취합된 <b>읽기 전용(Read-only)</b> 통합 뷰입니다.</p>", unsafe_allow_html=True)
                         vips = get_vip_list_exact(); dfs = []
@@ -639,16 +656,47 @@ with col_main:
                         tmp_public = load_cloud_data(target_url, "material_list")
                         if not tmp_public.empty: tmp_public['Source (VIP)'] = 'Public'; dfs.append(tmp_public)
                         df_admin = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-                        st.dataframe(df_admin, use_container_width=True)
+                        st.dataframe(df_admin, use_container_width=True, column_config=mat_col_config)
                     else:
                         read_ws = "material_list" if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'general_user' else st.session_state.admin_ws
                         df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=3600) 
                         df_display = df_admin.copy()
+                        
+                        # [신규] VIP 소재 배포용 체크박스 기능 추가
+                        is_vip_sheet = (st.session_state.admin_view == 'mats' and read_ws not in ['admin_master', 'material_list'])
+                        if is_vip_sheet:
+                            df_display.insert(0, "배포 선택", False) # 표 맨 앞에 체크박스 열 삽입
+                            
                         if st.session_state.admin_view in ['logs', 'chat'] and 'Time' in df_display.columns: df_display = df_display.sort_values(by='Time', ascending=False).reset_index(drop=True)
                         elif st.session_state.admin_view == 'users' and 'RegDate' in df_display.columns: df_display = df_display.sort_values(by='RegDate', ascending=False).reset_index(drop=True)
-                        edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}")
-                        if st.button("변경사항 클라우드에 저장", type="primary"):
-                            conn.update(spreadsheet=target_url, worksheet=read_ws, data=edited_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
+                        
+                        # 툴팁 및 Product Name 적용하여 에디터 렌더링
+                        edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True, key=f"editor_{st.session_state.admin_view}", column_config=mat_col_config if st.session_state.admin_view == 'mats' else None)
+                        
+                        if st.session_state.admin_view == 'mats' and is_vip_sheet:
+                            col_btn1, col_btn2 = st.columns(2)
+                            with col_btn1:
+                                if st.button("💾 변경사항 클라우드에 저장", type="primary", use_container_width=True):
+                                    save_df = edited_df.drop(columns=["배포 선택"], errors="ignore") 
+                                    conn.update(spreadsheet=target_url, worksheet=read_ws, data=save_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
+                                    st.rerun()
+                            with col_btn2:
+                                if st.button("🚀 선택한 소재를 공개용(material_list)으로 배포", use_container_width=True):
+                                    selected_rows = edited_df[edited_df["배포 선택"] == True].drop(columns=["배포 선택"], errors="ignore")
+                                    if not selected_rows.empty:
+                                        public_df = conn.read(spreadsheet=target_url, worksheet="material_list", ttl=0)
+                                        # (선택) 배포 시 식별을 위해 이름 앞에 태그를 붙입니다.
+                                        selected_rows["Name"] = "[VIP공개] " + selected_rows["Name"].astype(str)
+                                        updated_public = pd.concat([public_df, selected_rows], ignore_index=True)
+                                        conn.update(spreadsheet=target_url, worksheet="material_list", data=updated_public.fillna(""))
+                                        st.cache_data.clear()
+                                        st.success(f"{len(selected_rows)}개의 VIP 소재가 일반 유저용 DB로 성공적으로 복사되었습니다! (material_list 탭에서 스펙 하향 등 추가 편집이 가능합니다.)")
+                                    else:
+                                        st.warning("표 맨 앞의 '배포 선택' 체크박스를 먼저 선택해 주세요.")
+                        else:
+                            if st.button("변경사항 클라우드에 저장", type="primary"):
+                                save_df = edited_df.drop(columns=["배포 선택"], errors="ignore")
+                                conn.update(spreadsheet=target_url, worksheet=read_ws, data=save_df.fillna("")); st.cache_data.clear(); st.success("저장 완료!")
                 except Exception as e: pass
 
             st.markdown("<p style='font-size: 18px; font-weight: bold; color: #222; margin-top: 25px;'>3. 하단 스폰서 로고 설정</p>", unsafe_allow_html=True)
@@ -918,7 +966,7 @@ with col_main:
                             st.session_state[f"{k}_n"] = v
                         st.rerun()
 
-                # [신규] VIP 전용 인라인 에디터 방어막 로직
+                # [신규] VIP 전용 인라인 에디터 (삭제 선택 및 Product Name, 툴팁 완벽 적용)
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
                     with st.expander("🛠️ My 전용 소재 DB 관리 (VIP 인라인 에디터)", expanded=False):
                         st.info("💡 귀사의 전용 워크스페이스입니다. 엑셀처럼 직접 행을 추가하고 빈칸을 채워 소재를 안전하게 등록/수정할 수 있습니다.")
@@ -931,35 +979,48 @@ with col_main:
                             except:
                                 df_vip = pd.DataFrame()
                                 
-                            # 시트가 완전히 비어있거나 제목줄만 있는 경우의 에러 방지 처리
                             if df_vip is None or df_vip.empty:
                                 df_vip = pd.DataFrame(columns=mat_df_public.columns if not mat_df_public.empty else ["Category", "Name"])
                                 
-                            # 컬럼명 깔끔하게 통일
                             df_vip.columns = [str(c).split('(')[0].strip() for c in df_vip.columns]
                             
-                            # 1단계 방어: Category를 드롭다운으로 고정
-                            col_config_rules = {
-                                "Category": st.column_config.SelectboxColumn("Category (분류)", options=["Cathode", "Anode", "Electrolyte", "Separator"], required=True),
-                                "Name": st.column_config.TextColumn("Name (소재명)", required=True)
-                            }
+                            # 삭제용 체크박스 열 맨 앞에 추가
+                            df_vip.insert(0, "삭제 선택", False)
                             
-                            # 2단계 방어: 나머지 파라미터는 무조건 '숫자 포맷'만 들어가도록 자동 강제
+                            # 1단계 방어: Category 고정, Product Name 변경 및 기본 툴팁 적용
+                            col_config_rules = mat_col_config.copy()
+                            
+                            # 2단계 방어 및 Min/Max 툴팁 자동 생성
                             for col in df_vip.columns:
-                                if col not in ["Category", "Name", "Remarks", "Source (VIP)", "Is_VIP"]:
-                                    # [핵심 해결책] 빈 데이터프레임일 때 Streamlit 에러를 막기 위해 강제 숫자형 변환
+                                if col not in ["삭제 선택", "Category", "Name", "Remarks", "Source (VIP)", "Is_VIP"]:
                                     df_vip[col] = pd.to_numeric(df_vip[col], errors='coerce')
-                                    col_config_rules[col] = st.column_config.NumberColumn(col, format="%f")
+                                    if col not in col_config_rules:
+                                        help_text = "최소 허용 한계치" if "Min" in col else ("최대 허용 한계치" if "Max" in col else "")
+                                        col_config_rules[col] = st.column_config.NumberColumn(col, help=help_text, format="%f")
 
                             edited_vip_df = st.data_editor(df_vip, num_rows="dynamic", use_container_width=True, key="vip_mat_editor", column_config=col_config_rules)
                             
-                            if st.button("My DB에 변경사항 영구 저장", use_container_width=True):
-                                conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=edited_vip_df.fillna(""))
-                                st.cache_data.clear()
-                                st.success("VIP 전용 소재 DB가 성공적으로 업데이트되었습니다!")
-                                st.rerun()
+                            col_vip_btn1, col_vip_btn2 = st.columns(2)
+                            with col_vip_btn1:
+                                if st.button("💾 My DB에 변경사항 영구 저장", use_container_width=True):
+                                    save_df = edited_vip_df.drop(columns=["삭제 선택"], errors="ignore")
+                                    conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=save_df.fillna(""))
+                                    st.cache_data.clear()
+                                    st.success("VIP 전용 소재 DB가 성공적으로 업데이트되었습니다!")
+                                    st.rerun()
+                                    
+                            with col_vip_btn2:
+                                if st.button("🗑️ 선택 삭제", use_container_width=True):
+                                    selected_rows = edited_vip_df[edited_vip_df["삭제 선택"] == True]
+                                    if not selected_rows.empty:
+                                        save_df = edited_vip_df[edited_vip_df["삭제 선택"] == False].drop(columns=["삭제 선택"], errors="ignore")
+                                        conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=save_df.fillna(""))
+                                        st.cache_data.clear()
+                                        st.success(f"{len(selected_rows)}개의 소재가 성공적으로 삭제되었습니다.")
+                                        st.rerun()
+                                    else:
+                                        st.warning("표 맨 앞의 '삭제 선택' 체크박스를 먼저 선택해 주세요.")
                         except Exception as e:
-                            # 만약 또 다른 원인으로 실패한다면, 어떤 에러인지 텍스트로 바로 보여주도록 수정
                             st.warning(f"DB 연결에 실패했거나 초기 세팅이 필요합니다. (상세 에러 원인: {e})")
 
             qp = st.query_params
