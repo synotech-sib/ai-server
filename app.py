@@ -1008,12 +1008,44 @@ with col_main:
                             col_vip_btn1, col_vip_btn2 = st.columns(2)
                             with col_vip_btn1:
                                 if st.button("💾 My DB에 변경사항 저장", use_container_width=True):
-                                    save_df = edited_vip_df.drop(columns=["삭제 선택"], errors="ignore")
-                                    conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=save_df.fillna(""))
-                                    st.cache_data.clear()
-                                    st.success("VIP 전용 소재 DB가 성공적으로 업데이트되었습니다!")
-                                    st.rerun()
+                                    # [신규] 저장 전 데이터 유효성 검사 로직
+                                    is_valid = True
+                                    err_msg = ""
                                     
+                                    # 검사할 파라미터 그룹 목록
+                                    prefixes = ["Cap", "Volt", "Den", "Life", "Load", "Press", "Act", "Bin", "Con", "Foil", "NP", "EC", "SepThick", "TE", "TC", "TL"]
+                                    
+                                    for idx, row in edited_vip_df.iterrows():
+                                        if row.get("삭제 선택") == True: continue # 삭제될 행은 검사 패스
+                                        
+                                        for p in prefixes:
+                                            c_min, c_max, c_def = f"{p}_Min", f"{p}_Max", f"{p}_Def"
+                                            if c_min in row and c_max in row and c_def in row:
+                                                val_min, val_max, val_def = row[c_min], row[c_max], row[c_def]
+                                                
+                                                # 셋 다 빈칸(None/NaN)이 아닐 때만 수학적 비교 실행
+                                                if pd.notna(val_min) and pd.notna(val_max) and pd.notna(val_def):
+                                                    if float(val_min) > float(val_max):
+                                                        is_valid = False
+                                                        err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 최소값({val_min})이 최대값({val_max})보다 클 수 없습니다."
+                                                        break
+                                                    if float(val_def) < float(val_min) or float(val_def) > float(val_max):
+                                                        is_valid = False
+                                                        err_msg = f"[{row.get('Name', '이름없음')}] 소재의 {p} 항목: 기본값({val_def})은 반드시 최소값과 최대값 사이여야 합니다."
+                                                        break
+                                        if not is_valid: break
+
+                                    # 검사를 통과했을 때만 클라우드에 영구 저장
+                                    if is_valid:
+                                        save_df = edited_vip_df.drop(columns=["삭제 선택"], errors="ignore")
+                                        conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=save_df.fillna(""))
+                                        st.cache_data.clear()
+                                        st.success("VIP 전용 소재 DB가 에러 없이 성공적으로 업데이트되었습니다!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"⚠️ 데이터 저장 실패: {err_msg}")
+                                        
                             with col_vip_btn2:
                                 if st.button("🗑️ 선택 삭제", use_container_width=True):
                                     selected_rows = edited_vip_df[edited_vip_df["삭제 선택"] == True]
@@ -1022,10 +1054,11 @@ with col_main:
                                         conn.update(spreadsheet=URL_MATS, worksheet=ws_name, data=save_df.fillna(""))
                                         st.cache_data.clear()
                                         st.success(f"{len(selected_rows)}개의 소재가 성공적으로 삭제되었습니다.")
+                                        time.sleep(1)
                                         st.rerun()
                                     else:
                                         st.warning("표 맨 앞의 '삭제 선택' 체크박스를 먼저 선택해 주세요.")
-                        except Exception as e:
+                                    except Exception as e:
                             st.warning(f"DB 연결에 실패했거나 초기 세팅이 필요합니다. (상세 에러 원인: {e})")
 
             qp = st.query_params
