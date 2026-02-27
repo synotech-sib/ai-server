@@ -728,6 +728,7 @@ with col_main:
                     with m3: st.selectbox("Electrolyte", elec_list, format_func=format_mat_name, key="sel_ele_m")
                     with m4: st.selectbox("Separator", sep_list, format_func=format_mat_name, key="sel_sep_m")
                     
+                    # [e5] 선택한 소재에 맞춰 하단 2번 파라미터 값 실시간 연동 (Session State 동기화)
                     row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                     ano_row = mat_df[mat_df['Name']==ano_sel].iloc[0] if not mat_df.empty and ano_sel in ano_list else pd.Series()
                     
@@ -810,13 +811,11 @@ with col_main:
                     with s1:
                         st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
                         v1, v2 = st.columns([0.7, 0.3])
-                        # [수정] 슬라이더 스케일 대폭 확장 (50.0 ~ 400.0)
                         v1.slider("Cap_S", 50.0, 400.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
                         v2.number_input("Cap_N", 50.0, 400.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
                     with s2:
                         st.markdown("<p class='param-label'>Voltage (V)</p>", unsafe_allow_html=True)
                         vv1, vv2 = st.columns([0.7, 0.3])
-                        # [수정] 스케일 확장 (1.0 ~ 5.0)
                         vv1.slider("Volt_S", 1.0, 5.0, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                         vv2.number_input("Volt_N", 1.0, 5.0, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                     with s3:
@@ -1217,21 +1216,26 @@ if col_bot:
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 요약 - [수정] 딜레이 시간 대폭 연장
+            # 1. 시뮬레이션 직후 자동 요약 - [수정] 6단계 스피너 및 각 5초 딜레이 적용
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
                     with st.chat_message("assistant"):
                         bot_load_ph = st.empty()
                         
-                        # 다중 스피너 로직 (시뮬레이션 요약 전용)
                         with bot_load_ph.container():
-                            with st.spinner("시뮬레이션 결과 데이터 수집 중..."): time.sleep(2.0)
+                            with st.spinner("1/6: 시뮬레이션 결과 데이터 수집 중..."): time.sleep(5.0)
                         with bot_load_ph.container():
-                            with st.spinner("물리 엔진 연산 결과 AI 분석 중..."): time.sleep(2.5)
+                            with st.spinner("2/6: Tdb 클라우드 기술 문서 스캔 및 로드 중..."): time.sleep(5.0)
+                        with bot_load_ph.container():
+                            with st.spinner("3/6: 입력된 파라미터와 원본 수치 정밀 대조 중..."): time.sleep(5.0)
+                        with bot_load_ph.container():
+                            with st.spinner("4/6: 물리 엔진 연산 결과 AI 문맥 분석 중..."): time.sleep(5.0)
+                        with bot_load_ph.container():
+                            with st.spinner("5/6: 소재별 최적화 인사이트 및 요약 초안 작성 중..."): time.sleep(5.0)
                         
                         with bot_load_ph.container():
-                            with st.spinner("SynoBot AI 엔진으로 최종 요약 생성 중..."):
+                            with st.spinner("6/6: SynoBot AI 엔진으로 최종 요약 리포트 생성 중 (잠시만 기다려주세요)..."):
                                 try:
                                     reply = synobot.generate_auto_summary(
                                         st.session_state.sim_result, 
@@ -1249,7 +1253,7 @@ if col_bot:
                         bot_load_ph.empty()
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍 - [수정] 딜레이 시간 대폭 연장
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 - [수정] 6단계 스피너 및 각 5초 딜레이 적용
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
@@ -1260,17 +1264,24 @@ if col_bot:
                         
                         chat_load_ph = st.empty()
                         
-                        # 다중 스피너 로직 (검색 전용)
                         if use_tdb_flag:
                             with chat_load_ph.container():
-                                with st.spinner("Tdb 기술 문서 라이브러 스캔 중..."): time.sleep(2.0)
+                                with st.spinner("1/6: 사용자 질의 의도 파악 및 키워드 추출 중..."): time.sleep(5.0)
                             with chat_load_ph.container():
-                                with st.spinner("데이터 정밀 대조 및 문맥 매칭 중..."): time.sleep(2.5)
-                            spinner_msg = "분석 결과 요약 생성 중..."
+                                with st.spinner("2/6: 연동된 Tdb 기술 문서 라이브러리 전체 스캔 중..."): time.sleep(5.0)
+                            with chat_load_ph.container():
+                                with st.spinner("3/6: 관련 기술 데이터 및 논문 수치 교차 검증 중..."): time.sleep(5.0)
+                            with chat_load_ph.container():
+                                with st.spinner("4/6: 추출된 데이터 문맥 매칭 및 팩트 체크 중..."): time.sleep(5.0)
+                            with chat_load_ph.container():
+                                with st.spinner("5/6: 질문에 대한 최적의 답변 구조 설계 중..."): time.sleep(5.0)
+                            spinner_msg = "6/6: SynoBot AI 엔진으로 최종 답변 생성 중 (잠시만 기다려주세요)..."
                         else:
                             with chat_load_ph.container():
-                                with st.spinner("관리자 보안 프로토콜 확인 중..."): time.sleep(1.5)
-                            spinner_msg = "관리자 매뉴얼(SOP) 바탕으로 요약 분석 중..."
+                                with st.spinner("1/3: 관리자 보안 프로토콜 및 권한 확인 중..."): time.sleep(3.0)
+                            with chat_load_ph.container():
+                                with st.spinner("2/3: 관리자 종합 매뉴얼(SOP) 고속 스캔 중..."): time.sleep(3.0)
+                            spinner_msg = "3/3: 매뉴얼 바탕으로 즉시 답변 생성 중..."
                             
                         with chat_load_ph.container():
                             with st.spinner(spinner_msg):
