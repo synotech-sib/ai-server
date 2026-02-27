@@ -681,7 +681,7 @@ with col_main:
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
                 if not st.session_state.logged_in:
-                    st.info("비로그인 상태 안내: 선택하신 소재의 파라미터 값이 실시간으로 하단 UI에 연동되어 시뮬레이션을 정상 체험하실 수 있습니다. (자세한 기술 및 맞춤 지원은 로그인이 필요합니다)")
+                    st.info("비로그인 상태 안내: 선택하신 소재의 파라미터 값이 실시간으로 하단 UI에 연동되어 시뮬레이션을 정상 체험하실 수 있습니다. (자세한 기술 지원은 로그인이 필요합니다)")
 
                 with st.container(border=True):
                     _dfs = []
@@ -719,7 +719,7 @@ with col_main:
 
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
-                    # [e1] UI 마스킹 제거 (시노봇 채팅창에서만 마스킹 유지)
+                    # [e1] UI 화면상 업체명 마스킹 제거 (모두 원본 출력)
                     def format_mat_name(name): 
                         prefix = "🔹 " if name in vip_names else ""
                         return f"{prefix}{name}"
@@ -813,18 +813,20 @@ with col_main:
                     with s1:
                         st.markdown("<p class='param-label'>Capacity (mAh/g)</p>", unsafe_allow_html=True)
                         v1, v2 = st.columns([0.7, 0.3])
-                        v1.slider("Cap_S", 100.0, 250.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
-                        v2.number_input("Cap_N", 100.0, 250.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
+                        # 스케일 대폭 확장 (50.0 ~ 350.0) - NVP 등 저용량 소재 안전 연동
+                        v1.slider("Cap_S", 50.0, 350.0, step=1.0, key="cap_s", on_change=sync_s_to_n, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
+                        v2.number_input("Cap_N", 50.0, 350.0, step=0.1, key="cap_n", on_change=sync_n_to_s, args=("cap_s", "cap_n", "cap"), label_visibility="collapsed")
                     with s2:
                         st.markdown("<p class='param-label'>Voltage (V)</p>", unsafe_allow_html=True)
                         vv1, vv2 = st.columns([0.7, 0.3])
-                        vv1.slider("Volt_S", 2.0, 4.5, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
-                        vv2.number_input("Volt_N", 2.0, 4.5, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
+                        # 스케일 확장 (1.0 ~ 5.0)
+                        vv1.slider("Volt_S", 1.0, 5.0, step=0.1, key="volt_s", on_change=sync_s_to_n, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
+                        vv2.number_input("Volt_N", 1.0, 5.0, step=0.01, key="volt_n", on_change=sync_n_to_s, args=("volt_s", "volt_n", "volt"), label_visibility="collapsed")
                     with s3:
                         st.markdown("<p class='param-label'>Base Life (Cycles)</p>", unsafe_allow_html=True)
                         lf1, lf2 = st.columns([0.7, 0.3])
-                        lf1.slider("Life_S", 500.0, 10000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
-                        lf2.number_input("Life_N", 500.0, 10000.0, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
+                        lf1.slider("Life_S", 100.0, 15000.0, step=100.0, key="life_s", on_change=sync_s_to_n, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
+                        lf2.number_input("Life_N", 100.0, 15000.0, step=10.0, key="life_n", on_change=sync_n_to_s, args=("life_s", "life_n", "life"), label_visibility="collapsed", disabled=not expert)
                     
                     st.markdown("<br>", unsafe_allow_html=True) 
                     
@@ -832,13 +834,13 @@ with col_main:
                     with s4:
                         st.markdown("<p class='param-label'>Cathode True Den (g/cc)</p>", unsafe_allow_html=True)
                         d1, d2 = st.columns([0.7, 0.3])
-                        d1.slider("CDen_S", 1.0, 5.0, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
-                        d2.number_input("CDen_N", 1.0, 5.0, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                        d1.slider("CDen_S", 0.5, 5.5, step=0.1, key="c_den_s", on_change=sync_s_to_n, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
+                        d2.number_input("CDen_N", 0.5, 5.5, step=0.01, key="c_den_n", on_change=sync_n_to_s, args=("c_den_s", "c_den_n", "c_den"), label_visibility="collapsed", disabled=not expert)
                     with s5:
                         st.markdown("<p class='param-label'>Anode True Den (g/cc)</p>", unsafe_allow_html=True)
                         ad1, ad2 = st.columns([0.7, 0.3])
-                        ad1.slider("ADen_S", 1.0, 5.0, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
-                        ad2.number_input("ADen_N", 1.0, 5.0, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                        ad1.slider("ADen_S", 0.5, 5.5, step=0.1, key="a_den_s", on_change=sync_s_to_n, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
+                        ad2.number_input("ADen_N", 0.5, 5.5, step=0.01, key="a_den_n", on_change=sync_n_to_s, args=("a_den_s", "a_den_n", "a_den"), label_visibility="collapsed", disabled=not expert)
                     with s6:
                         st.empty() 
                         
@@ -850,23 +852,22 @@ with col_main:
                         st.markdown('<p class="sub-header-bold">(A) Cathode Process</p>', unsafe_allow_html=True)
                         st.markdown("<p class='param-label'>Areal Loading (mg/cm2)</p>", unsafe_allow_html=True)
                         cl1, cl2 = st.columns([0.7, 0.3])
-                        cl1.slider("CLod_S", 5.0, 45.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
-                        cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
+                        cl1.slider("CLod_S", 1.0, 50.0, step=1.0, key="c_lod_s", on_change=sync_s_to_n, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
+                        cl2.number_input("CLod_N", 1.0, 50.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-                        # [e6] 물음표 제거
                         st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                         cpr1, cpr2 = st.columns([0.7, 0.3])
-                        cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
-                        cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
+                        cpr1.slider("CPress_S", 0.5, 5.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
+                        cpr2.number_input("CPress_N", 0.5, 5.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                         
                         c_poro = (1 - st.session_state.c_press_s / st.session_state.c_den_s) * 100 if st.session_state.c_den_s > 0 else 0
                         st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>양극 기공률 (Porosity): {c_poro:.1f}%</span></div>", unsafe_allow_html=True)
                         
                         st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                         cf1, cf2 = st.columns([0.7, 0.3])
-                        cf1.slider("CFoil_S", 8.0, 30.0, step=1.0, key="c_foil_s", on_change=sync_s_to_n, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
-                        cf2.number_input("CFoil_N", 8.0, 30.0, step=0.1, key="c_foil_n", on_change=sync_n_to_s, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
+                        cf1.slider("CFoil_S", 5.0, 50.0, step=1.0, key="c_foil_s", on_change=sync_s_to_n, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
+                        cf2.number_input("CFoil_N", 5.0, 50.0, step=0.1, key="c_foil_n", on_change=sync_n_to_s, args=("c_foil_s", "c_foil_n", "c_foil"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
@@ -890,22 +891,22 @@ with col_main:
                         st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
                         st.markdown("<p class='param-label' title='N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.'>N/P Ratio</p>", unsafe_allow_html=True)
                         n1, n2 = st.columns([0.7, 0.3])
-                        n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
-                        n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
+                        n1.slider("NP_S", 0.80, 2.00, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
+                        n2.number_input("NP_N", 0.80, 2.00, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                         apr1, apr2 = st.columns([0.7, 0.3])
-                        apr1.slider("APress_S", 0.8, 2.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
-                        apr2.number_input("APress_N", 0.8, 2.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
+                        apr1.slider("APress_S", 0.5, 3.0, step=0.1, key="a_press_s", on_change=sync_s_to_n, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
+                        apr2.number_input("APress_N", 0.5, 3.0, step=0.01, key="a_press_n", on_change=sync_n_to_s, args=("a_press_s", "a_press_n", "a_press"), label_visibility="collapsed", disabled=not expert)
                         
                         a_poro = (1 - st.session_state.a_press_s / st.session_state.a_den_s) * 100 if st.session_state.a_den_s > 0 else 0
                         st.markdown(f"<div style='background:#eaf2f8; padding:8px 10px; border-radius:5px; margin-top:5px; margin-bottom:25px;'><span style='color:#1A729A; font-weight:bold; font-size:14px;'>음극 기공률 (Porosity): {a_poro:.1f}%</span></div>", unsafe_allow_html=True)
                         
                         st.markdown("<p class='param-label'>Al Foil Thickness (μm)</p>", unsafe_allow_html=True)
                         af1, af2 = st.columns([0.7, 0.3])
-                        af1.slider("AFoil_S", 8.0, 30.0, step=1.0, key="a_foil_s", on_change=sync_s_to_n, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
-                        af2.number_input("AFoil_N", 8.0, 30.0, step=0.1, key="a_foil_n", on_change=sync_n_to_s, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
+                        af1.slider("AFoil_S", 5.0, 50.0, step=1.0, key="a_foil_s", on_change=sync_s_to_n, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
+                        af2.number_input("AFoil_N", 5.0, 50.0, step=0.1, key="a_foil_n", on_change=sync_n_to_s, args=("a_foil_s", "a_foil_n", "a_foil"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
                         st.markdown("<p class='param-label'>Active Ratio (%)</p>", unsafe_allow_html=True)
@@ -935,8 +936,8 @@ with col_main:
 
                         st.markdown("<p class='param-label'>Separator Thickness (μm)</p>", unsafe_allow_html=True)
                         st1, st2 = st.columns([0.7, 0.3])
-                        st1.slider("SepThick_S", 5.0, 30.0, step=1.0, key="sep_thick_s", on_change=sync_s_to_n, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
-                        st2.number_input("SepThick_N", 5.0, 30.0, step=0.1, key="sep_thick_n", on_change=sync_n_to_s, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
+                        st1.slider("SepThick_S", 5.0, 50.0, step=1.0, key="sep_thick_s", on_change=sync_s_to_n, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
+                        st2.number_input("SepThick_N", 5.0, 50.0, step=0.1, key="sep_thick_n", on_change=sync_n_to_s, args=("sep_thick_s", "sep_thick_n", "sep_thick"), label_visibility="collapsed")
                         
                     st.button("다음 단계: 타겟 성능 ➡️", key="btn_next_2", on_click=change_acc_step, args=(3,))
 
@@ -945,8 +946,8 @@ with col_main:
                     with t1: 
                         st.markdown('<p class="sub-header-bold">Energy Density (Wh/kg)</p>', unsafe_allow_html=True)
                         te1, te2 = st.columns([0.7, 0.3])
-                        te1.slider("TE_S", 100.0, 250.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n", "te"), label_visibility="collapsed")
-                        te2.number_input("TE_N", 100.0, 250.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n", "te"), label_visibility="collapsed")
+                        te1.slider("TE_S", 50.0, 350.0, step=5.0, key="te_s", on_change=sync_s_to_n, args=("te_s", "te_n", "te"), label_visibility="collapsed")
+                        te2.number_input("TE_N", 50.0, 350.0, step=1.0, key="te_n", on_change=sync_n_to_s, args=("te_s", "te_n", "te"), label_visibility="collapsed")
                     with t2: 
                         st.markdown('<p class="sub-header-bold">C-rate</p>', unsafe_allow_html=True)
                         tc1, tc2 = st.columns([0.7, 0.3])
@@ -955,8 +956,8 @@ with col_main:
                     with t3: 
                         st.markdown('<p class="sub-header-bold">Cycle Life</p>', unsafe_allow_html=True)
                         tl1, tl2 = st.columns([0.7, 0.3])
-                        tl1.slider("TL_S", 500.0, 10000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
-                        tl2.number_input("TL_N", 500.0, 10000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
+                        tl1.slider("TL_S", 500.0, 15000.0, step=100.0, key="tl_s", on_change=sync_s_to_n, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
+                        tl2.number_input("TL_N", 500.0, 15000.0, step=10.0, key="tl_n", on_change=sync_n_to_s, args=("tl_s", "tl_n", "tl"), label_visibility="collapsed")
 
             # 변수 할당
             v_cap, v_volt, v_c_den, v_a_den, v_life = st.session_state.cap_s, st.session_state.volt_s, st.session_state.c_den_s, st.session_state.a_den_s, st.session_state.life_s
@@ -1015,17 +1016,8 @@ with col_main:
                             "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Summary": ""
                         }
                         
-                        # [e11] 단계별 동적 로딩 스피너 적용
-                        sim_ph = st.empty()
-                        with sim_ph.container():
-                            with st.spinner("Tdb 데이터 매칭 중..."): time.sleep(0.5)
-                        with sim_ph.container():
-                            with st.spinner("물리 엔진 연산 중 (Newman-type)..."): time.sleep(1.0)
-                        with sim_ph.container():
-                            with st.spinner("결과 요약 생성 중..."): time.sleep(0.5)
-                        sim_ph.empty()
-                            
-                        st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
+                        st.session_state.history.insert(0, log_data)
+                        st.session_state.sim_result = log_data
                         st.session_state.trigger_auto_bot = True 
                         st.session_state.scroll_to_result = True 
                         st.rerun()
@@ -1067,7 +1059,6 @@ with col_main:
                             fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                             st.plotly_chart(fig3, use_container_width=True)
                         
-                        # [e11] 요약 용어 통일
                         if res.get("AI_Summary"):
                             st.markdown("<br>", unsafe_allow_html=True)
                             show_ai = st.checkbox("**[AI 요약 펼쳐보기]** 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
@@ -1229,28 +1220,39 @@ if col_bot:
                 initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 요약(브리핑) [e11 적용]
+            # 1. 시뮬레이션 직후 자동 요약(브리핑) - 다중 스피너 로딩 시각화
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
                     with st.chat_message("assistant"):
-                        with st.spinner("SynoBot AI 엔진으로 결과 요약 중..."):
-                            try:
-                                reply = synobot.generate_auto_summary(
-                                    st.session_state.sim_result, 
-                                    st.session_state.engine_choice, 
-                                    OPENAI_API_KEY, 
-                                    GEMINI_API_KEY,
-                                    is_logged_in=st.session_state.logged_in
-                                )
-                                bot_reply = "**[🤖 SynoBot 실시간 AI 요약]**\n\n" + reply
-                                st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                if st.session_state.history: st.session_state.history[0]["AI_Summary"] = bot_reply
-                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                            except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
+                        bot_load_ph = st.empty()
+                        
+                        # 다중 스피너 로직 (시뮬레이션 요약 전용)
+                        with bot_load_ph.container():
+                            with st.spinner("시뮬레이션 결과 데이터 수집 중..."): time.sleep(0.6)
+                        with bot_load_ph.container():
+                            with st.spinner("물리 엔진 연산 결과 AI 분석 중..."): time.sleep(0.8)
+                        
+                        with bot_load_ph.container():
+                            with st.spinner("SynoBot AI 엔진으로 최종 요약 생성 중..."):
+                                try:
+                                    reply = synobot.generate_auto_summary(
+                                        st.session_state.sim_result, 
+                                        st.session_state.engine_choice, 
+                                        OPENAI_API_KEY, 
+                                        GEMINI_API_KEY,
+                                        is_logged_in=st.session_state.logged_in
+                                    )
+                                    bot_reply = "**[🤖 SynoBot 실시간 AI 요약]**\n\n" + reply
+                                    st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
+                                    if st.session_state.history: st.session_state.history[0]["AI_Summary"] = bot_reply
+                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
+                                except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
+                        
+                        bot_load_ph.empty()
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 - 다중 스피너 로딩 시각화
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
@@ -1259,13 +1261,21 @@ if col_bot:
                         is_admin_mode = st.session_state.get('is_admin', False)
                         use_tdb_flag = not st.session_state.get('fast_admin_help', False) if is_admin_mode else True
                         
-                        load_ph = st.empty()
-                        if use_tdb_flag:
-                            with load_ph.container():
-                                with st.spinner("기술 문서 라이브러리 스캔 중..."): time.sleep(0.5)
+                        chat_load_ph = st.empty()
                         
-                        spinner_msg = "데이터 정밀 대조 및 요약 분석 중..." if use_tdb_flag else "관리자 매뉴얼(SOP) 요약 분석 중..."
-                        with load_ph.container():
+                        # 다중 스피너 로직 (검색 전용)
+                        if use_tdb_flag:
+                            with chat_load_ph.container():
+                                with st.spinner("Tdb 기술 문서 라이브러리 스캔 중..."): time.sleep(0.6)
+                            with chat_load_ph.container():
+                                with st.spinner("데이터 정밀 대조 및 문맥 매칭 중..."): time.sleep(0.8)
+                            spinner_msg = "분석 결과 요약 생성 중..."
+                        else:
+                            with chat_load_ph.container():
+                                with st.spinner("관리자 보안 프로토콜 확인 중..."): time.sleep(0.5)
+                            spinner_msg = "관리자 매뉴얼(SOP) 바탕으로 요약 분석 중..."
+                            
+                        with chat_load_ph.container():
                             with st.spinner(spinner_msg):
                                 try:
                                     messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
@@ -1290,7 +1300,8 @@ if col_bot:
                                     save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
                                     
                                 except Exception as e: st.error(f"AI 응답 오류: {e}")
-                        load_ph.empty()
+                                
+                        chat_load_ph.empty()
                 
                 for message in reversed(st.session_state.chat_messages[:-1]):
                     with st.chat_message(message["role"]):
