@@ -63,14 +63,30 @@ ADMIN_HELP_SOP = """
 """
 
 def get_system_prompt(is_admin=False):
+    # [e2, e4, e11] 다국어, 동의어, 요약 태그 시스템 지침 추가
     base_prompt = """You are 'SynoBot', an elite SIB R&D engineer for SynoCore.
 - 당신은 구글 드라이브의 Tdb(Technical Database) 자료를 실시간으로 참조하여 답변합니다.
-- 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오."""
+- 알트리스(Altris) 관련 기술 지표(ICE, Cathode 등)는 반드시 제공된 문서 내 수치를 근거로 답하십시오.
+- 사용자의 언어(한국어/영어)에 맞춰 자연스럽게 대답하고 대화 맥락을 유지하십시오.
+- 소재를 추천할 때는 반드시 영문 [Rec.] 태그를 소재명 앞에 붙이십시오.
+- '브리핑'이라는 단어 대신 '요약'이라는 단어를 사용하십시오.
+- 다음 동의어 사전을 숙지하여 검색 및 매핑에 활용하십시오: "Prussian White" = "PW" = "알트리스 양극재", "Hard Carbon" = "HC" = "A-Grade" """
     
     if is_admin:
         return base_prompt + f"\n\n{ADMIN_HELP_SOP}\n- 관리자의 질문에는 위의 [관리자 종합 매뉴얼]을 바탕으로 명확히 답변하십시오.\n- 관리자 답변 시에는 반드시 참조한 [실제 파일명]을 모두 나열하십시오."
     else:
         return base_prompt + "\n- 실제 참고한 파일의 원본 이름은 사용자에게 절대 노출하지 마십시오.\n- 답변의 맨 마지막 줄에는 반드시 아래 문구를 정확히 그대로 추가하십시오:\n  \"[출처] 시노봇 AI가 학습한 내부 자료임.\""
+
+# =====================================================================
+# [3] 파일 파싱 방어 유틸리티 (e3)
+# =====================================================================
+def clean_text_parsing(raw_text):
+    # 외부 txt 파일의 BOM(Byte Order Mark) 및 숨은 서식 완벽 제거
+    if isinstance(raw_text, bytes):
+        cleaned = raw_text.decode('utf-8-sig', errors='ignore')
+    else:
+        cleaned = raw_text.encode('utf-8', 'ignore').decode('utf-8-sig')
+    return cleaned.replace('\r\n', '\n').strip()
 
 # =====================================================================
 # [2] Google Vision API (이미지 PDF 정밀 OCR - API 키 인증)
@@ -108,7 +124,7 @@ def extract_text_with_vision(pdf_bytes):
 
 
 # =====================================================================
-# [3] 구글 드라이브 실시간 하위 폴더 스캔 및 캐시 (자동 OCR 연동)
+# [4] 구글 드라이브 실시간 하위 폴더 스캔 및 캐시 (자동 OCR 연동)
 # =====================================================================
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_tdb_documents():
@@ -140,7 +156,7 @@ def load_tdb_documents():
                     fh.seek(0)
 
                     if item['mimeType'] == 'text/plain':
-                        content = fh.read().decode('utf-8', errors='ignore')
+                        content = clean_text_parsing(fh.read()) # e3 방어 로직 적용
                         inner_context += f"\n\n--- [참조 데이터: {item['name']}] ---\n{content}"
                     
                     elif item['mimeType'] == 'application/pdf' and PdfReader:
@@ -163,7 +179,7 @@ def load_tdb_documents():
 
 
 # =====================================================================
-# [4] AI 엔진 챗봇 응답 함수 (빠른 도움말 use_tdb 플래그 적용)
+# [5] AI 엔진 챗봇 응답 함수 (빠른 도움말 use_tdb 플래그 적용)
 # =====================================================================
 def get_gemini_response_stream(messages, sim_result, api_key, is_admin=False, use_tdb=True):
     genai.configure(api_key=api_key)
@@ -207,10 +223,11 @@ def get_openai_response_stream(messages, sim_result, api_key, is_admin=False, us
             if chunk.choices[0].delta.content: yield chunk.choices[0].delta.content
     except Exception as e: yield f"\n경고: OpenAI 엔진 오류: {e}"
 
-def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
+# [e11] 브리핑 -> 요약(Summary) 용어 변경
+def generate_auto_summary(sim_result, engine_choice, openai_key, gemini_key):
     retrieved_context = load_tdb_documents()
     sys_content = get_system_prompt(is_admin=False) + f"\n\n[Context]\n{retrieved_context}\n\n[Sim State]\n{sim_result}"
-    user_prompt = "분석 브리핑을 3~4줄로 작성하십시오."
+    user_prompt = "분석 요약을 3~4줄로 작성하십시오. 추천하는 소재가 있다면 반드시 영문 [Rec.] 태그를 접두어로 사용하십시오."
     try:
         if "Gemini" in engine_choice:
             genai.configure(api_key=gemini_key)
@@ -221,21 +238,28 @@ def generate_auto_briefing(sim_result, engine_choice, openai_key, gemini_key):
             res = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":sys_content},{"role":"user","content":user_prompt}], temperature=0.3)
             return res.choices[0].message.content
     except Exception as e:
-        return f"자동 브리핑 생성 오류: {e}"
+        return f"자동 요약 생성 오류: {e}"
 
 # =====================================================================
-# [5] Material 파라미터 검증
+# [6] Material 파라미터 검증 (e7)
 # =====================================================================
 def check_parameter_discrepancy(current_params, engine_choice, api_key):
     context = load_tdb_documents() 
     prompt = f"""
     당신은 배터리 소재 스펙 검증 AI입니다. 
     아래 [현재 입력된 파라미터]와 [Tdb 기술 문서]를 비교하여 일치 여부를 분석하십시오.
-    결과를 반드시 아래 형식의 순수 JSON 배열로 반환하십시오 (마크다운 금지).
+    결과를 반드시 아래 형식의 순수 JSON 배열로 반환하십시오 (마크다운 기호 금지).
     [현재 입력된 파라미터]\n{current_params}
     [Tdb 기술 문서]\n{context}
-    [출력 예시]
-    [{{"항목": "Cathode 용량", "현재입력값": "150", "Tdb권장값": "160", "상태": "불일치 경고"}}]
+    [출력 예시 - 수정UI위치와 원문발췌를 반드시 포함할 것]
+    [{{
+        "항목": "Target Energy", 
+        "현재입력값": "100.0", 
+        "Tdb권장값": "160.0", 
+        "상태": "🚨 불일치", 
+        "수정UI위치": "Step 3. 타겟 성능 > Energy Density",
+        "원문발췌": "테스트 결과 해당 소재의 상용화 Target Energy는 160 Wh/kg을 권장함."
+    }}]
     """
     try:
         if "Gemini" in engine_choice:
@@ -247,4 +271,4 @@ def check_parameter_discrepancy(current_params, engine_choice, api_key):
             res = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.1).choices[0].message.content
         return json.loads(res.replace("```json", "").replace("```", "").strip())
     except Exception as e:
-        return [{"항목": "오류", "현재입력값": "-", "Tdb권장값": "-", "상태": "비교 실패"}]
+        return [{"항목": "오류", "현재입력값": "-", "Tdb권장값": "-", "상태": "비교 실패", "수정UI위치": "-", "원문발췌": "데이터를 파싱할 수 없습니다."}]

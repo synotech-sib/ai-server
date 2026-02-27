@@ -37,14 +37,16 @@ except ImportError:
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 디자인
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="SynoCore Pro Max 1.1", layout="wide")
+st.set_page_config(page_title="SynoCore Pro v0.9.1", layout="wide")
 
+# [e9] Streamlit 워터마크 및 로고 3중 방어막 완벽 제거
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden !important; display: none !important;} 
     header {visibility: hidden !important; display: none !important;}
-    a[href^="https://streamlit.io"] {display: none !important;}
+    .stApp a[href^="https://streamlit.io"] {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
     [data-testid="stHeader"] {display: none !important;}
     .stApp > header {display: none !important;}
     .stApp [data-testid="stToolbar"] {display: none !important;}
@@ -58,14 +60,13 @@ st.markdown("""
     div.st-key-btn_home_overlay { margin-top: -60px !important; opacity: 0 !important; z-index: 999 !important; height: 60px !important; width: 350px !important; overflow: hidden !important; }
     div.st-key-btn_home_overlay button { height: 100% !important; width: 100% !important; cursor: pointer !important; }
     
-    /* 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 8px) */
+    /* [e8] 제미나이 스타일 커스텀 스피너 (#1A729A, 가속 회전, 2배 두껍게 8px) */
     .stSpinner > div > div {
         border-color: #1A729A transparent transparent transparent !important;
         animation: spin 0.8s linear infinite !important;
         border-width: 8px !important; 
     }
     
-    /* 새로고침 및 검증 버튼 전용 CSS */
     div.st-key-admin_sync_btn > button, div.st-key-admin_verify_btn > button, div.st-key-btn_save_logo > button {
         width: auto !important;
         padding-left: 10px !important;
@@ -91,7 +92,6 @@ st.markdown("""
     
     .main-header { font-size: 26px !important; font-weight: bold !important; color: #1A729A; margin-bottom: 10px; display: block; }
     
-    /* Selectbox 드롭다운 텍스트 래핑(말줄임 방지) 강제 CSS */
     div[data-baseweb="select"] > div { white-space: normal !important; word-wrap: break-word !important; min-height: 40px; }
     div[role="listbox"] li { white-space: normal !important; word-wrap: break-word !important; padding-top: 10px; padding-bottom: 10px; }
     
@@ -106,36 +106,16 @@ st.markdown("""
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor) { scrollbar-width: none !important; -ms-overflow-style: none !important;  }
     div[data-testid="stVerticalBlock"]:has(#main-scroll-anchor)::-webkit-scrollbar { display: none !important; }
 
-    /* PDF 인쇄 시 화면 그대로 1:1 출력되도록 완벽 고정 CSS */
     @media print {
         header, footer, [data-testid="stSidebar"], [data-testid="stHeader"] { display: none !important; }
         button { display: none !important; }
-        
-        .main .block-container { 
-            max-width: 100% !important; 
-            width: 100% !important; 
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        
-        .stScrollableContainer, div[data-testid="stVerticalBlock"] { 
-            height: auto !important; 
-            max-height: none !important; 
-            overflow: visible !important; 
-        }
-        
-        div[data-testid="stHorizontalBlock"] { 
-            display: flex !important; 
-            flex-direction: row !important; 
-            flex-wrap: nowrap !important; 
-        }
-        
+        .main .block-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
+        .stScrollableContainer, div[data-testid="stVerticalBlock"] { height: auto !important; max-height: none !important; overflow: visible !important; }
+        div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(1) { display: none !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { flex: 7.2 !important; width: 72% !important; display: block !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { flex: 2.8 !important; width: 28% !important; display: block !important; }
-        
-        div[data-testid="element-container"]:has(#section4-anchor),
-        div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
+        div[data-testid="element-container"]:has(#section4-anchor), div[data-testid="element-container"]:has(#section4-anchor) ~ * { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
 
@@ -161,12 +141,13 @@ URL_LOGS  = "https://docs.google.com/spreadsheets/d/15YYACdkyLR9FwOHtZ2vz1JG-QqN
 
 def hash_password(password): return hashlib.sha256(password.strip().encode()).hexdigest()
 
-@st.cache_data(ttl=600)
+# [e8] 캐시 TTL을 3600초(1시간)로 연장하여 로딩 속도 극대화
+@st.cache_data(ttl=3600)
 def load_cloud_data_cached(url, ws="Sheet1"):
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=url, worksheet=ws, ttl=600)
+        df = conn.read(spreadsheet=url, worksheet=ws, ttl=3600)
         if df is not None and not df.empty:
             df.columns = [str(c).split('(')[0].strip() for c in df.columns]
             return df
@@ -181,12 +162,12 @@ def get_vip_list_exact():
 
 mat_df_public = load_cloud_data_cached(URL_MATS, "material_list")
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=3600)
 def get_user_db_cached():
     if GSheetsConnection is None: return pd.DataFrame()
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+        return conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=3600)
     except Exception: return pd.DataFrame(columns=["Email", "Password", "Name", "Company", "Dept", "Job", "Phone", "Purpose", "ProMax_Req", "RegDate"])
 
 def get_user_db(): return get_user_db_cached()
@@ -244,7 +225,7 @@ def load_user_history(email, workspace="general_user"):
     if GSheetsConnection is None: return []
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
+        db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=3600)
         if db_df.empty or 'Email' not in db_df.columns: return []
         my_logs = db_df[(db_df['Email'] == email) & (db_df.get('Workspace', 'general_user').isin([workspace, 'material_list']))]
         hist = []
@@ -316,7 +297,7 @@ is_pro = st.session_state.logged_in
 h_l, h_r = st.columns([0.72, 0.28], gap="small") 
 
 with h_l:
-    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro Max 1.1</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-container"><span class="syno-title">SynoCore</span><span class="syno-subtitle">Pro v0.9.1</span></div>', unsafe_allow_html=True)
     if st.button("홈으로", key="btn_home_overlay"):
         st.session_state.show_reg = False; st.session_state.show_profile = False; st.session_state.admin_view = None; st.session_state.admin_ws = None; st.rerun()
 
@@ -335,7 +316,8 @@ if not is_pro:
                         if u_id_clean in ADMIN_USERS and u_pw == ADMIN_PW:
                             st.session_state.update({'logged_in': True, 'user_name': ADMIN_USERS[u_id_clean], 'user_email': u_id_clean, 'is_admin': True, 'workspace': 'admin_master', 'user_tier': 'Admin'})
                             st.session_state.history = load_user_history(u_id_clean, 'admin_master')
-                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- 안녕하세요 {ADMIN_USERS[u_id_clean]}님. [관리자 종합 매뉴얼]이 숙지되었습니다. 검색을 통해 편하게 도움말을 확인하세요."}]
+                            # [e10, e11] 관리자 전용 환영 및 요약 문구 반영
+                            st.session_state.chat_messages = [{"role": "assistant", "content": f"- **{ADMIN_USERS[u_id_clean]} 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오."}]
                             st.query_params["session_token"] = u_id_clean; st.rerun()
                         else:
                             valid = df_u[(df_u['Email'].str.strip().str.lower() == u_id_clean) & (df_u['Password'] == hashed_pw)] if not df_u.empty else pd.DataFrame()
@@ -347,7 +329,7 @@ if not is_pro:
                                     target_ws = vip_map.get(domain, 'general_user')
                                     st.session_state.update({'logged_in': True, 'user_name': str(valid['Name'].values[0]), 'user_email': str(valid['Email'].values[0]), 'user_vip_name': vip_map.get(domain), 'workspace': target_ws, 'user_tier': "Pro Max" if str(promax_flag).upper() == 'Y' else "Pro"})
                                     st.session_state.history = load_user_history(st.session_state.user_email, st.session_state.workspace)
-                                    welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 워크스페이스로 전환되었습니다." if target_ws != 'general_user' else f"안녕하세요 {valid['Name'].values[0]}님. SIB 설계 브리핑을 시작합니다."
+                                    welcome_msg = f"안녕하세요 {valid['Name'].values[0]}님. [{target_ws.capitalize()} DB Center] VIP 워크스페이스로 전환되었습니다." if target_ws != 'general_user' else f"안녕하세요 {valid['Name'].values[0]}님. SIB 설계 요약을 시작합니다."
                                     st.session_state.chat_messages = [{"role": "assistant", "content": "- " + welcome_msg}]
                                     st.query_params["session_token"] = u_id_clean; st.rerun()
                             else: st.error("아이디 또는 비밀번호를 확인해주세요.")
@@ -504,7 +486,7 @@ with col_main:
                         st.dataframe(df_admin, use_container_width=True)
                     else:
                         read_ws = "material_list" if st.session_state.admin_view == 'mats' and st.session_state.admin_ws == 'general_user' else st.session_state.admin_ws
-                        df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=600) 
+                        df_admin = conn.read(spreadsheet=target_url, worksheet=read_ws, ttl=3600) 
                         df_display = df_admin.copy()
                         if st.session_state.admin_view in ['logs', 'chat'] and 'Time' in df_display.columns: df_display = df_display.sort_values(by='Time', ascending=False).reset_index(drop=True)
                         elif st.session_state.admin_view == 'users' and 'RegDate' in df_display.columns: df_display = df_display.sort_values(by='RegDate', ascending=False).reset_index(drop=True)
@@ -527,11 +509,11 @@ with col_main:
             # ---------------------------------------------------------
             st.markdown("### [System 관리자] Parameter 실시간 검증")
             col_sys_text, col_sys_btn = st.columns([0.8, 0.2])
-            col_sys_text.markdown("<div style='padding-top: 10px; font-size: 15px; color: #333;'>현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조합니다.</div>", unsafe_allow_html=True)
+            col_sys_text.markdown("<div style='padding-top: 10px; font-size: 15px; color: #333;'>현재 세팅된 파라미터 값이 동기화된 Tdb 기술 문서와 일치하는지 AI로 대조하고 근거(원문)를 추출합니다.</div>", unsafe_allow_html=True)
             verify_clicked = col_sys_btn.button("파라미터 일치 검증", key="admin_verify_btn", use_container_width=True)
 
             if verify_clicked:
-                with st.spinner("Tdb 문서 데이터와 현재 파라미터를 대조 검증 중입니다..."):
+                with st.spinner("Tdb 문서 데이터 대조 및 원문 근거 매칭 중..."):
                     try:
                         cur_cat = st.session_state.get('sel_cat_m', '알 수 없음')
                         cur_ano = st.session_state.get('sel_ano_m', '알 수 없음')
@@ -605,7 +587,7 @@ with col_main:
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("가입신청 완료", disabled=not (pw1 and pw1==pw2 and n_name and agree_sec), use_container_width=True):
-                        conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+                        conn = st.connection("gsheets", type=GSheetsConnection); df_u = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=3600)
                         new_user = pd.DataFrame([{"Email": st.session_state.temp_email, "Password": hash_password(pw1), "Name": n_name, "Company": n_comp, "Dept": n_dept, "Job": n_job, "Phone": n_phone, "Purpose": n_purpose, "ProMax_Req": "Y" if is_vip_request else "N", "RegDate": datetime.now(KST).strftime("%Y-%m-%d")}])
                         conn.update(spreadsheet=URL_USERS, worksheet="Users", data=pd.concat([df_u, new_user], ignore_index=True))
                         
@@ -644,7 +626,7 @@ with col_main:
                 m_purpose = c8.text_input("사용용도", value=u_row.get('Purpose', ''))
                 
                 if st.button("개인정보 수정 완료", use_container_width=True):
-                    conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+                    conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=3600)
                     idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
                     if m_pw: df_update.at[idx, 'Password'] = hash_password(m_pw)
                     df_update.at[idx, 'Name'] = m_name; df_update.at[idx, 'Company'] = m_comp; df_update.at[idx, 'Dept'] = m_dept
@@ -662,7 +644,7 @@ with col_main:
                     del_col1, del_col2 = st.columns([0.7, 0.3])
                     del_reason = del_col1.text_input("탈퇴 사유 입력", placeholder="탈퇴사유를 기입해 주세요.", label_visibility="collapsed")
                     if del_col2.button("탈퇴 확인", key="btn_withdraw", use_container_width=True):
-                        conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=600)
+                        conn = st.connection("gsheets", type=GSheetsConnection); df_update = conn.read(spreadsheet=URL_USERS, worksheet="Users", ttl=3600)
                         idx = df_update[df_update['Email'] == st.session_state.user_email].index[0]
                         df_update.at[idx, 'ProMax_Req'] = 'Out' 
                         df_update.at[idx, 'Purpose'] = f"[탈퇴] {del_reason}" if del_reason else "[탈퇴] 사유 없음"
@@ -681,7 +663,7 @@ with col_main:
             sp1, c_1 = st.columns([0.03, 0.97])
             with c_1:
                 if not st.session_state.logged_in:
-                    st.info("비로그인 상태 안내: 일부 제조사 정보가 마스킹(OOO) 처리되며, 정확한 클라우드 DB 연동 없이 표준 샘플값으로만 동작합니다. 상세 DB 연동 및 VIP 전용 기능은 로그인이 필요합니다.")
+                    st.info("비로그인 상태 안내: 일부 제조사 정보가 마스킹(OOO) 처리되며, 선택하신 소재의 파라미터 값이 실시간으로 적용되어 시뮬레이션 연동을 체험하실 수 있습니다.")
 
                 with st.container(border=True):
                     _dfs = []
@@ -719,12 +701,14 @@ with col_main:
 
                     vip_names = mat_df[mat_df.get('Is_VIP', False) == True]['Name'].tolist() if not mat_df.empty else []
                     
+                    # [e1] Names.txt 동적 마스킹 (영문: 첫글자+OOO, 한글: OOOO)
                     def format_mat_name(name): 
                         prefix = "🔹 " if name in vip_names else ""
                         if not st.session_state.logged_in:
-                            for comp in ["Tiamat", "Altris", "HiNa", "CATL", "BYD"]:
-                                if comp in name:
-                                    name = name.replace(comp, comp[0] + "OOO")
+                            if any('\uac00' <= char <= '\ud7a3' for char in name):
+                                name = "OOOO"
+                            else:
+                                name = name[0] + "OOO" if name else ""
                         return f"{prefix}{name}"
                     
                     with m1: cat_sel = st.selectbox("Cathode", cat_list, format_func=format_mat_name, key="sel_cat_m")
@@ -734,21 +718,14 @@ with col_main:
                     
                     row = mat_df[mat_df['Name']==cat_sel].iloc[0] if not mat_df.empty and cat_sel in cat_list else pd.Series()
                     
-                    if not st.session_state.logged_in:
-                        init_vals = {
-                            "cap": 150.0, "volt": 3.00, "c_den": 4.0, "a_den": 2.0, "life": 2000.0,
-                            "c_lod": 15.0, "c_press": 2.50, "c_act": 95.0, "c_bin": 2.5, "c_con": 2.5, "c_foil": 15.0,
-                            "np": 1.10, "a_press": 1.50, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
-                            "ec": 3.0, "sep_thick": 16.0, "te": 150.0, "tc": 1.0, "tl": 2000.0 
-                        }
-                    else:
-                        init_vals = {
-                            "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "c_den": safe_float(row.get('Den_Def'), 4.5), 
-                            "a_den": 2.1, "life": safe_float(row.get('Life_Def'), 4000.0),
-                            "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
-                            "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
-                            "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
-                        }
+                    # [e5] 비로그인 유저에게도 실제 DB 파라미터 값을 동적으로 연동
+                    init_vals = {
+                        "cap": safe_float(row.get('Cap_Def'), 160.0), "volt": safe_float(row.get('Volt_Def'), 3.05), "c_den": safe_float(row.get('Den_Def'), 4.5), 
+                        "a_den": 2.1, "life": safe_float(row.get('Life_Def'), 4000.0),
+                        "c_lod": safe_float(row.get('Load_Def'), 14.0), "c_press": 2.50, "c_act": 96.0, "c_bin": 2.0, "c_con": 2.0, "c_foil": 15.0,
+                        "np": 1.10, "a_press": 1.60, "a_act": 95.0, "a_bin": 2.5, "a_con": 2.5, "a_foil": 15.0,
+                        "ec": 3.5, "sep_thick": 16.0, "te": 160.0, "tc": 1.0, "tl": 2000.0 
+                    }
 
                 if st.session_state.user_tier == "Pro Max" and st.session_state.workspace not in ['admin_master', 'general_user']:
                     with st.expander("➕ My 전용 DB에 새 소재 추가 (VIP 전용)", expanded=False):
@@ -843,7 +820,8 @@ with col_main:
                         cl2.number_input("CLod_N", 5.0, 45.0, step=0.1, key="c_lod_n", on_change=sync_n_to_s, args=("c_lod_s", "c_lod_n", "c_lod"), label_visibility="collapsed")
                         st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-                        st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc) ❔</p>", unsafe_allow_html=True)
+                        # [e6] ❔ 마크 삭제 반영
+                        st.markdown("<p class='param-label' title='합제 밀도. 높을수록 부피당 에너지 밀도가 상승하나 전해액 침투(Porosity)가 저하됩니다.'>Press Density (g/cc)</p>", unsafe_allow_html=True)
                         cpr1, cpr2 = st.columns([0.7, 0.3])
                         cpr1.slider("CPress_S", 1.5, 4.0, step=0.1, key="c_press_s", on_change=sync_s_to_n, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
                         cpr2.number_input("CPress_N", 1.5, 4.0, step=0.01, key="c_press_n", on_change=sync_n_to_s, args=("c_press_s", "c_press_n", "c_press"), label_visibility="collapsed", disabled=not expert)
@@ -876,7 +854,8 @@ with col_main:
                         
                     with p2:
                         st.markdown('<p class="sub-header-bold">(B) Anode Process</p>', unsafe_allow_html=True)
-                        st.markdown("<p class='param-label' title='N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.'>N/P Ratio ❔</p>", unsafe_allow_html=True)
+                        # [e6] ❔ 마크 삭제 반영
+                        st.markdown("<p class='param-label' title='N/P Ratio = (Anode Capacity) / (Cathode Capacity). 나트륨 석출 방지를 위해 1.05 이상 권장.'>N/P Ratio</p>", unsafe_allow_html=True)
                         n1, n2 = st.columns([0.7, 0.3])
                         n1.slider("NP_S", 0.95, 1.50, step=0.05, key="np_s", on_change=sync_s_to_n, args=("np_s", "np_n", "np"), label_visibility="collapsed")
                         n2.number_input("NP_N", 0.95, 1.50, step=0.01, key="np_n", on_change=sync_n_to_s, args=("np_s", "np_n", "np"), label_visibility="collapsed")
@@ -915,7 +894,8 @@ with col_main:
 
                     with p3:
                         st.markdown('<p class="sub-header-bold">(C) Cell & Electrolyte</p>', unsafe_allow_html=True)
-                        st.markdown("<p class='param-label' title='전해액/용량 비율. 2.5 이하시 수명 급감 위험.'>E/C Ratio (g/Ah) ❔</p>", unsafe_allow_html=True)
+                        # [e6] ❔ 마크 삭제 반영
+                        st.markdown("<p class='param-label' title='전해액/용량 비율. 2.5 이하시 수명 급감 위험.'>E/C Ratio (g/Ah)</p>", unsafe_allow_html=True)
                         e1, e2 = st.columns([0.7, 0.3])
                         e1.slider("EC_S", 1.0, 8.0, step=0.1, key="ec_s", on_change=sync_s_to_n, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
                         e2.number_input("EC_N", 1.0, 8.0, step=0.01, key="ec_n", on_change=sync_n_to_s, args=("ec_s", "ec_n", "ec"), label_visibility="collapsed", disabled=not expert)
@@ -1000,15 +980,23 @@ with col_main:
                             "N/P Ratio": round(v_np, 2), "A_Press": round(v_a_press, 2), "A_Act": round(v_a_act, 1), "A_Bin": round(v_a_bin, 1), "A_Con": round(v_a_con, 1),
                             "E/C Ratio": round(v_ec, 2), "C-rate": round(v_tc, 1), 
                             "Wh/kg": round(res_whkg, 1), "Wh/L": round(whl, 1), "Cell_V": round(cell_v, 2), 
-                            "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Briefing": ""
+                            "Life(Cyc)": life_cyc, "dq_x": v_axis, "dq_y": dqdv, "AI_Summary": ""
                         }
                         
-                        with st.spinner("물리 엔진 연산 중..."):
-                            time.sleep(0.5) 
-                            st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
-                            st.session_state.trigger_auto_bot = True 
-                            st.session_state.scroll_to_result = True 
-                            st.rerun()
+                        # [e11] 단계별 동적 로딩 스피너 적용
+                        sim_ph = st.empty()
+                        with sim_ph.container():
+                            with st.spinner("Tdb 데이터 매칭 중..."): time.sleep(0.5)
+                        with sim_ph.container():
+                            with st.spinner("물리 엔진 연산 중 (Newman-type)..."): time.sleep(1.0)
+                        with sim_ph.container():
+                            with st.spinner("결과 요약 생성 중..."): time.sleep(0.5)
+                        sim_ph.empty()
+                        
+                        st.session_state.history.insert(0, log_data); st.session_state.sim_result = log_data; 
+                        st.session_state.trigger_auto_bot = True 
+                        st.session_state.scroll_to_result = True 
+                        st.rerun()
                             
                     if st.session_state.history:
                         selected_idx = 0
@@ -1047,18 +1035,19 @@ with col_main:
                             fig3.update_layout(polar=dict(bgcolor="#f4f6f9", radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, height=260, margin=dict(l=30, r=30, t=10, b=10))
                             st.plotly_chart(fig3, use_container_width=True)
                         
-                        if res.get("AI_Briefing"):
+                        # [e11] 요약 용어 변경
+                        if res.get("AI_Summary"):
                             st.markdown("<br>", unsafe_allow_html=True)
-                            show_ai = st.checkbox("**[AI 브리핑 펼쳐보기]** 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
+                            show_ai = st.checkbox("**[AI 요약 펼쳐보기]** 위 시뮬레이션 데이터 분석 결과를 정리해 보여 드립니다.", value=False, key=f"chk_ai_report_{res['Time']}")
                                 
                             if show_ai:
                                 with st.container(border=True):
-                                    clean_briefing = res['AI_Briefing'].replace("아래는 주어진 데이터에 대한 분석 및 브리핑입니다.", "").strip()
-                                    st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_briefing}</div>", unsafe_allow_html=True)
+                                    clean_summary = res['AI_Summary'].replace("아래는 주어진 데이터에 대한 분석 및 요약입니다.", "").strip()
+                                    st.markdown(f"<div style='font-size: 15px; color: #333; line-height: 1.6;'>{clean_summary}</div>", unsafe_allow_html=True)
 
                         if len(st.session_state.history) > 0:
                             st.markdown("<br><p class='sub-header-bold' style='font-size: 16px !important;'>당일 시뮬레이션 누적 기록 (클릭하여 과거 결과 바로 조회 가능)</p>", unsafe_allow_html=True)
-                            df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Briefing'], errors='ignore')
+                            df_session = pd.DataFrame(st.session_state.history).drop(columns=['dq_x', 'dq_y', 'AI_Summary', 'AI_Briefing'], errors='ignore')
                             df_session.insert(0, 'No.', range(len(df_session), 0, -1))
                             try: st.dataframe(df_session, use_container_width=True, hide_index=True, key="log_table_sel", on_select="rerun", selection_mode="single-row")
                             except TypeError: st.dataframe(df_session, use_container_width=True, hide_index=True)
@@ -1080,7 +1069,7 @@ with col_main:
                         db_df_all = pd.DataFrame(); selected_times = []
                         try:
                             conn = st.connection("gsheets", type=GSheetsConnection)
-                            db_df_all = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
+                            db_df_all = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=3600)
                             if not db_df_all.empty and 'Email' in db_df_all.columns:
                                 my_saved_data = db_df_all[(db_df_all['Email'] == st.session_state.user_email) & (db_df_all.get('Workspace', 'general_user').isin([st.session_state.workspace, 'material_list']))]
                                 if not my_saved_data.empty:
@@ -1110,7 +1099,7 @@ with col_main:
                         
                         if btn1.button("임시 기록 전체 저장", key="btn_save_my", use_container_width=True):
                             try:
-                                conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=600)
+                                conn = st.connection("gsheets", type=GSheetsConnection); db_df = conn.read(spreadsheet=URL_LOGS, worksheet="myData", ttl=3600)
                                 new_records = []
                                 for record in st.session_state.history:
                                     if db_df.empty or db_df[(db_df['Email'] == st.session_state.user_email) & (db_df['Time'] == record['Time'])].empty:
@@ -1205,25 +1194,26 @@ if col_bot:
                 st.stop()
 
             if not st.session_state.chat_messages: 
-                initial_msg = "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. [관리자 종합 매뉴얼]이 숙지되었습니다. 검색을 통해 편하게 도움말을 확인하세요." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
+                # [e10] 관리자 환영 메시지 최적화 
+                initial_msg = "**최우석 관리자님. SynoCore 통합 SOP 및 Tdb 관제 시스템이 준비되었습니다.**\n\n운영 가이드나 기술 문서에 대한 요약이 필요하시면 무엇이든 물어봐 주십시오." if st.session_state.get('is_admin', False) else "안녕하세요. 배터리 시뮬레이션 AI 시노봇입니다. 시뮬레이션 결과 뿐만 아니라 중간에도 질문해 주세요."
                 st.session_state.chat_messages = [{"role": "assistant", "content": initial_msg}]
 
-            # 1. 시뮬레이션 직후 자동 브리핑
+            # 1. 시뮬레이션 직후 자동 요약(브리핑) [e11 적용]
             if st.session_state.trigger_auto_bot and st.session_state.sim_result:
                 st.session_state.trigger_auto_bot = False 
                 if synobot: 
                     with st.chat_message("assistant"):
-                        with st.spinner("SynoBot AI 엔진으로 결과 분석 중..."):
+                        with st.spinner("SynoBot AI 엔진으로 결과 요약 중..."):
                             try:
-                                reply = synobot.generate_auto_briefing(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY)
-                                bot_reply = "**[🤖 SynoBot 실시간 AI 진단]**\n\n" + reply
+                                reply = synobot.generate_auto_summary(st.session_state.sim_result, st.session_state.engine_choice, OPENAI_API_KEY, GEMINI_API_KEY)
+                                bot_reply = "**[🤖 SynoBot 실시간 AI 요약]**\n\n" + reply
                                 st.session_state.chat_messages.append({"role": "assistant", "content": bot_reply})
-                                if st.session_state.history: st.session_state.history[0]["AI_Briefing"] = bot_reply
+                                if st.session_state.history: st.session_state.history[0]["AI_Summary"] = bot_reply
                                 save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI_auto", bot_reply)
-                            except Exception as e: st.error(f"AI 브리핑 생성 오류: {e}")
+                            except Exception as e: st.error(f"AI 요약 생성 오류: {e}")
                 time.sleep(0.5); st.rerun()
 
-            # 2. 챗봇 질문-응답 처리 및 스트리밍
+            # 2. 챗봇 질문-응답 처리 및 스트리밍 (e11 로딩 적용)
             if st.session_state.get('trigger_bot_reply'):
                 st.session_state.trigger_bot_reply = False
                 
@@ -1231,24 +1221,31 @@ if col_bot:
                     with st.chat_message("assistant"):
                         is_admin_mode = st.session_state.get('is_admin', False)
                         use_tdb_flag = not st.session_state.get('fast_admin_help', False) if is_admin_mode else True
-                        spinner_msg = "시노코어 기술 데이터베이스(Tdb) 분석 중..." if use_tdb_flag else "관리자 종합 매뉴얼 확인 중..."
                         
-                        with st.spinner(spinner_msg):
-                            try:
-                                messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
-                                api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
-                                
-                                if "Gemini" in st.session_state.engine_choice:
-                                    stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
-                                else:
-                                    stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
+                        load_ph = st.empty()
+                        if use_tdb_flag:
+                            with load_ph.container():
+                                with st.spinner("기술 문서 라이브러리 스캔 중..."): time.sleep(0.5)
+                        
+                        spinner_msg = "데이터 정밀 대조 및 요약 분석 중..." if use_tdb_flag else "관리자 매뉴얼(SOP) 요약 분석 중..."
+                        with load_ph.container():
+                            with st.spinner(spinner_msg):
+                                try:
+                                    messages_for_api = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages]
+                                    api_key = GEMINI_API_KEY if "Gemini" in st.session_state.engine_choice else OPENAI_API_KEY
+                                    
+                                    if "Gemini" in st.session_state.engine_choice:
+                                        stream_gen = synobot.get_gemini_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
+                                    else:
+                                        stream_gen = synobot.get_openai_response_stream(messages_for_api, st.session_state.sim_result, api_key, is_admin=is_admin_mode, use_tdb=use_tdb_flag)
 
-                                reply = st.write_stream(stream_gen)
-                                
-                                st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-                                save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
-                                
-                            except Exception as e: st.error(f"AI 응답 오류: {e}")
+                                    reply = st.write_stream(stream_gen)
+                                    
+                                    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                                    save_chat_log(st.session_state.user_email, st.session_state.workspace, "AI", reply)
+                                    
+                                except Exception as e: st.error(f"AI 응답 오류: {e}")
+                        load_ph.empty()
                 
                 for message in reversed(st.session_state.chat_messages[:-1]):
                     with st.chat_message(message["role"]):
